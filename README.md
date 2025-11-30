@@ -68,6 +68,15 @@ D3 -->|Mock Mode| F[Basic JSON/Dict Extraction + Print Summary]
 pip install crawl4ai ratelimit beautifulsoup4 markdown openai pandas requests
 ```
 
+**Install Browser Binaries**
+```bash
+!playwright install
+```
+
+**`google-genai`**
+```bash
+!pip install -q -U google-genai
+```
 #### 🛠 使用方式
 1. API Key 設定
 請在執行程式時輸入 API Key，或是預先在環境變數中設定：
