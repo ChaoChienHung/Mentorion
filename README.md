@@ -70,12 +70,12 @@ pip install crawl4ai ratelimit beautifulsoup4 markdown openai pandas requests
 
 **Install Browser Binaries**
 ```bash
-!playwright install
+playwright install
 ```
 
 **`google-genai`**
 ```bash
-!pip install -q -U google-genai
+pip install -q -U google-genai
 ```
 #### 🛠 使用方式
 1. API Key 設定
