@@ -1,4 +1,5 @@
 # TODO
-1. Add revision test using LLM
-2. Store the revision record for further spaced repetition revision
-3. Add difficulty as the revision level increase
+- [ ] Add revision test using LLM
+- [ ] Store the revision record for further spaced repetition revision
+- [ ] Add difficulty as the revision level increase
+- [ ] Store the studied article for further revise
