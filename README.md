@@ -33,6 +33,8 @@ This architecture supports a **web-based learning assistant** with authenticatio
 - Trigger AI actions:
   - Generate summary
   - Generate questions & answers
+- Skill Reviewer
+  - Store questions and their review dates
   - Check answers
 
 ```text
