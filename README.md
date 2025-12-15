@@ -1,11 +1,10 @@
-# AI Research Assistant – Development Notes
+# Mentorion
 
-本文件紀錄 **AI Research Assistant** 專案的設計思路、程式架構、待完成功能與 Mock 實作細節。  
-目標：以 **爬蟲 → 結構化抽取 →（可選）LLM Function Calling → 固定邏輯分析** 的方式，完成小型研究系統。
+This project is designed to practice AI function calling while building a learning support application. The application includes features such as automatic article parsing, note-taking and storage, question generation, and answer evaluation.
 
 ---
 
-## 🏗️ 整體架構與流程
+## 🏗️ Overall Architecture and Workflow
 
 ```
 flowchart TD
