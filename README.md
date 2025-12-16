@@ -6,13 +6,7 @@ This project is designed to practice AI function calling while building a learni
 
 ## Overall Architecture and Workflow
 
-This system is organized into Frontend, Backend (Application Layer), and Server / Infrastructure Logic to clearly separate responsibilities.
-
----
-
-## System Architecture & Workflow
-
-This architecture supports a web-based learning assistant with authentication, note management, AI enrichment, and persistent storage.
+This system is organized into Frontend, Backend (Application Layer), and Server / Infrastructure Logic to clearly separate responsibilities. This architecture supports a web-based learning assistant with authentication, note management, AI enrichment, and persistent storage.
 
 ---
 
@@ -68,7 +62,7 @@ User Browser
 
 ## Backend Layer (Application & AI Logic)
 
-1. **Note Ingestion Pipeline**
+### Note Ingestion Pipeline
 
 **Supported Inputs**
 - Manual text entry
@@ -85,7 +79,7 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - Content cleaning & deduplication  
 - Normalization into a common schema  
 
-2. **Note Storage & Data Model**
+### Note Storage & Data Model
 
 **1️⃣ Stateless Notes Storage**
 - **Concept**: Notes are stored independently (e.g., JSON, Markdown, or database entries) and are not permanently kept in memory by the Agent.
@@ -163,7 +157,7 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - MongoDB (document-based)
 - Hybrid: SQL + vector DB (for semantic search)
 
-1. Agent & AI Orchestration Layer
+### Agent & AI Orchestration Layer
 
 **Agent Class (Core Brain)**
 
@@ -177,7 +171,7 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - Function calling layer
 - Tool routing logic
 
-4. AI Function Calling & Tools
+### AI Function Calling & Tools
 
 **Supported AI Actions**
 - Summarization
