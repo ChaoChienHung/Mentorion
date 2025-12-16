@@ -4,38 +4,38 @@ This project is designed to practice AI function calling while building a learni
 
 ---
 
-## 🏗️ Overall Architecture and Workflow
+## Overall Architecture and Workflow
 
-This system is organized into **Frontend**, **Backend (Application Layer)**, and **Server / Infrastructure Logic** to clearly separate responsibilities.
-
----
-
-## 🏗️ Updated System Architecture & Workflow
-
-This architecture supports a **web-based learning assistant** with authentication, note management, AI enrichment, and persistent storage.
+This system is organized into Frontend, Backend (Application Layer), and Server / Infrastructure Logic to clearly separate responsibilities.
 
 ---
 
-## 🌐 Frontend Layer (Web Application)
+## System Architecture & Workflow
 
-**Key Components**
+This architecture supports a web-based learning assistant with authentication, note management, AI enrichment, and persistent storage.
+
+---
+
+## Frontend Layer (Web Application)
+
+### Key Components
 - Web UI (React / Vue / Next.js / etc.)
 - Authentication pages (Login / Register)
 - Dashboard (Notes overview)
 - Note Editor & Viewer
 
-**Frontend Features**
+### Frontend Features
 - User authentication (login/logout)
 - Create, view, edit, and append notes
 - Upload notes (text / markdown / PDF)
 - Scrape notes from websites (URL input)
 - Merge multiple notes
-- Trigger AI actions:
+- AI Agent Capabilities:
   - Generate summary
   - Generate questions & answers
+  - Check and correct answers
 - Skill Reviewer
   - Store questions and their review dates
-  - Check answers
 
 ```text
 User Browser
@@ -45,7 +45,7 @@ User Browser
    └── AI Actions Panel
 ```
 
-🔐 Server Layer (API & Authentication)
+## Server Layer (API & Authentication)
 
 ### Responsibilities
 - Request routing (REST / GraphQL)
@@ -54,6 +54,7 @@ User Browser
 - Secure access to user-specific data
 
 ### Core APIs
+
 - /auth/login  
 - /auth/register  
 - /notes/create  
@@ -65,17 +66,17 @@ User Browser
 
 ---
 
-⚙️ Backend Layer (Application & AI Logic)
+## Backend Layer (Application & AI Logic)
 
-## 1. Note Ingestion Pipeline
+1. **Note Ingestion Pipeline**
 
-### Supported Inputs
+**Supported Inputs**
 - Manual text entry
 - File upload
 - Website scraping (Wikipedia & generic pages)
 - Note merging
 
-### Processing Flow
+**Processing Flow**
 ```
 Input → Parser → Cleaner → Normalizer → Structured Note
 ```
@@ -84,57 +85,61 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - Content cleaning & deduplication  
 - Normalization into a common schema  
 
----
+2. **Note Storage & Data Model**
 
-## 2. Note Storage & Data Model
-
-### Recommended Storage Format
-- **Primary:** JSON (flexible, AI-friendly)
-- **Optional:** Markdown (human-readable)
+**Recommended Storage Format**
+- Primary: JSON (flexible, AI-friendly)
+- Optional: Markdown (human-readable)
 - Metadata stored separately
 
-### Example Note Schema (JSON)
-```{
+**Example Note Schema (JSON)**
+```
+{
   "note_id": "uuid",
   "user_id": "uuid",
   "title": "Transformer Models",
   "content": "...",
   "sources": ["https://en.wikipedia.org/..."],
-  "summary": "...",
-  "qa_pairs": [
-    { "question": "...", "answer": "..." }
-  ],
+  "ai_outputs": {
+    "summary": {
+      "text": "...",
+      "agent_version": "summary-v2",
+      "created_at": "timestamp"
+    },
+    "qa": {
+      "pairs": [
+        {"question": "...", "answer": "..."}
+      ],
+      "difficulty": "medium"
+    }
+  },
   "created_at": "timestamp",
   "updated_at": "timestamp"
 }
 ```
 
-### Database Options
+**Database Options**
 - PostgreSQL (JSONB columns)
 - MongoDB (document-based)
 - Hybrid: SQL + vector DB (for semantic search)
 
----
+3. Agent & AI Orchestration Layer
 
-## 3. Agent & AI Orchestration Layer
-
-### Agent Class (Core Brain)
+**Agent Class (Core Brain)**
 
 **Responsibilities**
 - Manage AI workflows
 - Maintain note context
 - Decide which AI function to call
 
-### Submodules
+**Submodules**
 - Structured extraction (Pydantic schemas)
 - Function calling layer
 - Tool routing logic
 
----
+4. AI Function Calling & Tools
 
-## 4. AI Function Calling & Tools
-
-### Supported AI Actions
+**Supported AI Actions**
 - Summarization
 - Question generation
 - Answer generation
@@ -142,32 +147,33 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - Concept comparison
 - Evolution tracing
 
-### Execution Paths
+**Execution Paths**
 ```
 Function Calling Layer
    ├── External AI APIs (Gemini / OpenAI)
    └── Mock / Local Mode (for testing)
 ```
 
-Results are written back into the original note.
+Results are written back into the original note in the ai_outputs section.
 
 ---
 
-🧠 Optional Advanced Layer (Recommended)
+## Optional Advanced Layer (Recommended)
 
-### Enhancements
+**Enhancements**
 - Vector embeddings for notes
 - Semantic search & retrieval
 - Personalized question difficulty
 - Study session tracking
 
-### Tools
+**Tools**
 - Vector DB (FAISS / Pinecone / pgvector)
 - Background job queue (Celery / BullMQ)
 
 ---
 
-🔄 End-to-End Workflow Summary
+## End-to-End Workflow Summary
+
 ```
 Web Frontend
    ↓
@@ -179,13 +185,15 @@ Parser / Cleaner / Normalizer
    ↓
 Database (JSON Notes)
    ↓
-Agent Class
-   ├── Summarize
-   ├── Generate Q&A
-   ├── Check Answers
-   └── Compare / Trace
+AgentOrchestrator
+   ├── SummaryAgent
+   ├── QuizAgent
+   ├── EvaluationAgent
+   └── ReviewAgent
    ↓
-Updated Note Stored
+Updated Note Stored (ai_outputs updated)
    ↓
 Frontend Displays Results
 ```
+
+Notes and AI Agents are separated. Notes remain stable, user-owned entities while AI Agents operate on notes and store outputs in a structured ai_outputs section. This allows independent AI upgrades, versioning, and reproducibility without affecting the core note data.
