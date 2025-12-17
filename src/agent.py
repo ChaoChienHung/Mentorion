@@ -2,9 +2,9 @@ import os
 import json
 import time
 from google import genai
-from scraper import Scraper
-from schema import ExtractedArticle
-from rate_limiter import RateLimiter
+from src.scraper import Scraper
+from src.schema import ExtractedArticle
+from src.rate_limiter import RateLimiter
 from typing import Dict, Literal, Any
 
 class Agent:
@@ -106,7 +106,7 @@ class Agent:
     # ------------------
     # Scrape Online Note
     # ------------------
-    def scrape_note(self, url: str) -> ExtractedArticle:
+    async def scrape_note(self, url: str) -> ExtractedArticle:
         """
         Use LLM structured outputs to extract structured data from raw scraped text, retrying multiple times if needed,
         and automatically store the result.
@@ -137,7 +137,7 @@ class Agent:
         # Scrape the article content
         # --------------------------
         scraper: Scraper = Scraper()
-        scrape_result: Dict[str, Any] = scraper.scrape_article(url)
+        scrape_result: Dict[str, Any] = await scraper.scrape_article(url)
         content: str = scrape_result.get("text", "")
 
         # Schema for Gemini AI Structured Extraction

@@ -72,6 +72,10 @@ User Browser
 
 **Processing Flow**
 ```
+playwright install
+```
+
+```
 Input → Parser → Cleaner → Normalizer → Structured Note
 ```
 

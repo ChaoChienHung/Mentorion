@@ -1,3 +1,5 @@
+google
+google-genai
 openai>=1.0.0
 crawl4ai>=0.2.0
 pydantic>=2.0.0
