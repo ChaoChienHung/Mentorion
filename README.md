@@ -85,6 +85,13 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - **Concept**: Notes are stored independently (e.g., JSON, Markdown, or database entries) and are not permanently kept in memory by the Agent.
 - **Workflow**:
   1. Save notes to a file or database.
+     1. The note should be organized using the following structure:
+        1. Title
+        2. Summary
+        3. Content
+        4. Related Concept
+        5. (Optional) Questions
+        6. (Optional) Answers
   2. Agent reads the note when needed.
   3. Perform actions: summarization, Q&A generation, answer checking.
   4. Write updates back to the note (e.g., append summaries or Q&A).
