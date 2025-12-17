@@ -2,9 +2,9 @@ import os
 import json
 import time
 from google import genai
+from schema import ExtractedArticle
 from rate_limiter import RateLimiter
 from typing import Dict, Literal, Any, List
-from schema import ExtractedArticle
 
 class Agent:
     """
@@ -69,7 +69,7 @@ class Agent:
         try:
             genai.configure(api_key=api_key)
             self.client = genai.GenerativeModel('gemini-2.5-flash')
-            response = self.client.generate_content("Test my API key with a simple prompt.")
+            self.client.generate_content("Test my API key with a simple prompt.")
             print("✅ Gemini client created and tested successfully.")
 
         except Exception as e:
@@ -93,11 +93,13 @@ class Agent:
         note: Dict[str, str] = json.loads(note_content)
         extracted_article = ExtractedArticle(
             title=note.get("title", "Untitled"),
+            success=True,
             summary=note.get("summary", ""),
             content=note.get("content", ""),
-            related_concepts=note.get("related_concepts", "")
+            related_concepts=note.get("related_concepts", ""),
+            error_messages=[]
         )
-        self.articles[hash(note_content[:100])] = extracted_article
+        self.articles[extracted_article.title] = extracted_article
         return extracted_article
                 
     # ------------------
@@ -117,78 +119,113 @@ class Agent:
         - wiki_extraction (WikipediaExtraction): A structured WikipediaExtraction object.
         """
 
-        # If no OpenAI client is available, falls back to naive extraction
+        # If no client is available, print out error messages
+        # ---------------------------------------------------
+        # TODO: change to logging
         if not self.client:
-            print("No OpenAI client detected. The raw data will be processed using a basic (naive) method.")
-            return self.basic_wiki_extraction(content)
-
+            print("No client detected. Please check your client and API configuration is correct.")
+            return ExtractedArticle(
+                title="Untitled",
+                success=False,
+                summary="",
+                content="",
+                related_concepts="",
+                error_messages=["No client detected. Please check your client and API configuration is correct."]
+            )
+        
+        # If input content is not a string, return error message
+        # ------------------------------------------------------
+        # TODO: change to logging
         if not isinstance(content, str):
-            raise TypeError(f"The content must be in string type, got {type(content)}")
+            print("Inpupt content must be a string.")
+            return ExtractedArticle(
+                title="Untitled",
+                success=False,
+                summary="",
+                content="",
+                related_concepts="",
+                error_messages=["Input content must be a string."]
+            )
 
-        # Schema for OpenAI structured extraction
+        # Schema for Gemini AI Structured Extraction
+        # ------------------------------------------
         schema: dict[str, Any] = ExtractedArticle.model_json_schema()
-        schema["additionalProperties"] = False
+        schema["optionalProperties"] = False
 
-        response_format_schema = {
-            "name": "wiki_extraction",
-            "schema": schema,
-            "strict": True  # This enforces strict schema compliance
+        # Structured Response Configuration
+        # ---------------------------------
+        config = {
+            "response_mime_type": "application/json",
+            "response_json_schema": schema,
+            "strict": True
         }
+
+        # Prompt for Gemini AI
+        # --------------------
+        prompt: str = (
+            "You are an expert mentor. "
+            "Extract the key information from the following article content and format it according to the specified schema. "
+            "Ensure accuracy and completeness in your extraction.\n\n"
+            f"Article Content:\n{content}\n\n"
+            "Provide the extracted information in strict JSON format as per the schema."
+        )
 
         for attempt in range(self.max_retries):
             try:
                 # Request OpenAI model with structured JSON schema
-                response = self.client.chat.completions.create(
+                # ------------------------------------------------
+                response = self.client.models.generate_content(
                     model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "Carefully review the entire article provided below. Extract all relevant details and structure them strictly according to the given schema."
-                        },
-                        {
-                            "role": "user",
-                            "content": f"Analyze the following article: {content}. If certain fields in the schema are not explicitly mentioned, use reasonable inference to fill in the gaps. Then, extract and organize the information in alignment with the schema, ensuring accuracy, completeness, and logical consistency."
-                        }
-                    ],
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": response_format_schema
-                    }
+                    contents=prompt,
+                    config=config
                 )
 
                 # Validate the data against the schema (parsing errors are not expected)
-                # -----------------------------------------------------------------------------
+                # ----------------------------------------------------------------------
                 try:
-                    wiki_extraction: WikipediaExtraction = WikipediaExtraction.model_validate_json(response.choices[0].message.content)
+                    wiki_extraction: ExtractedArticle = ExtractedArticle.model_validate_json(response.text)
 
                 except Exception as e:
+                    # TODO: change to logging
                     print(f"❌ Validation failed: {e}")
-                    return self.basic_wiki_extraction(content)
+                    continue
 
+                # -------
                 # Caching
-                # -----------
+                # -------
                 try:
-                    key: int = hash(content[:100])
+                    key: str = wiki_extraction.title
                     self.articles[key] = wiki_extraction
 
                 except Exception as e:
+                    # TODO: change to logging
                     print(f"❌ Caching failed: {e}")
-                    return self.basic_wiki_extraction(content)
 
+                # TODO: change to logging
                 print(f"✅ Article processed successfully using {self.model}.")
                 return wiki_extraction
 
             except Exception as e:
-                # Error during extraction
+                # Extraction Error
+                # ----------------
                 print(f"❌ Attempt {attempt + 1} failed: {e}")
 
-                # Wait before retry (exponential backoff)
+                # Wait before retry (Exponential Backoff)
+                # ---------------------------------------
                 time.sleep(2 ** attempt)
 
                 if attempt == self.max_retries - 1:
+                    # TODO: change to logging
                     print("🔄 Using fallback data after all retries failed")
-                    return self.basic_wiki_extraction(content)
-
+                    return ExtractedArticle(
+                        title="Untitled",
+                        success=False,
+                        summary="",
+                        content="",
+                        related_concepts="",
+                        error_messages=[f"All extraction attempts failed: {e}"]
+                    )
+                
     # Batch process multiple articles
     # --------------------------------------------------------
     def batch_extract(self, articles: List[str], batch_size: int = 3) -> List[WikipediaExtraction]:
