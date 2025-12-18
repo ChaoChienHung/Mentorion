@@ -5,6 +5,9 @@ from typing import List, Dict, Any
 from crawl4ai import AsyncWebCrawler
 from src.rate_limiter import RateLimiter
 
+# -------
+# Scraper
+# -------
 class Scraper:
     """
     Scraper is an asynchronous Python class for crawling and extracting structured knowledge from online web pages or articles.

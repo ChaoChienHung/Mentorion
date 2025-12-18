@@ -3,10 +3,13 @@ import json
 import time
 from google import genai
 from src.scraper import Scraper
-from src.schema import ExtractedArticle
+from src.schema import ExtractedArticle, Note
 from src.rate_limiter import RateLimiter
 from typing import Dict, Literal, Any
 
+# ---------
+# LLM Agent
+# ---------
 class Agent:
     """
     An AI Agent for processing, extracting, and analyzing structured knowledge from web content and notes.
@@ -80,7 +83,7 @@ class Agent:
     # Read Note
     # ---------
 
-    def read_note(self, note_content: str) -> ExtractedArticle:
+    def read_note(self, note_content: str) -> Note:
         """
         Read and understand a structured note.
 
@@ -88,35 +91,37 @@ class Agent:
         - note_content (str): The raw content of the note.
 
         Returns:
-        - extracted_article (ExtractedArticle): The structured representation of the note.
+        - note (Note): The structured representation of the note.
         """
         note: Dict[str, str] = json.loads(note_content)
-        extracted_article = ExtractedArticle(
+        extracted_note = Note(
             title=note.get("title", "Untitled"),
             success=True,
             summary=note.get("summary", ""),
             content=note.get("content", ""),
             related_concepts=note.get("related_concepts", ""),
+            questions=note.get("questions", []),
+            answers=note.get("answers", []),
             error_messages=[]
         )
-        self.articles[extracted_article.title] = extracted_article
-        return extracted_article
+        self.articles[extracted_note.title] = extracted_note
+        return extracted_note
                 
     # ------------------
     # Scrape Online Note
     # ------------------
-    async def scrape_note(self, url: str) -> ExtractedArticle:
+    async def scrape_note(self, url: str) -> Note:
         """
-        Use LLM structured outputs to extract structured data from raw scraped text, retrying multiple times if needed,
+        Use Scraper to scrape from target URL and use LLM structured outputs to extract structured data from raw scraped text, retrying multiple times if needed,
         and automatically store the result.
 
         If no AI client is available, print out errors.
 
         Parameters:
-        - content (str): The raw JSON output generated after the data cleaning process in the WikipediaScraper class.
+        - url (str): The website URL to scrape.
 
         Returns:
-        - wiki_extraction (WikipediaExtraction): A structured WikipediaExtraction object.
+        - extracted_note (Note): A structured Note object.
         """
 
         # If no client is available, print out error messages
@@ -124,12 +129,14 @@ class Agent:
         # TODO: change to logging
         if not self.client:
             print("No client detected. Please check your client and API configuration is correct.")
-            return ExtractedArticle(
+            return Note(
                 title="Untitled",
                 success=False,
                 summary="",
                 content="",
                 related_concepts="",
+                questions=[],
+                answers=[],
                 error_messages=["No client detected. Please check your client and API configuration is correct."]
             )
         
@@ -182,12 +189,27 @@ class Agent:
                     print(f"❌ Validation failed: {e}")
                     continue
 
+                # ----------
+                # Conversion
+                # ----------
+
+                extracted_note = Note(
+                    title=wiki_extraction.title,
+                    success=wiki_extraction.success,
+                    summary=wiki_extraction.summary,
+                    content=wiki_extraction.content,
+                    related_concepts=wiki_extraction.related_concepts,
+                    questions=[],
+                    answers=[],
+                    error_messages=wiki_extraction.error_messages
+                )
+
                 # -------
                 # Caching
                 # -------
                 try:
-                    key: str = wiki_extraction.title
-                    self.articles[key] = wiki_extraction
+                    key: str = extracted_note.title
+                    self.articles[key] = extracted_note
 
                 except Exception as e:
                     # TODO: change to logging
@@ -195,7 +217,7 @@ class Agent:
 
                 # TODO: change to logging
                 print(f"✅ Article processed successfully using {self.model}.")
-                return wiki_extraction
+                return extracted_note
 
             except Exception as e:
                 # Extraction Error
@@ -209,11 +231,113 @@ class Agent:
                 if attempt == self.max_retries - 1:
                     # TODO: change to logging
                     print("🔄 Using fallback data after all retries failed")
-                    return ExtractedArticle(
+                    return Note(
                         title="Untitled",
                         success=False,
                         summary="",
                         content="",
                         related_concepts="",
+                        questions=[],
+                        answers=[],
                         error_messages=[f"All extraction attempts failed: {e}"]
                     )
+                
+    # ------------------------------
+    # Generate Questions and Answers
+    # ------------------------------
+    def generate_qa(self, note: Note) -> Note:
+        """
+        Generate question & answer pairs from a structured note.
+
+        Parameters:
+        - note (Note): The structured Note object to generate Q&A from.
+
+        Returns:
+        - note_with_qa (Note): The structured Note object with generated Q&A pairs.
+        """
+
+        # Error handling for missing client or invalid note
+        # -------------------------------------------------
+
+        if not self.client:
+            # TODO: change to logging
+            print("No client detected. Please check your client and API configuration is correct.")
+            note.success = False
+            note.error_messages.append("No client detected. Please check your client and API configuration is correct.")
+            return note
+
+        if not isinstance(note, Note):
+            # TODO: change to logging
+            print("Invalid note format. Expected a Note object.")
+            return Note(
+                title="Untitled",
+                success=False,
+                summary="",
+                content="",
+                related_concepts="",
+                questions=[],
+                answers=[],
+                error_messages=["Invalid note format. Expected a Note object."]
+            )
+
+        content: Note = note.content
+
+        if not content:
+            # TODO: change to logging
+            print("Note content is empty. Cannot generate Q&A.")
+            note.success = False
+            note.error_messages.append("Note content is empty. Cannot generate Q&A.")
+            return note
+
+        # Prompt
+        # ------
+        prompt: str = (
+            "Based on the following note content, generate a list of insightful questions and their corresponding answers. "
+            "Ensure that the questions cover key concepts and details from the note.\n\n"
+            f"Note Content:\n{note.content}\n\n"
+            "Provide the questions and answers in JSON format with 'questions' and 'answers' fields."
+        )
+
+        # Structured Response Configuration for Q&A
+        # -----------------------------------------
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "answers": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            },
+            "required": ["questions", "answers"],
+            "optionalProperties": False
+        }
+
+        config = {
+            "response_mime_type": "application/json",
+            "response_json_schema": schema,
+        }
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=config
+            )
+
+            qa_data = json.loads(response.text)
+            note.questions = qa_data.get("questions", [])
+            note.answers = qa_data.get("answers", [])
+
+            self.articles[note.title] = note
+
+            return note
+
+        except Exception as e:
+            # TODO: change to logging
+            print(f"❌ Q&A generation failed: {e}")
+            note.error_messages.append(f"Q&A generation failed: {e}")
+            return note

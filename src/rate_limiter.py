@@ -1,5 +1,8 @@
 import time
 
+# ------------
+# Rate Limiter
+# ------------
 class RateLimiter:
     """
     Basic rate limiter to control API request frequency and prevent server overload.
