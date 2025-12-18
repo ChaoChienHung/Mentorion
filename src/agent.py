@@ -68,9 +68,8 @@ class Agent:
             return
 
         try:
-            genai.configure(api_key=api_key)
-            self.client = genai.GenerativeModel('gemini-2.5-flash')
-            self.client.generate_content("Test my API key with a simple prompt.")
+            self.client = genai.Client(api_key=api_key)
+            self.client.models.generate_content(model=self.model, contents="Test my API key with a simple prompt.")
             print("✅ Gemini client created and tested successfully.")
 
         except Exception as e:
@@ -150,7 +149,6 @@ class Agent:
         config = {
             "response_mime_type": "application/json",
             "response_json_schema": schema,
-            "strict": True
         }
 
         # Prompt for Gemini AI
@@ -158,6 +156,7 @@ class Agent:
         prompt: str = (
             "You are an expert mentor. "
             "Extract the key information from the following article content and format it according to the specified schema. "
+            "Do not use headers, bold text or nested Markdown elements. "
             "Ensure accuracy and completeness in your extraction.\n\n"
             f"Article Content:\n{content}\n\n"
             "Provide the extracted information in strict JSON format as per the schema."
