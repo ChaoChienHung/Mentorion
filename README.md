@@ -1,12 +1,43 @@
 # Mentorion
 
-This project is designed to practice AI function calling while building a learning support application. The application includes features such as automatic article parsing, note-taking and storage, question generation, and answer evaluation.
+This project is designed to practice LLM (Gemini) integration while building a learning support application. The application includes features such as automatic article parsing, note-taking, question generation, and answer evaluation.
 
 ---
 
 ## Overall Architecture and Workflow
 
 This system is organized into Frontend, Backend (Application Layer), and Server / Infrastructure Logic to clearly separate responsibilities. This architecture supports a web-based learning assistant with authentication, note management, AI enrichment, and persistent storage.
+
+---
+
+## Folder Structure
+
+```perl
+Mentorion/
+│
+├─ server/             # Server layer (API, authentication, routing)
+│   ├─ auth/           # Login, register, JWT/session handling
+│   ├─ routes/         # REST/GraphQL endpoints
+│   └─ middleware/     # Input validation, rate limiting
+│
+├─ frontend/           # Front-end code (React, Vue, Angular, etc.)
+│   ├─ public/
+│   │   └─ index.html    <-- only loads the React app
+│   ├─ src/
+│   │   ├─ App.js
+│   │   └─ index.js      <-- React entry point
+│   └─ package.json
+│
+├─ backend/            # Backend layer (AI & application logic)
+│   ├─ ai/             # Merge, summarize, generate Q&A
+│   ├─ skills/         # Skill reviewer logic
+│   └─ utils/          # Helper functions
+│
+├─ tests/              # Unit and integration tests
+├─ requirements.txt    # Python dependencies
+├─ TODO.md             # Features to be implemented
+└─ README.md           # Project overview
+```
 
 ---
 
@@ -22,22 +53,19 @@ This system is organized into Frontend, Backend (Application Layer), and Server 
 - User authentication (login/logout)
 - Create, view, edit, and append notes
 - Upload notes (text / markdown / PDF)
-- AI Agent Capabilities:
-  - Merge multiple notes
-  - Scrape notes from websites (URL input)
-  - Generate summary
-  - Generate questions & answers
-  - Check and correct answers
+- AI Actions (Merge notes, scrape notes, QA generation, etc.)
 - Skill Reviewer
-  - Store questions and their review dates
 
 ```text
 User Browser
    ├── Login / Register
    ├── Notes Dashboard
    ├── Note Editor
-   └── AI Actions Panel
+   ├── AI Actions Panel
+   └── Skill Reviewer
 ```
+
+---
 
 ## Server Layer (API & Authentication)
 
@@ -51,16 +79,29 @@ User Browser
 
 - /auth/login  
 - /auth/register  
+
+---
+
+## Backend Layer (Application & AI Logic)
+
+### Key Components
+- AI Agent Capabilities:
+  - Merge multiple notes
+  - Scrape notes from websites (URL input)
+  - Generate summary
+  - Generate questions & answers
+  - Check and correct answers
+- Skill Reviewer
+  - Store questions and their review dates
+
+### Core APIs
+
 - /notes/create  
 - /notes/append  
 - /notes/upload  
 - /notes/merge  
 - /notes/scrape  
 - /notes/{id}/ai-action  
-
----
-
-## Backend Layer (Application & AI Logic)
 
 ### Note Ingestion Pipeline
 
@@ -71,10 +112,6 @@ User Browser
 - Note merging
 
 **Processing Flow**
-```
-playwright install
-```
-
 ```
 Input → Parser → Cleaner → Normalizer → Structured Note
 ```
@@ -137,29 +174,17 @@ Input → Parser → Cleaner → Normalizer → Structured Note
 - Optional: Markdown (human-readable)
 - Metadata stored separately
 
-**Example Note Schema (JSON)**
+**Note Schema (JSON)**
 ```
 {
-  "note_id": "uuid",
-  "user_id": "uuid",
   "title": "Transformer Models",
+  "success": false,
+  "summary": "...",
   "content": "...",
-  "sources": ["https://en.wikipedia.org/..."],
-  "ai_outputs": {
-    "summary": {
-      "text": "...",
-      "agent_version": "summary-v2",
-      "created_at": "timestamp"
-    },
-    "qa": {
-      "pairs": [
-        {"question": "...", "answer": "..."}
-      ],
-      "difficulty": "medium"
-    }
-  },
-  "created_at": "timestamp",
-  "updated_at": "timestamp"
+  "related_concepts": ["..."],
+  "questions": ["..."],
+  "answers": ["..."],
+  "error_messages": ["..."]
 }
 ```
 
@@ -230,15 +255,53 @@ Parser / Cleaner / Normalizer
    ↓
 Database (JSON Notes)
    ↓
-AgentOrchestrator
-   ├── SummaryAgent
-   ├── QuizAgent
-   ├── EvaluationAgent
-   └── ReviewAgent
+LLM Agent
+   ├── Summarize
+   ├── Quiz and Answer Generation
+   └── Review and Evaluation
    ↓
-Updated Note Stored (ai_outputs updated)
+Updated Note Stored
    ↓
 Frontend Displays Results
 ```
 
 Notes and AI Agents are separated. Notes remain stable, user-owned entities while AI Agents operate on notes and store outputs in a structured ai_outputs section. This allows independent AI upgrades, versioning, and reproducibility without affecting the core note data.
+
+---
+
+## Instruction
+
+Follow the steps below to set up and run the project in an isolated environment.
+
+1. Create a virtual environment
+
+```bash
+python -m venv venv
+```
+
+2. Activate the virtual environment
+
+* On macOS / Linux
+
+```bash
+source venv/bin/activate
+```
+* On Windows
+
+```bash
+venv\Scripts\activate
+```
+
+3. Install required dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Install Playwright browsers
+
+```bash
+playwright install
+```
+
+Once completed, the environment is ready to use.
