@@ -316,28 +316,47 @@ class Agent:
             "optionalProperties": False
         }
 
+        # Configuration
+        # -------------
         config = {
             "response_mime_type": "application/json",
             "response_json_schema": schema,
         }
 
-        try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=config
-            )
+        # Generate Q&A with retries
+        # -------------------------
+        for attempt in range(self.max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config
+                )
 
-            qa_data = json.loads(response.text)
-            note.questions = qa_data.get("questions", [])
-            note.answers = qa_data.get("answers", [])
+                qa_data = json.loads(response.text)
+                note.questions = qa_data.get("questions", [])
+                note.answers = qa_data.get("answers", [])
 
-            self.articles[note.title] = note
+                # Caching
+                # -------
+                self.articles[note.title] = note
 
-            return note
+                # TODO: change to logging
+                print(f"✅ Q&A generation completed successfully using {self.model}.")
+                return note            
 
-        except Exception as e:
-            # TODO: change to logging
-            print(f"❌ Q&A generation failed: {e}")
-            note.error_messages.append(f"Q&A generation failed: {e}")
-            return note
+            except Exception as e:
+                # Generation Error
+                # ----------------
+                print(f"❌ Attempt {attempt + 1} failed: {e}")
+
+                # Wait before retry (Exponential Backoff)
+                # ---------------------------------------
+                time.sleep(2 ** attempt)
+
+                if attempt == self.max_retries - 1:
+                    # TODO: change to logging
+                    print(f"❌ Q&A generation failed: {e}")
+                    note.error_messages.append(f"Q&A generation failed: {e}")
+                    note.success = False
+                    return note

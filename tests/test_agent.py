@@ -1,14 +1,14 @@
 import pytest
 from src.agent import Agent
+from src.schema import Note
 from unittest.mock import AsyncMock
-from src.schema import ExtractedArticle
 
 TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"
 
 @pytest.mark.asyncio
 async def test_scrape_note_success(mocker):
     """
-    Test that scrape_note returns a structured ExtractedArticle
+    Test that scrape_note returns a structured Note
     when the client and scraper behave as expected.
     """
 
@@ -33,7 +33,7 @@ async def test_scrape_note_success(mocker):
     result = await agent.scrape_note(TEST_URL)
 
     # Assertions
-    assert isinstance(result, ExtractedArticle)
+    assert isinstance(result, Note)
     assert result.title == "Test Article"
     assert result.success is True
     assert "Summary" in result.summary
