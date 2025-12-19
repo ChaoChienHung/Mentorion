@@ -22,10 +22,10 @@ Mentorion/
 │
 ├─ frontend/           # Front-end code (React, Vue, Angular, etc.)
 │   ├─ public/
-│   │   └─ index.html    <-- only loads the React app
+│   │   └─ index.html    
 │   ├─ src/
 │   │   ├─ App.js
-│   │   └─ index.js      <-- React entry point
+│   │   └─ index.js    
 │   └─ package.json
 │
 ├─ backend/            # Backend layer (AI & application logic)
