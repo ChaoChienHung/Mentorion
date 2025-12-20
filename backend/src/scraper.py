@@ -3,7 +3,7 @@ import json
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 from crawl4ai import AsyncWebCrawler
-from src.rate_limiter import RateLimiter
+from backend.src.rate_limiter import RateLimiter
 
 # -------
 # Scraper

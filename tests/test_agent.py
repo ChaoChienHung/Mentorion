@@ -1,6 +1,6 @@
 import pytest
-from src.agent import Agent
-from src.schema import Note
+from backend.src.agent import Agent
+from backend.src.schema import Note
 from unittest.mock import AsyncMock
 
 TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"
@@ -27,7 +27,7 @@ async def test_scrape_note_success(mocker):
     agent.client = MockClient()
 
     # Mock async scraper
-    mocker.patch("src.agent.Scraper.scrape_article", new=AsyncMock(return_value={"text": "Some scraped content"}))
+    mocker.patch("backend.src.agent.Scraper.scrape_article", new=AsyncMock(return_value={"text": "Some scraped content"}))
 
     # Call async scrape_note
     result = await agent.scrape_note(TEST_URL)

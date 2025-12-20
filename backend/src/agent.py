@@ -2,9 +2,9 @@ import os
 import json
 import time
 from google import genai
-from src.scraper import Scraper
-from src.schema import ExtractedArticle, Note
-from src.rate_limiter import RateLimiter
+from backend.src.scraper import Scraper
+from backend.src.schema import ExtractedArticle, Note
+from backend.src.rate_limiter import RateLimiter
 from typing import Dict, Literal, Any
 
 # ---------
