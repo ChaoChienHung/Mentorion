@@ -28,10 +28,13 @@ Mentorion/
 │   │   └─ index.js    
 │   └─ package.json
 │
-├─ backend/            # Backend layer (AI & application logic)
-│   ├─ ai/             # Merge, summarize, generate Q&A
-│   ├─ skills/         # Skill reviewer logic
-│   └─ utils/          # Helper functions
+├─ backend/                   # Backend layer (AI & application logic)
+│    └─ src/
+│       ├─ __init__.py        
+│       ├─ agent.py           # Merge, summarize, generate Q&A
+│       ├─ rate_limiter.py    # Rate Limiter
+│       ├─ schema.py          # Pydantic Schema
+│       └─ scraper.py         # Scraper
 │
 ├─ tests/              # Unit and integration tests
 ├─ requirements.txt    # Python dependencies
