@@ -6,7 +6,7 @@ from src.schema import Note
 async def main():
     client = Agent()  # Initialize a LLM Agent
     result = await client.scrape_note(
-        "https://en.wikipedia.org/wiki/Machine_learning"
+        "https://medium.com/ching-i/mobilenetv2-%E8%AB%96%E6%96%87%E9%96%B1%E8%AE%80-94f710e7fe51"
     )
     assert result.success
     assert isinstance(result, Note)

@@ -21,7 +21,7 @@ async def test_scrape_note_success(mocker):
             @staticmethod
             def generate_content(model, contents, config):
                 class Response:
-                    text = '{"title": "Test Article", "success": true, "summary": "Summary here", "content": "Full content", "related_concepts": "Concept1, Concept2", "error_messages": []}'
+                    text = '{"title": "Test Article", "success": true, "summary": "Summary here", "content": "Full content", "related_concepts": ["Concept1", "Concept2"], "error_messages": []}'
                 return Response()
             
     agent.client = MockClient()

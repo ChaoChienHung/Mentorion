@@ -99,7 +99,7 @@ class Agent:
             success=True,
             summary=note.get("summary", ""),
             content=note.get("content", ""),
-            related_concepts=note.get("related_concepts", ""),
+            related_concepts=note.get("related_concepts", []),
             questions=note.get("questions", []),
             answers=note.get("answers", []),
             error_messages=[]
@@ -134,7 +134,7 @@ class Agent:
                 success=False,
                 summary="",
                 content="",
-                related_concepts="",
+                related_concepts=[],
                 questions=[],
                 answers=[],
                 error_messages=["No client detected. Please check your client and API configuration is correct."]
@@ -236,7 +236,7 @@ class Agent:
                         success=False,
                         summary="",
                         content="",
-                        related_concepts="",
+                        related_concepts=[],
                         questions=[],
                         answers=[],
                         error_messages=[f"All extraction attempts failed: {e}"]
@@ -274,7 +274,7 @@ class Agent:
                 success=False,
                 summary="",
                 content="",
-                related_concepts="",
+                related_concepts=[],
                 questions=[],
                 answers=[],
                 error_messages=["Invalid note format. Expected a Note object."]
