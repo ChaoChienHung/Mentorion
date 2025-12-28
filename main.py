@@ -1,6 +1,6 @@
 import asyncio
 from backend.src.agent import Agent
-from backend.src.schema import Note
+from backend.schemas.schema import Note
 
 async def main():
     client = Agent()  # Initialize a LLM Agent
