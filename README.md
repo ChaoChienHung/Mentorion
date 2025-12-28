@@ -29,12 +29,28 @@ Mentorion/
 │   └─ package.json
 │
 ├─ backend/                   # Backend layer (AI & application logic)
-│    └─ src/
-│       ├─ __init__.py        
-│       ├─ agent.py           # Merge, summarize, generate Q&A
-│       ├─ rate_limiter.py    # Rate Limiter
-│       ├─ schema.py          # Pydantic Schema
-│       └─ scraper.py         # Scraper
+│  └─ app/
+│     ├─ main.py                    # FastAPI entry
+│     │
+│     ├─ api/
+│     │  └─ v1/
+│     │     ├─ notes.py             # /notes/*
+│     │     └─ ai.py                # /notes/{id}/ai-action
+│     │
+│     ├─ core/
+│     │  ├─ rate_limiter.py         # moved from src/
+│     │  └─ config.py
+│     │
+│     ├─ schemas/
+│     │  └─ note.py                 # moved from src/schema.py
+│     │
+│     ├─ services/
+│     │  ├─ note_service.py         # read/write notes
+│     │  └─ ai_service.py           # orchestrates Agent
+│     │
+│     └─ domain/                    # PURE logic (no FastAPI imports)
+│        ├─ agent.py                # moved from src/agent.py
+│        └─ scraper.py              # moved from src/scraper.py
 │
 ├─ tests/              # Unit and integration tests
 ├─ requirements.txt    # Python dependencies
