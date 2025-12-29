@@ -2,9 +2,10 @@ import os
 import json
 import time
 from google import genai
-from backend.src.scraper import Scraper
-from backend.src.schema import ExtractedArticle, Note
-from backend.src.rate_limiter import RateLimiter
+from backend.domain.scraper import Scraper
+from backend.schemas.note import Note
+from backend.schemas.scraper import ExtractedArticle
+from backend.core.requrest_throttler import RequestThrottler
 from typing import Dict, Literal, Any
 
 # ---------
@@ -44,7 +45,7 @@ class Agent:
         self.client: genai | None = None                                     # LLM Agent
         self.model: str = model                                              # LLM Model, default is gemini-2.5-flash
         self.max_retries: int = max_retries                                  # Maximum number of retries
-        self.rate_limiter: RateLimiter = RateLimiter(requests_per_minute=60) # Rate limiter
+        self.rate_limiter: RequestThrottler = RequestThrottler(requests_per_minute=60) # Rate limiter
         self.articles: Dict[str, ExtractedArticle] = {}                      # Store articles
 
         self.create_secure_openai_client() # Initialize a LLM Agent
