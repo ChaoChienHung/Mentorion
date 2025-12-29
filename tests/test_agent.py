@@ -1,6 +1,6 @@
 import pytest
-from backend.src.agent import Agent
-from backend.src.schema import Note
+from backend.domain.agent import Agent
+from backend.schemas.note import Note
 from unittest.mock import AsyncMock
 
 TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"

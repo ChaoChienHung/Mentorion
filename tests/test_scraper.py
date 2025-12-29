@@ -1,5 +1,5 @@
 import pytest
-from backend.src.scraper import Scraper
+from backend.domain.scraper import Scraper
 
 TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"
 
