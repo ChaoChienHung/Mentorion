@@ -38,19 +38,20 @@ Mentorion/
 │     │     └─ ai.py                # /notes/{id}/ai-action
 │     │
 │     ├─ core/
-│     │  ├─ rate_limiter.py         # moved from src/
-│     │  └─ config.py
+│     │  ├─ rate_limiter.py         # Rate Limiter
+│     │  └─ config.py               # Configuration Setup
 │     │
 │     ├─ schemas/
-│     │  └─ note.py                 # moved from src/schema.py
+│     │  ├─ note.py                 # Note Schema
+│     │  └─ scraper.py              # Scraped Article Schema
 │     │
 │     ├─ services/
 │     │  ├─ note_service.py         # read/write notes
 │     │  └─ ai_service.py           # orchestrates Agent
 │     │
-│     └─ domain/                    # PURE logic (no FastAPI imports)
-│        ├─ agent.py                # moved from src/agent.py
-│        └─ scraper.py              # moved from src/scraper.py
+│     └─ domain/                    
+│        ├─ agent.py                # AI Agent Class
+│        └─ scraper.py              # Scraper Class
 │
 ├─ tests/              # Unit and integration tests
 ├─ requirements.txt    # Python dependencies
