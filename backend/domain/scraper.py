@@ -1,5 +1,4 @@
 import time
-import json
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 from crawl4ai import AsyncWebCrawler

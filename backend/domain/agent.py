@@ -1,12 +1,12 @@
-import os
 import json
 import time
 from google import genai
-from backend.domain.scraper import Scraper
-from backend.schemas.note import Note
-from backend.schemas.scraper import ExtractedArticle
-from backend.core.requrest_throttler import RequestThrottler
 from typing import Dict, Literal, Any
+from backend.schemas.note import Note
+from backend.domain.scraper import Scraper
+from backend.schemas.scraper import ExtractedArticle
+from backend.core.ai_client import create_gemini_client
+from backend.core.requrest_throttler import RequestThrottler
 
 # ---------
 # LLM Agent
@@ -27,58 +27,25 @@ class Agent:
     - model (str, optional): The LLM model name (default = "gemini-2.5-flash").
 
     Members:
-    - client: OpenAI client (initialized if API key is available)
+    - client: Optional pre-created AI client (Gemini / OpenAI)
     - model: The chosen LLM model
     - max_retries: Maximum number of retries for API calls
     - rate_limiter: Rate limiter for API calls
     - articles: Stores processed articles or notes (WikipediaExtraction objects)
 
     Methods:
-    - create_secure_openai_client: Initializes OpenAI client using API key
     - read_note: Reads and understands a structured note
     - scrape_note: Extracts structured data from raw text or JSON notes
     - batch_extract: Processes multiple articles/notes in batches
     - basic_wiki_extraction: Provides a fallback extraction method when LLM is unavailable
     - structured_analysis: Converts raw function outputs into structured Analysis objects
     """
-    def __init__(self, model: Literal["gemini-2.5-flash"] = "gemini-2.5-flash", max_retries: int = 3):
-        self.client: genai | None = None                                     # LLM Agent
+    def __init__(self, client: genai.Client = None, model: Literal["gemini-2.5-flash"] = "gemini-2.5-flash", max_retries: int = 3):
+        self.client: genai.Client | None = client or create_gemini_client()  # LLM Agent
         self.model: str = model                                              # LLM Model, default is gemini-2.5-flash
         self.max_retries: int = max_retries                                  # Maximum number of retries
         self.rate_limiter: RequestThrottler = RequestThrottler(requests_per_minute=60) # Rate limiter
         self.articles: Dict[str, ExtractedArticle] = {}                      # Store articles
-
-        self.create_secure_openai_client() # Initialize a LLM Agent
-
-    # Initialize an OpenAI client
-    # ----------------------------
-    def create_secure_openai_client(self):
-        """
-        Create and intialize a client using configured API key.
-
-        Steps:
-        1. Looks for GEMINI_API_KEY in environment variables
-        2. Tests the connection with a simple API call
-        3. Returns the client or None if setup fails
-        """
-        print("🔐 Setting up Gemini client...")
-        api_key: str = os.getenv("GEMINI_API_KEY")
-
-        if not api_key:
-            print("❌ No GEMINI_API_KEY found in environment variables.")
-            print("💡 Set it with:")
-            print("   • Linux/Mac: export GEMINI_API_KEY=your_key")
-            print("   • Windows:  setx GEMINI_API_KEY your_key")
-            return
-
-        try:
-            self.client = genai.Client(api_key=api_key)
-            self.client.models.generate_content(model=self.model, contents="Test my API key with a simple prompt.")
-            print("✅ Gemini client created and tested successfully.")
-
-        except Exception as e:
-            print(f"❌ Failed to create Gemini client: {e}")
-            print("🔍 Check your API key and internet connection.")
 
     # ---------
     # Read Note

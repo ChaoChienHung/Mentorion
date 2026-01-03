@@ -1,7 +1,7 @@
 import pytest
-from backend.domain.agent import Agent
-from backend.schemas.note import Note
 from unittest.mock import AsyncMock
+from backend.schemas.note import Note
+from backend.domain.agent import Agent
 
 TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"
 
@@ -27,7 +27,7 @@ async def test_scrape_note_success(mocker):
     agent.client = MockClient()
 
     # Mock async scraper
-    mocker.patch("backend.src.agent.Scraper.scrape_article", new=AsyncMock(return_value={"text": "Some scraped content"}))
+    mocker.patch("backend.domain.agent.Scraper.scrape_article", new=AsyncMock(return_value={"text": "Some scraped content"}))
 
     # Call async scrape_note
     result = await agent.scrape_note(TEST_URL)
@@ -42,6 +42,7 @@ async def test_scrape_note_success(mocker):
 
 @pytest.mark.asyncio
 async def test_scrape_note_no_client():
+
     agent = Agent()
     agent.client = None  # Simulate missing API client
     result = await agent.scrape_note(TEST_URL)
