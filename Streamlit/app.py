@@ -43,12 +43,14 @@ with col1:
         st.header("Repository")
         
         # Repository notes
-        repository_notes = ["Note 1", "Note 2", "Note 3"]
-        selected_note = st.radio("Select a note to view:", options=repository_notes)
+        # ----------------
+        repository_notes = []
+        selected_note = st.radio("Notes", options=repository_notes)
         
         # File uploader
-        st.write("Or upload a new note below:")
-        uploaded_file = st.file_uploader("Upload a note (txt file)", type=["txt"])
+        # -------------
+        uploaded_file = st.file_uploader("Upload a note (json or txt file)", type=["json", "txt"])
+
         if uploaded_file:
             uploaded_text = uploaded_file.read().decode("utf-8")
             selected_note = uploaded_file.name
@@ -60,22 +62,44 @@ with col1:
 
 with col2:
     with st.container(border=True):
-        st.header("Note Preview")
 
+        # --- Header row (title left, edit button right) ---
+        title_col, button_col = st.columns([9, 1])
+
+        with title_col:
+            st.header("Note Preview")
+
+        with button_col:
+            st.write("")  # vertical alignment spacer
+            if not st.session_state.get("edit_mode", False):
+                if st.button("Edit"):
+                    st.session_state.edit_mode = True
+
+        # --- State initialization ---
         if "edit_mode" not in st.session_state:
             st.session_state.edit_mode = False
 
+        if "note_content" not in st.session_state:
+            st.session_state.note_content = ""
+
+        # --- Content ---
         if st.session_state.edit_mode:
-            note_content = st.text_area("Edit your note:", value=st.session_state.note_content)
-            if st.button("Save Note"):
-                st.session_state.edit_mode = False
+            note_content = st.text_area(
+                "Edit your note:",
+                value=st.session_state.note_content,
+                height=300
+            )
+
+            if st.button("💾 Save Note"):
                 st.session_state.note_content = note_content
+                st.session_state.edit_mode = False
         else:
             if uploaded_file:
                 st.session_state.note_content = uploaded_text
             elif selected_note:
-                st.session_state.note_content = f"This is the content of **{selected_note}**. Replace this with actual note content."
+                st.session_state.note_content = (
+                    f"This is the content of **{selected_note}**. "
+                    "Replace this with actual note content."
+                )
 
             st.write(st.session_state.note_content)
-            if st.button("✏️ Edit"):
-                st.session_state.edit_mode = True
