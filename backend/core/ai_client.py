@@ -31,7 +31,8 @@ def create_gemini_client():
         print(f"❌ Failed to create Gemini client: {e}")
         print("🔍 Check your API key and internet connection.")
 
-    # Optional: lightweight test
+    # Lightweight Test
+    # ----------------
     client.models.generate_content(
         model=settings.MODEL,
         contents="ping"

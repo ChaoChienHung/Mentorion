@@ -17,9 +17,9 @@ class Agent:
 
     Features:
     - Read and understand structured notes
-    - Merge multiple notes into a single structured format
-    - Scrape, process, and append or merge notes from websites (URL input)
+    - Scrape notes from websites (URL input)
     - Generate concise summaries from raw content
+    - Merge multiple notes into a single structured format
     - Generate question & answer pairs for learning or review
     - Check and correct answers based on structured knowledge
 
@@ -31,21 +31,17 @@ class Agent:
     - model: The chosen LLM model
     - max_retries: Maximum number of retries for API calls
     - rate_limiter: Rate limiter for API calls
-    - articles: Stores processed articles or notes (WikipediaExtraction objects)
 
     Methods:
-    - read_note: Reads and understands a structured note
+    - parse_note: Read and parse a structured note from json file
     - scrape_note: Extracts structured data from raw text or JSON notes
-    - batch_extract: Processes multiple articles/notes in batches
-    - basic_wiki_extraction: Provides a fallback extraction method when LLM is unavailable
     - structured_analysis: Converts raw function outputs into structured Analysis objects
     """
     def __init__(self, client: genai.Client = None, model: Literal["gemini-2.5-flash"] = "gemini-2.5-flash", max_retries: int = 3):
-        self.client: genai.Client | None = client or create_gemini_client()  # LLM Agent
-        self.model: str = model                                              # LLM Model, default is gemini-2.5-flash
-        self.max_retries: int = max_retries                                  # Maximum number of retries
+        self.client: genai.Client | None = client or create_gemini_client()            # LLM Agent
+        self.model: str = model                                                        # LLM Model, default is gemini-2.5-flash
+        self.max_retries: int = max_retries                                            # Maximum number of retries
         self.rate_limiter: RequestThrottler = RequestThrottler(requests_per_minute=60) # Rate limiter
-        self.articles: Dict[str, ExtractedArticle] = {}                      # Store articles
 
     # ---------
     # Read Note
@@ -72,7 +68,6 @@ class Agent:
             answers=note.get("answers", []),
             error_messages=[]
         )
-        self.articles[extracted_note.title] = extracted_note
         return extracted_note
                 
     # ------------------
@@ -223,7 +218,7 @@ class Agent:
         Returns:
         - note_with_qa (Note): The structured Note object with generated Q&A pairs.
         """
-
+        # -------------------------------------------------
         # Error handling for missing client or invalid note
         # -------------------------------------------------
 
