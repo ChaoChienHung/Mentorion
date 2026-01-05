@@ -85,7 +85,7 @@ with col2:
         # --- Content ---
         if st.session_state.edit_mode:
             note_content = st.text_area(
-                "Edit your note:",
+                "Edit Mode",
                 value=st.session_state.note_content,
                 height=300
             )
