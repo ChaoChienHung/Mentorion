@@ -1,0 +1,116 @@
+{
+  "title": "WordPiece Tokenization — Structured Notes (Easy → Moderate → Hard)",
+  "core_idea": {
+    "definition": "WordPiece Tokenization breaks words into smaller subword units (tokens).",
+    "purpose": "Allows models to understand rare, new, or unseen words.",
+    "used_in": ["BERT", "DistilBERT", "Electra", "GPT-style models"],
+    "origin": "Introduced by Google researchers around 2016"
+  },
+  "easy_intuition": {
+    "analogy": {
+      "name": "Lego blocks",
+      "description": "If you don’t have the exact Lego piece, you build it using smaller pieces."
+    },
+    "concept": "If a model doesn’t know a word, it breaks it into smaller known parts.",
+    "examples": {
+      "unhappiness": ["un-", "happiness", "-ness"],
+      "antidisestablishmentarianism": [
+        "anti",
+        "dis",
+        "establish",
+        "ment",
+        "arian",
+        "ism"
+      ]
+    },
+    "benefit": "The model can process any word, even if it has never seen it before."
+  },
+  "why_wordpiece_is_needed": {
+    "word_based_tokenization": {
+      "issues": ["Large vocabulary", "Many Out-Of-Vocabulary (OOV) words"]
+    },
+    "character_based_tokenization": {
+      "issues": [
+        "Very long sequences",
+        "Harder to capture semantic meaning"
+      ]
+    },
+    "wordpiece_balance": [
+      "Vocabulary size",
+      "Sequence length",
+      "Semantic meaning"
+    ]
+  },
+  "moderate_level_explanation": {
+    "definition": "WordPiece is a subword tokenization algorithm.",
+    "function": "Handles OOV words by decomposing them into known subwords.",
+    "generalization": "Allows models to understand new words using learned pieces."
+  },
+  "how_wordpiece_works": {
+    "initialization": "Start with a small vocabulary (characters or common subwords).",
+    "tokenization": [
+      "If a word is not in the vocabulary, split it into subwords.",
+      "Choose splits that maximize likelihood based on frequency in training data."
+    ],
+    "learning": "Frequent subwords are added to the vocabulary over time.",
+    "representation": {
+      "format": "Words are represented as sequences of subword tokens.",
+      "reconstruction": "Original word can be reconstructed from subwords."
+    }
+  },
+  "advantages": [
+    "Efficient vocabulary usage",
+    "Flexible handling of unseen words",
+    "Reduces OOV problem",
+    "Suitable for real-world evolving text"
+  ],
+  "limitations": [
+    "Computational cost during training",
+    "Subword splitting can slightly weaken semantic clarity"
+  ],
+  "hard_technical_explanation": {
+    "usage_domains": [
+      "Neural Machine Translation",
+      "Language Models"
+    ],
+    "goals": [
+      "Handle OOV words",
+      "Balance vocabulary size vs sequence length"
+    ]
+  },
+  "key_properties": {
+    "subword_granularity": {
+      "comparison": "Finer than word-level, coarser than character-level"
+    },
+    "vocabulary_flexibility": "Vocabulary size adjustable based on data and task",
+    "rare_word_handling": "Rare words decomposed into frequent subwords",
+    "generalization": "Improves model robustness and performance"
+  },
+  "algorithm_mechanics": {
+    "vocabulary_initialization": "Begin with individual characters.",
+    "subword_unit_extraction": "Iteratively merge frequent adjacent subword pairs (similar to BPE).",
+    "encoding": "Replace each word with a sequence of subword tokens.",
+    "decoding": "Merge consecutive subword tokens to reconstruct words."
+  },
+  "efficiency_and_impact": [
+    "Reduces vocabulary size while preserving meaning",
+    "Keeps sequence length manageable",
+    "Improves training and inference efficiency",
+    "Enhances performance on rare and morphologically complex words"
+  ],
+  "applications": [
+    "BERT",
+    "DistilBERT",
+    "Electra",
+    "GPT-family models",
+    "Neural Machine Translation systems"
+  ],
+  "summary": {
+    "description": "WordPiece tokenization breaks words into meaningful subword units.",
+    "benefits": [
+      "Handles unknown and rare words effectively",
+      "Balances efficiency, flexibility, and semantic representation"
+    ],
+    "importance": "Foundational technique behind modern NLP systems"
+  }
+}

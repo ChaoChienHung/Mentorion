@@ -7,6 +7,11 @@ sys.path.insert(0, str(ROOT))
 
 from backend.domain.agent import Agent
 
+# Agent Initialization
+# --------------------
+with st.spinner("Initializing Mentorion..."):
+    agent = Agent()
+
 # ------------------
 # Page Configuration
 # ------------------
@@ -52,8 +57,9 @@ with col1:
         uploaded_file = st.file_uploader("Upload a note (json or txt file)", type=["json", "txt"])
 
         if uploaded_file:
-            uploaded_text = uploaded_file.read().decode("utf-8")
-            selected_note = uploaded_file.name
+            uploaded_file = agent.parse_note(uploaded_file.read().decode("utf-8"))
+            uploaded_text = uploaded_file.content
+            selected_note = uploaded_file.title
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------
