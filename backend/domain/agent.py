@@ -35,7 +35,7 @@ class Agent:
     Methods:
     - parse_note: Read and parse a structured note from json file
     - scrape_note: Extracts structured data from raw text or JSON notes
-    - structured_analysis: Converts raw function outputs into structured Analysis objects
+    - generate_qa: Generate question & answer pairs from a structured note
     """
     def __init__(self, client: genai.Client = None, model: Literal["gemini-2.5-flash"] = "gemini-2.5-flash", max_retries: int = 3):
         self.client: genai.Client | None = client or create_gemini_client()            # LLM Agent
@@ -43,11 +43,11 @@ class Agent:
         self.max_retries: int = max_retries                                            # Maximum number of retries
         self.rate_limiter: RequestThrottler = RequestThrottler(requests_per_minute=60) # Rate limiter
 
-    # ---------
-    # Read Note
-    # ---------
+    # ----------
+    # Parse Note
+    # ----------
 
-    def read_note(self, note_content: str) -> Note:
+    def parse_note(self, note_content: str) -> Note:
         """
         Read and understand a structured note.
 
@@ -57,17 +57,127 @@ class Agent:
         Returns:
         - note (Note): The structured representation of the note.
         """
-        note: Dict[str, str] = json.loads(note_content)
-        extracted_note = Note(
-            title=note.get("title", "Untitled"),
-            success=True,
-            summary=note.get("summary", ""),
-            content=note.get("content", ""),
-            related_concepts=note.get("related_concepts", []),
-            questions=note.get("questions", []),
-            answers=note.get("answers", []),
-            error_messages=[]
+
+        # If No Client
+        # ------------
+        if not self.client:
+            try:
+                # Try Naive JSON Parsing as a Fallback
+                # -----------------------------------
+                note: Dict[str, str] = json.loads(note_content)
+                extracted_note = Note(
+                    title=note.get("title", "Untitled"),
+                    success=True,
+                    summary=note.get("summary", ""),
+                    content=note.get("content", ""),
+                    related_concepts=note.get("related_concepts", []),
+                    questions=note.get("questions", []),
+                    answers=note.get("answers", []),
+                    error_messages=[]
+                )
+
+            except Exception as e:
+                # TODO: change to logging
+                print("🔄 Using fallback data after all retries failed")
+                return Note(
+                    title="Untitled",
+                    success=False,
+                    summary="",
+                    content="",
+                    related_concepts=[],
+                    questions=[],
+                    answers=[],
+                    error_messages=[f"All extraction attempts failed: {e}"]
+                )
+            
+            return extracted_note
+
+        # Schema for Gemini AI Structured Extraction
+        # ------------------------------------------
+        schema: dict[str, Any] = Note.model_json_schema()
+        schema["optionalProperties"] = False
+
+        # Structured Response Configuration
+        # ---------------------------------
+        config = {
+            "response_mime_type": "application/json",
+            "response_json_schema": schema,
+        }
+
+        # Prompt for Gemini AI
+        # --------------------
+        prompt: str = (
+            "You are an expert mentor. "
+            "Extract the key information from the following note content and format it according to the specified schema. "
+            "Do not use headers, bold text or nested Markdown elements. "
+            "Ensure accuracy and completeness in your extraction.\n\n"
+            f"Note Content:\n{note_content}\n\n"
+            "Provide the extracted information in strict JSON format as per the schema."
         )
+
+        for attempt in range(self.max_retries):
+            try:
+                # Request OpenAI model with structured JSON schema
+                # ------------------------------------------------
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config
+                )
+
+                # Validate the data against the schema (parsing errors are not expected)
+                # ----------------------------------------------------------------------
+                try:
+                    extracted_note: Note = Note.model_validate_json(response.text)
+
+                except Exception as e:
+                    # TODO: change to logging
+                    print(f"❌ Validation failed: {e}")
+                    continue
+
+                # TODO: change to logging
+                print(f"✅ Article processed successfully using {self.model}.")
+                return extracted_note
+
+            except Exception as e:
+                # Extraction Error
+                # ----------------
+                print(f"❌ Attempt {attempt + 1} failed: {e}")
+
+                # Wait before retry (Exponential Backoff)
+                # ---------------------------------------
+                time.sleep(2 ** attempt)
+
+                if attempt == self.max_retries - 1:
+                    try:
+                        # Try Naive JSON Parsing as a Fallback
+                        # -----------------------------------
+                        note: Dict[str, str] = json.loads(note_content)
+                        extracted_note = Note(
+                            title=note.get("title", "Untitled"),
+                            success=True,
+                            summary=note.get("summary", ""),
+                            content=note.get("content", ""),
+                            related_concepts=note.get("related_concepts", []),
+                            questions=note.get("questions", []),
+                            answers=note.get("answers", []),
+                            error_messages=[]
+                        )
+
+                    except Exception as e:
+                        # TODO: change to logging
+                        print("🔄 Using fallback data after all retries failed")
+                        extracted_note = Note(
+                            title="Untitled",
+                            success=False,
+                            summary="",
+                            content="",
+                            related_concepts=[],
+                            questions=[],
+                            answers=[],
+                            error_messages=[f"All extraction attempts failed: {e}"]
+                        )
+
         return extracted_note
                 
     # ------------------
@@ -166,17 +276,6 @@ class Agent:
                     answers=[],
                     error_messages=wiki_extraction.error_messages
                 )
-
-                # -------
-                # Caching
-                # -------
-                try:
-                    key: str = extracted_note.title
-                    self.articles[key] = extracted_note
-
-                except Exception as e:
-                    # TODO: change to logging
-                    print(f"❌ Caching failed: {e}")
 
                 # TODO: change to logging
                 print(f"✅ Article processed successfully using {self.model}.")
