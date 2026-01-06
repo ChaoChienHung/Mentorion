@@ -27,6 +27,11 @@ async def scrape_note(url: str) -> Note:
     return await note_service.create_note_from_url(url)
 
 @app.post("/notes/parse", response_model=Note)
-async def parse_note(raw_content: str) -> Note:
+def parse_note(raw_content: str) -> Note:
     note_service = NoteService(agent)
     return note_service.parse_note_content(raw_content)
+
+@app.post("/notes/generate-questions", response_model=Note)
+def generate_questions(note: str) -> Note:
+    note_service = NoteService(agent)
+    return note_service.generate_questions(note)
