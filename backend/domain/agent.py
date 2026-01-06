@@ -1,5 +1,28 @@
+# ----
+# TODO
+# ----
+"""
+This Agent intentionally encapsulates provider-specific logic (Gemini schemas,
+prompts, retries, and parsing) to avoid premature abstraction while workflows
+and models are still evolving.
+
+Consider refactoring when one or more of the following become true:
+- Multiple LLM providers (e.g. OpenAI + Gemini) are used in production
+- Similar extraction / QA logic is duplicated across agents
+- Retry, backoff, or error-handling policies need to be shared or customized
+- Prompt or schema logic stabilizes and changes less frequently
+
+Possible refactor directions:
+- Extract provider-specific generation into a thin adapter (e.g. GeminiAdapter)
+- Move retry/backoff policy into a reusable utility or decorator
+- Separate orchestration (Agent) from execution (Extractor / QAGenerator)
+
+Until then, keeping logic consolidated here favors iteration speed and clarity.
+"""
+
 import json
 import time
+import asyncio
 from google import genai
 from typing import Dict, Literal, Any
 from backend.schemas.note import Note
@@ -41,7 +64,6 @@ class Agent:
         self.client: genai.Client | None = client or create_gemini_client()            # LLM Agent
         self.model: str = model                                                        # LLM Model, default is gemini-2.5-flash
         self.max_retries: int = max_retries                                            # Maximum number of retries
-        self.rate_limiter: RequestThrottler = RequestThrottler(requests_per_minute=60) # Rate limiter
 
     # ----------
     # Parse Note
@@ -79,7 +101,7 @@ class Agent:
             except Exception as e:
                 # TODO: change to logging
                 print("🔄 Using fallback data after all retries failed")
-                return Note(
+                extracted_note = Note(
                     title="Untitled",
                     success=False,
                     summary="",
@@ -288,7 +310,7 @@ class Agent:
 
                 # Wait before retry (Exponential Backoff)
                 # ---------------------------------------
-                time.sleep(2 ** attempt)
+                await asyncio.sleep(2 ** attempt)
 
                 if attempt == self.max_retries - 1:
                     # TODO: change to logging
@@ -398,10 +420,6 @@ class Agent:
                 qa_data = json.loads(response.text)
                 note.questions = qa_data.get("questions", [])
                 note.answers = qa_data.get("answers", [])
-
-                # Caching
-                # -------
-                self.articles[note.title] = note
 
                 # TODO: change to logging
                 print(f"✅ Q&A generation completed successfully using {self.model}.")
