@@ -1,9 +1,16 @@
-from schemas.note import Note
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+
+from backend.schemas.note import Note
 from backend.domain.agent import Agent
-from core.rate_limiter import RateLimiter
+from backend.core.rate_limiter import RateLimiter
 from backend.services.note_service import NoteService
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Body
 
 
 app = FastAPI(title="Mentorion API")
@@ -21,13 +28,17 @@ async def rate_limit(request: Request, call_next):
 
 app.middleware("http")(rate_limit)
 
+@app.get("/")
+def root():
+    return {"Hello": "World"}
+
 @app.post("/notes/scrape", response_model=Note)
 async def scrape_note(url: str) -> Note:
     note_service = NoteService(agent)
     return await note_service.create_note_from_url(url)
 
 @app.post("/notes/parse", response_model=Note)
-def parse_note(raw_content: str) -> Note:
+def parse_note(raw_content: str = Body(...)) -> Note:
     note_service = NoteService(agent)
     return note_service.parse_note_content(raw_content)
 
