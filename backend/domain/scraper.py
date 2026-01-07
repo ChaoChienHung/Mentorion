@@ -4,9 +4,9 @@ from typing import List, Dict, Any
 from crawl4ai import AsyncWebCrawler
 from backend.core.requrest_throttler import RequestThrottler
 
-# ------- #
-# Scraper #
-# ------- #
+# -------
+# Scraper 
+# -------
 class Scraper:
     """
     Scraper is an asynchronous Python class for crawling and extracting structured knowledge from online web pages or articles.
@@ -26,6 +26,7 @@ class Scraper:
     def __init__(self, base_urls: List[str] = None, requests_per_minute: int = 60):
         self.rate_limiter = RequestThrottler(requests_per_minute=requests_per_minute)  # Initialize the maximum number of requests per minute
 
+    # --------------------------------------
     # Scrape and preprocess a single article
     # --------------------------------------
     async def scrape_article(self, url: str) -> Dict[str, Any]:
@@ -66,7 +67,7 @@ class Scraper:
                 'text': "None",
                 'error': "URL must be in string type."
             }
-
+        
         # Initialize an Asynchronous Crawler
         # ----------------------------------
         async with AsyncWebCrawler() as crawler:
@@ -123,6 +124,7 @@ class Scraper:
                     'error': str(e)
                 }
 
+    # ----------------------------------
     # Scrape and Clean Multiple Articles
     # ----------------------------------
     async def scrape_multiple(self, urls: List[str] = None) -> List[Dict[str, Any]]:
@@ -174,8 +176,9 @@ class Scraper:
 
         return results
     
+    # --------------------------------------
     # Preprocess and clean the raw html data
-    # -------------------------------------------
+    # --------------------------------------
     def clean_content(self, raw_html: str) -> str:
         """
         Preprocess and clean the raw HTML data into plain text.

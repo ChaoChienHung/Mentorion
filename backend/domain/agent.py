@@ -34,7 +34,7 @@ from backend.core.requrest_throttler import RequestThrottler
 # ---------
 # LLM Agent
 # ---------
-class Agent:
+class NoteAgent:
     """
     An AI Agent for processing, extracting, and analyzing structured knowledge from web content and notes.
 
@@ -202,18 +202,18 @@ class Agent:
 
         return extracted_note
                 
-    # ------------------
-    # Scrape Online Note
-    # ------------------
-    async def scrape_note(self, url: str) -> Note:
+    # --------------------
+    # Generate Online Note
+    # --------------------
+    def generate_note(self, content: str) -> Note:
         """
-        Use Scraper to scrape from target URL and use LLM structured outputs to extract structured data from raw scraped text, retrying multiple times if needed,
-        and automatically store the result.
+        Use LLM structured outputs to extract data from input text,
+        automatically retrying on failure and storing the final structured result.
 
         If no AI client is available, print out errors.
 
         Parameters:
-        - url (str): The website URL to scrape.
+        - content (str): The raw text content to extract the note from.
 
         Returns:
         - extracted_note (Note): A structured Note object.
@@ -235,12 +235,6 @@ class Agent:
                 error_messages=["No client detected. Please check your client and API configuration is correct."]
             )
         
-        # Scrape the article content
-        # --------------------------
-        scraper: Scraper = Scraper()
-        scrape_result: Dict[str, Any] = await scraper.scrape_article(url)
-        content: str = scrape_result.get("text", "")
-
         # Schema for Gemini AI Structured Extraction
         # ------------------------------------------
         schema: dict[str, Any] = ExtractedArticle.model_json_schema()
@@ -310,7 +304,7 @@ class Agent:
 
                 # Wait before retry (Exponential Backoff)
                 # ---------------------------------------
-                await asyncio.sleep(2 ** attempt)
+                time.sleep(2 ** attempt)
 
                 if attempt == self.max_retries - 1:
                     # TODO: change to logging
