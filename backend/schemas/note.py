@@ -10,3 +10,7 @@ class Note(BaseModel):
     questions: List[str] = Field(default_factory=list, description="A list of questions generated from the note's content.")
     answers: List[str] = Field(default_factory=list, description="A list of answers corresponding to the generated questions.")
     error_messages: List[str] = Field(default_factory=list, description="A list of error messages encountered during extraction, if any.")
+
+class NoteRequest(BaseModel):
+    url: str = Field(default="", description="The URL of the note to be scraped.")
+    raw_content: str = Field(description="The raw content of the note to be parsed.")
