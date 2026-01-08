@@ -1,3 +1,6 @@
+# Development Notes
+- I was currently thinking how to make the agent.py
+
 # TODO
 - [ ] Add revision test using LLM
 - [ ] Store the revision record for further spaced repetition revision

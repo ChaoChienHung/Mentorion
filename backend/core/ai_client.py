@@ -21,21 +21,10 @@ def create_gemini_client():
 
     try:
         client = genai.Client(api_key=settings.API_KEY)
-        client.models.generate_content(
-            model=settings.MODEL,
-            contents="Test my API key with a simple prompt."
-        )
         print("✅ Gemini client created and tested successfully.")
 
     except Exception as e:
         print(f"❌ Failed to create Gemini client: {e}")
         print("🔍 Check your API key and internet connection.")
-
-    # Lightweight Test
-    # ----------------
-    client.models.generate_content(
-        model=settings.MODEL,
-        contents="ping"
-    )
 
     return client

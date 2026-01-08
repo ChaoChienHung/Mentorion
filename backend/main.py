@@ -6,7 +6,7 @@ sys.path.insert(0, str(ROOT))
 
 
 from backend.schemas.note import Note
-from backend.domain.agent import Agent
+from backend.domain.agent import NoteAgent
 from backend.core.rate_limiter import RateLimiter
 from backend.services.note_service import NoteService
 
@@ -17,7 +17,7 @@ app = FastAPI(title="Mentorion API")
 
 limiter = RateLimiter(limit=60, window_sec=60)
 
-agent = Agent()
+agent = NoteAgent()
 
 async def rate_limit(request: Request, call_next):
     client_ip = request.client.host
