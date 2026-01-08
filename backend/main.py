@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-
+from pydantic import BaseModel
 from backend.schemas.note import Note
 from backend.domain.agent import NoteAgent
 from backend.core.rate_limiter import RateLimiter
@@ -13,11 +13,14 @@ from backend.services.note_service import NoteService
 from fastapi import FastAPI, Request, HTTPException, Body
 
 
+class NoteRequest(BaseModel):
+    raw_content: str
+
+
 app = FastAPI(title="Mentorion API")
 
-limiter = RateLimiter(limit=60, window_sec=60)
-
 agent = NoteAgent()
+limiter = RateLimiter(limit=60, window_sec=60)
 
 async def rate_limit(request: Request, call_next):
     client_ip = request.client.host
@@ -38,9 +41,9 @@ async def scrape_note(url: str) -> Note:
     return await note_service.create_note_from_url(url)
 
 @app.post("/notes/parse", response_model=Note)
-def parse_note(raw_content: str = Body(...)) -> Note:
+def parse_note(raw_copayload: NoteRequest) -> Note:
     note_service = NoteService(agent)
-    return note_service.parse_note_content(raw_content)
+    return note_service.parse_note_content(raw_copayload.raw_content)
 
 @app.post("/notes/generate-questions", response_model=Note)
 def generate_questions(note: str) -> Note:

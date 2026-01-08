@@ -53,8 +53,10 @@ with col1:
 
         if uploaded_file:
             upload_file = uploaded_file.read().decode("utf-8")
-            uploaded_text = requests.post('http://localhost:8000/notes/parse', json={"raw_content": upload_file}).json()
-            print(uploaded_text)
+            with st.spinner("Uploading and parsing note..."):
+                uploaded_text = requests.post('http://localhost:8000/notes/parse', json={"raw_content": upload_file}).json()
+                
+            uploaded_text = uploaded_text.get("content", "")
             
         st.markdown("</div>", unsafe_allow_html=True)
 
