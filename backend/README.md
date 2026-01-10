@@ -5,19 +5,15 @@
   - Merge multiple notes
   - Scrape notes from websites (URL input)
   - Generate summary
-  - Generate questions & answers
+  - Generate testing questions & answers
   - Check and correct answers
 - Skill Reviewer
   - Store questions and their review dates
 
 ## Core APIs
 
-- /notes/create  
-- /notes/append  
-- /notes/upload  
-- /notes/merge  
-- /notes/scrape  
-- /notes/{id}/ai-action  
+- /notes/parse
+- /notes/scrape
 
 ## Note Ingestion Pipeline
 
@@ -29,12 +25,13 @@
 
 **Processing Flow**
 ```
-Input → Parser → Cleaner → Normalizer → Structured Note
-```
+Input (Typically in JSON Format) → Parser → Structured Note
+                                     │
+                                    If fail
+                                     │
+                                     └─ LLM Agent → Structured Note
 
-- HTML Parser / File Parser  
-- Content cleaning & deduplication  
-- Normalization into a common schema  
+```
 
 ## Note Storage & Data Model
 

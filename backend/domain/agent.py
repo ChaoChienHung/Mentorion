@@ -26,17 +26,15 @@ import asyncio
 from google import genai
 from typing import Dict, Literal, Any
 from backend.schemas.note import Note
-from backend.domain.scraper import Scraper
-from backend.schemas.scraper import ExtractedArticle
 from backend.core.ai_client import create_gemini_client
 from backend.core.requrest_throttler import RequestThrottler
 
-# ---------
-# LLM Agent
-# ---------
+# ----------
+# Note Agent
+# ----------
 class NoteAgent:
     """
-    An AI Agent for processing, extracting, and analyzing structured knowledge from web content and notes.
+    A Note Agent for processing, extracting, and analyzing structured knowledge from web content and notes.
 
     Features:
     - Read and understand structured notes
@@ -80,40 +78,43 @@ class NoteAgent:
         - note (Note): The structured representation of the note.
         """
 
-        # If No Client
-        # ------------
-        if not self.client:
-            try:
-                # Try Naive JSON Parsing as a Fallback
-                # -----------------------------------
-                note: Dict[str, str] = json.loads(note_content)
-                extracted_note = Note(
-                    title=note.get("title", "Untitled"),
-                    success=True,
-                    summary=note.get("summary", ""),
-                    content=note.get("content", ""),
-                    related_concepts=note.get("related_concepts", []),
-                    questions=note.get("questions", []),
-                    answers=note.get("answers", []),
-                    error_messages=[]
-                )
+        # Try Naive JSON Parsing
+        # ----------------------
+        try:
+            note: Dict[str, str] = json.loads(note_content)
+            extracted_note = Note(
+                title=note.get("title", "Untitled"),
+                success=True,
+                summary=note.get("summary", ""),
+                content=note.get("content", ""),
+                related_concepts=note.get("related_concepts", []),
+                questions=note.get("questions", []),
+                answers=note.get("answers", []),
+                error_messages=[]
+            )
 
-            except Exception as e:
-                # TODO: change to logging
-                print("🔄 Using fallback data after all retries failed")
-                extracted_note = Note(
-                    title="Untitled",
-                    success=False,
-                    summary="",
-                    content="",
-                    related_concepts=[],
-                    questions=[],
-                    answers=[],
-                    error_messages=[f"All extraction attempts failed: {e}"]
-                )
-            
+        except Exception as e:
+            # TODO: change to logging
+            print(f"🔄 Naive JSON Parsing failed due to {e}.")
+
+
+        if not self.client:
+            # TODO: change to logging
+            print("No LLM client detected. Please examine the configuration.")
+            extracted_note = Note(
+                title="Untitled",
+                success=False,
+                summary="",
+                content="",
+                related_concepts=[],
+                questions=[],
+                answers=[],
+                error_messages=[f"No LLM client detected. Please examine the configuration."]
+            )
             return extracted_note
 
+        print(f"Try using {self.model} to parse instead.")
+            
         # Schema for Gemini AI Structured Extraction
         # ------------------------------------------
         schema: dict[str, Any] = Note.model_json_schema()
@@ -207,10 +208,10 @@ class NoteAgent:
     # --------------------
     def generate_note(self, content: str) -> Note:
         """
-        Use LLM structured outputs to extract data from input text,
+        Use LLM structured outputs to extract a structured note from input text,
         automatically retrying on failure and storing the final structured result.
 
-        If no AI client is available, print out errors.
+        If no LLM client is available, print out errors.
 
         Parameters:
         - content (str): The raw text content to extract the note from.
@@ -237,7 +238,7 @@ class NoteAgent:
         
         # Schema for Gemini AI Structured Extraction
         # ------------------------------------------
-        schema: dict[str, Any] = ExtractedArticle.model_json_schema()
+        schema: dict[str, Any] = Note.model_json_schema()
         schema["optionalProperties"] = False
 
         # Structured Response Configuration
@@ -271,27 +272,12 @@ class NoteAgent:
                 # Validate the data against the schema (parsing errors are not expected)
                 # ----------------------------------------------------------------------
                 try:
-                    wiki_extraction: ExtractedArticle = ExtractedArticle.model_validate_json(response.text)
+                    extracted_note: Note = Note.model_validate_json(response.text)
 
                 except Exception as e:
                     # TODO: change to logging
                     print(f"❌ Validation failed: {e}")
                     continue
-
-                # ----------
-                # Conversion
-                # ----------
-
-                extracted_note = Note(
-                    title=wiki_extraction.title,
-                    success=wiki_extraction.success,
-                    summary=wiki_extraction.summary,
-                    content=wiki_extraction.content,
-                    related_concepts=wiki_extraction.related_concepts,
-                    questions=[],
-                    answers=[],
-                    error_messages=wiki_extraction.error_messages
-                )
 
                 # TODO: change to logging
                 print(f"✅ Article processed successfully using {self.model}.")
@@ -323,6 +309,7 @@ class NoteAgent:
     # ------------------------------
     # Generate Questions and Answers
     # ------------------------------
+    # TODO: Change this part to add more question and answer pairs
     def generate_qa(self, note: Note) -> Note:
         """
         Generate question & answer pairs from a structured note.
