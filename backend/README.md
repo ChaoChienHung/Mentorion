@@ -6,9 +6,6 @@
   - Scrape notes from websites (URL input)
   - Generate summary
   - Generate testing questions & answers
-  - Check and correct answers
-- Skill Reviewer
-  - Store questions and their review dates
 
 ## Core APIs
 
@@ -25,47 +22,51 @@
 
 **Processing Flow**
 ```
-Input (Typically in JSON Format) → Parser → Structured Note
-                                     │
-                                    If fail
-                                     │
-                                     └─ LLM Agent → Structured Note
-
+           Input (Typically JSON)
+                     │
+                     ▼
+                  Parser
+             ┌─────────────┐
+             │             │
+          Success         Fail
+             │             │
+             ▼             ▼
+      Structured Note   LLM Agent
+                             │
+                             ▼
+                     Structured Note
 ```
 
 ## Note Storage & Data Model
 
 **1️⃣ Stateless Notes Storage**
-- **Concept**: Notes are stored independently (e.g., JSON, Markdown, or database entries) and are not permanently kept in memory by the Agent.
+- **Concept**: Notes are stored as independent JSON objects, allowing the Agent to access and update them as needed without retaining them in memory permanently.
 - **Workflow**:
-  1. Save notes to a file or database.
-     1. The note should be organized using the following structure:
-        1. Title
-        2. Summary
-        3. Content
-        4. Related Concept
-        5. (Optional) Questions
-        6. (Optional) Answers
-  2. Agent reads the note when needed.
-  3. Perform actions: summarization, Q&A generation, answer checking.
-  4. Write updates back to the note (e.g., append summaries or Q&A).
-
-**2️⃣ Note Reader**
-- **Purpose**: Display stateless notes on a webpage or UI for review.
-- **Agent Integration**:
-  - Reads note content from the reader or file backend.
-  - Processes the content for summarization, Q&A generation, or corrections.
-  - Updates the note as necessary.
-
-**3️⃣ Automatic Web Scraping and Note Processing**
-- **Purpose**: Allow the Agent to automatically extract content from websites and integrate it into notes.
+  1. Save notes to a JSON file.
+  2. The note should be organized using the following structure:
+     1. Title
+     2. Summary
+     3. Content
+     4. Related Concept
+     5. Questions and Answers
+  
+**2️⃣ Automatic Web Scraping and Note Processing**
+- **Purpose**: Use `Scraper` to extract knowledge from a website and automatically integrate the content into notes.
 - **Workflow**:
   1. Provide a URL or website source.
-  2. Agent scrapes and cleans the content.
-  3. Converts scraped content into note format.
-  4. Appends or merges the new content into existing notes, maintaining a continuous knowledge base.
+  2. `Scraper` scrapes and cleans the content.
+  3. `NoteAgent` Converts scraped content into note format.
+  4. (TODO) Appends or merges the new content into existing notes, maintaining a continuous knowledge base.
 
-**4️⃣ Merging Notes**
+**3️⃣ Note Reviewer**
+- **Purpose**: Purpose: Present stateless notes in a webpage or UI, allowing users to review and edit them.
+- **Workflow**:
+  1. Reads note content from an uploaded file or a scraped source.
+  2. Parses the content for summarization, Q&A generation.
+  3. `NoteAgent` parses the note when needed.
+  4. Write updates back to the note (e.g., edit existing content or append new Q&A).
+
+**(TODO) 4️⃣ Merging Notes**
 - **Purpose**: Combine multiple independent notes into a single, structured note.
 - **Workflow**:
   1. Read multiple note files or sections.
@@ -75,29 +76,23 @@ Input (Typically in JSON Format) → Parser → Structured Note
      - Remove duplicate information
   3. Store the unified note back into storage.
 
-**5️⃣ Complete Workflow Overview**
-1. **Read Notes** → Load stateless notes from file or database.  
-2. **Process Notes** → Summarize, generate questions & answers, check and correct content.  
-3. **Update Notes** → Store processed results (summaries, Q&A, corrections) back into storage.  
-4. **Scrape & Append** → Extract new notes from websites and merge into existing notes.  
-5. **Merge Notes** → Combine multiple notes into one unified, structured note.
-
-**Recommended Storage Format**
-- Primary: JSON (flexible, AI-friendly)
-- Optional: Markdown (human-readable)
-- Metadata stored separately
-
 **Note Schema (JSON)**
 ```
 {
-  "title": "Transformer Models",
-  "success": false,
-  "summary": "...",
-  "content": "...",
-  "related_concepts": ["..."],
-  "questions": ["..."],
-  "answers": ["..."],
-  "error_messages": ["..."]
+  "title": "Stateless Notes Storage",
+  "summary": "Notes are stored in JSON and not kept in memory by the Agent.",
+  "content": "This concept emphasizes ...",
+  "related_concept": "Persistent Storage",
+  "qa": [
+    {
+      "question": "What is stateless note storage?",
+      "answer": "Notes are stored independently in JSON and not kept in memory."
+    },
+    {
+      "question": "Why use stateless storage?",
+      "answer": "It ensures persistence and reduces memory usage by the Agent."
+    }
+  ]
 }
 ```
 
