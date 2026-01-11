@@ -9,3 +9,8 @@
 - [ ] Store the revision record for further spaced repetition revision
 - [ ] Add difficulty as the revision level increase
 - [ ] Add questions reviewer and answer checker
+
+# Optional Improvements
+1. **`generate_qa` return type**: Currently, it returns the full `Note` object, mainly because the `success` flag and `error_messages` are needed. This approach is acceptable.
+   - Alternative approach: The QA generation could be separated to return just a `List[QA]` or a `Dict[str, str]`, which would make the design cleaner and more modular.
+   - For now, returning the full `Note` object is fine.

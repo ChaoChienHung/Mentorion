@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request, HTTPException, Body
 app = FastAPI(title="Mentorion API")
 
 agent = NoteAgent()
+note_service = NoteService(agent)
 limiter = RateLimiter(limit=60, window_sec=60)
 
 async def rate_limit(request: Request, call_next):
@@ -32,15 +33,12 @@ def root():
 
 @app.post("/notes/scrape", response_model=Note)
 async def scrape_note(request: NoteRequest) -> Note:
-    note_service = NoteService(agent)
     return await note_service.create_note_from_url(request.url)
 
 @app.post("/notes/parse", response_model=Note)
 def parse_note(request: NoteRequest) -> Note:
-    note_service = NoteService(agent)
     return note_service.parse_note_content(request.raw_content)
 
 @app.post("/notes/generate-questions", response_model=Note)
 def generate_questions(note: str) -> Note:
-    note_service = NoteService(agent)
     return note_service.generate_questions(note)

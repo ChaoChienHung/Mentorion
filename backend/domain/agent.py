@@ -22,12 +22,10 @@ Until then, keeping logic consolidated here favors iteration speed and clarity.
 
 import json
 import time
-import asyncio
 from google import genai
 from typing import Dict, Literal, Any
-from backend.schemas.note import Note
+from backend.schemas.note import Note, QA
 from backend.core.ai_client import create_gemini_client
-from backend.core.requrest_throttler import RequestThrottler
 
 # ----------
 # Note Agent
@@ -37,21 +35,19 @@ class NoteAgent:
     A Note Agent for processing, extracting, and analyzing structured knowledge from web content and notes.
 
     Features:
-    - Read and understand structured notes
-    - Scrape notes from websites (URL input)
-    - Generate concise summaries from raw content
+    - Parse and understand structured notes
     - Merge multiple notes into a single structured format
     - Generate question & answer pairs for learning or review
-    - Check and correct answers based on structured knowledge
 
     Parameters:
-    - model (str, optional): The LLM model name (default = "gemini-2.5-flash").
+    - client: Optional pre-created AI client (Gemini / OpenAI)
+    - model (str, optional): The LLM model name (default = "gemini-2.5-flash")
+    - max_retries (int, optional): Maximum number of retries for API calls (default = 3)
 
     Members:
     - client: Optional pre-created AI client (Gemini / OpenAI)
     - model: The chosen LLM model
     - max_retries: Maximum number of retries for API calls
-    - rate_limiter: Rate limiter for API calls
 
     Methods:
     - parse_note: Read and parse a structured note from json file
@@ -62,6 +58,18 @@ class NoteAgent:
         self.client: genai.Client | None = client or create_gemini_client()            # LLM Agent
         self.model: str = model                                                        # LLM Model, default is gemini-2.5-flash
         self.max_retries: int = max_retries                                            # Maximum number of retries
+
+        self.qa_schema = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string"},
+                    "answer": {"type": "string"}
+                },
+                "required": ["question", "answer"]
+            }
+        }
 
     # ----------
     # Parse Note
@@ -81,15 +89,17 @@ class NoteAgent:
         # Try Naive JSON Parsing
         # ----------------------
         try:
-            note: Dict[str, str] = json.loads(note_content)
+            note: dict = json.loads(note_content)
+            qa_list = note.get("qa", [])
+            qa_list = [QA(**item) for item in qa_list if "question" in item and "answer" in item]
+
             extracted_note = Note(
                 title=note.get("title", "Untitled"),
                 success=True,
                 summary=note.get("summary", ""),
                 content=note.get("content", ""),
                 related_concepts=note.get("related_concepts", []),
-                questions=note.get("questions", []),
-                answers=note.get("answers", []),
+                qa=qa_list,
                 error_messages=[]
             )
 
@@ -107,8 +117,7 @@ class NoteAgent:
                 summary="",
                 content="",
                 related_concepts=[],
-                questions=[],
-                answers=[],
+                qa=[],
                 error_messages=[f"No LLM client detected. Please examine the configuration."]
             )
             return extracted_note
@@ -118,6 +127,7 @@ class NoteAgent:
         # Schema for Gemini AI Structured Extraction
         # ------------------------------------------
         schema: dict[str, Any] = Note.model_json_schema()
+        schema["properties"]["qa"] = self.qa_schema
         schema["optionalProperties"] = False
 
         # Structured Response Configuration
@@ -172,40 +182,22 @@ class NoteAgent:
                 time.sleep(2 ** attempt)
 
                 if attempt == self.max_retries - 1:
-                    try:
-                        # Try Naive JSON Parsing as a Fallback
-                        # -----------------------------------
-                        note: Dict[str, str] = json.loads(note_content)
-                        extracted_note = Note(
-                            title=note.get("title", "Untitled"),
-                            success=True,
-                            summary=note.get("summary", ""),
-                            content=note.get("content", ""),
-                            related_concepts=note.get("related_concepts", []),
-                            questions=note.get("questions", []),
-                            answers=note.get("answers", []),
-                            error_messages=[]
-                        )
-
-                    except Exception as e:
-                        # TODO: change to logging
-                        print("🔄 Using fallback data after all retries failed")
-                        extracted_note = Note(
-                            title="Untitled",
-                            success=False,
-                            summary="",
-                            content="",
-                            related_concepts=[],
-                            questions=[],
-                            answers=[],
-                            error_messages=[f"All extraction attempts failed: {e}"]
-                        )
+                    print("🔄 All extraction attempts failed.")
+                    extracted_note = Note(
+                        title="Untitled",
+                        success=False,
+                        summary="",
+                        content="",
+                        related_concepts=[],
+                        qa=[],
+                        error_messages=[f"All extraction attempts failed: {e}"]
+                    )
 
         return extracted_note
                 
-    # --------------------
-    # Generate Online Note
-    # --------------------
+    # -------------
+    # Generate Note
+    # -------------
     def generate_note(self, content: str) -> Note:
         """
         Use LLM structured outputs to extract a structured note from input text,
@@ -231,14 +223,14 @@ class NoteAgent:
                 summary="",
                 content="",
                 related_concepts=[],
-                questions=[],
-                answers=[],
+                qa=[],
                 error_messages=["No client detected. Please check your client and API configuration is correct."]
             )
         
         # Schema for Gemini AI Structured Extraction
         # ------------------------------------------
         schema: dict[str, Any] = Note.model_json_schema()
+        schema["properties"]["qa"] = self.qa_schema
         schema["optionalProperties"] = False
 
         # Structured Response Configuration
@@ -294,15 +286,14 @@ class NoteAgent:
 
                 if attempt == self.max_retries - 1:
                     # TODO: change to logging
-                    print("🔄 Using fallback data after all retries failed")
+                    print(f"🔄 All extraction attempts failed: {e}")
                     return Note(
                         title="Untitled",
                         success=False,
                         summary="",
                         content="",
                         related_concepts=[],
-                        questions=[],
-                        answers=[],
+                        qa=[],
                         error_messages=[f"All extraction attempts failed: {e}"]
                     )
                 
@@ -320,19 +311,19 @@ class NoteAgent:
         Returns:
         - note_with_qa (Note): The structured Note object with generated Q&A pairs.
         """
-        # -------------------------------------------------
-        # Error handling for missing client or invalid note
-        # -------------------------------------------------
 
+        # -------------------------------------------------
+        # Error Handling for Missing Client or Invalid Note
+        # -------------------------------------------------
         if not self.client:
-            # TODO: change to logging
-            print("No client detected. Please check your client and API configuration is correct.")
+            print("No client detected. Please check your client and API configuration.")
             note.success = False
-            note.error_messages.append("No client detected. Please check your client and API configuration is correct.")
+            note.error_messages.append(
+                "No client detected. Please check your client and API configuration."
+            )
             return note
 
         if not isinstance(note, Note):
-            # TODO: change to logging
             print("Invalid note format. Expected a Note object.")
             return Note(
                 title="Untitled",
@@ -340,55 +331,47 @@ class NoteAgent:
                 summary="",
                 content="",
                 related_concepts=[],
-                questions=[],
-                answers=[],
+                qa=[],
                 error_messages=["Invalid note format. Expected a Note object."]
             )
 
-        content: Note = note.content
-
-        if not content:
-            # TODO: change to logging
+        if not note.content:
             print("Note content is empty. Cannot generate Q&A.")
             note.success = False
             note.error_messages.append("Note content is empty. Cannot generate Q&A.")
             return note
 
-        # Prompt
-        # ------
-        prompt: str = (
-            "Based on the following note content, generate a list of insightful questions and their corresponding answers. "
-            "Ensure that the questions cover key concepts and details from the note.\n\n"
+        # -------------------------
+        # Prompt for Q&A Generation
+        # -------------------------
+        prompt = (
+            "Based on the following note content, generate a list of insightful questions "
+            "and their corresponding answers. Ensure that the questions cover key concepts "
+            "and details from the note.\n\n"
             f"Note Content:\n{note.content}\n\n"
-            "Provide the questions and answers in JSON format with 'questions' and 'answers' fields."
+            "Provide the questions and answers in JSON format as a list of objects under 'qa', "
+            "with each object containing 'question' and 'answer' fields."
         )
 
-        # Structured Response Configuration for Q&A
-        # -----------------------------------------
-        schema: dict[str, Any] = {
+        # -----------------------------
+        # JSON Schema for Structured Q&A
+        # -----------------------------
+        schema = {
             "type": "object",
             "properties": {
-                "questions": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "answers": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                }
+                "qa": self.qa_schema
             },
-            "required": ["questions", "answers"],
+            "required": ["qa"],
             "optionalProperties": False
         }
 
-        # Configuration
-        # -------------
         config = {
             "response_mime_type": "application/json",
             "response_json_schema": schema,
         }
 
-        # Generate Q&A with retries
+        # -------------------------
+        # Generate Q&A with Retries
         # -------------------------
         for attempt in range(self.max_retries):
             try:
@@ -398,25 +381,22 @@ class NoteAgent:
                     config=config
                 )
 
+                # Parse Response
+                # --------------
                 qa_data = json.loads(response.text)
-                note.questions = qa_data.get("questions", [])
-                note.answers = qa_data.get("answers", [])
 
-                # TODO: change to logging
+                # Convert List of Dicts to List[QA]
+                # ---------------------------------
+                note.qa = [QA(**item) for item in qa_data.get("qa", [])]
+
+                note.success = True
                 print(f"✅ Q&A generation completed successfully using {self.model}.")
-                return note            
+                return note
 
             except Exception as e:
-                # Generation Error
-                # ----------------
                 print(f"❌ Attempt {attempt + 1} failed: {e}")
-
-                # Wait before retry (Exponential Backoff)
-                # ---------------------------------------
                 time.sleep(2 ** attempt)
-
                 if attempt == self.max_retries - 1:
-                    # TODO: change to logging
                     print(f"❌ Q&A generation failed: {e}")
                     note.error_messages.append(f"Q&A generation failed: {e}")
                     note.success = False
