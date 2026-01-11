@@ -1,6 +1,7 @@
 # TODO
 
 import sys
+import json
 import requests
 import streamlit as st
 from pathlib import Path
@@ -94,13 +95,12 @@ with col1:
                     if st.session_state.repository_notes[i]["title"] == structured_note_title:
                         st.session_state.repository_notes[i] = structured_note
                         break
-            
+
             st.success("Note uploaded and parsed successfully!")
 
         # Repository Notes
         # ----------------
         selected_note_title = st.radio("Notes", options=note_titles)
-
 
         # Find selected note
         selected_note = None
@@ -120,11 +120,25 @@ with col2:
 
         # Header row (title left, edit button right)
         # ------------------------------------------
-        title_col, button_col = st.columns([9, 1])
+        title_col, download_col, button_col = st.columns([7.8, 1.2, 1])
 
         with title_col:
             st.header("Note Preview")
             st.write("---")
+
+        # Download Button
+        # ---------------
+        with download_col:
+            st.write("")
+            ready_to_download = selected_note if selected_note else None
+            note_json = json.dumps(ready_to_download, indent=2)
+            st.download_button(
+                label="Download",
+                data=note_json,
+                file_name=f"{ready_to_download.get('title', 'note')}.json" if ready_to_download else "note.json",
+                mime="application/json"
+            )
+
 
         with button_col:
             st.write("")  # vertical alignment spacer
@@ -221,5 +235,6 @@ with col2:
                     qa_section += f"**A:** {answer}\n\n"
 
                 st.markdown(qa_section)
+
             else:
                 st.write("No note selected.")
