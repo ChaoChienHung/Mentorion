@@ -38,7 +38,7 @@ class NoteService:
 
         # Generate the note from scraped content
         # --------------------------------------
-        note = await self.agent.scrape_note(content)
+        note = self.agent.parse_note(content)
 
         return note
 
@@ -59,7 +59,11 @@ class NoteService:
                 error_messages=["Note content is empty"]
             )
 
-        return self.agent.parse_note(raw_content)
+        result: Note = self.agent.parse_note(raw_content)
+        if result.success:
+            return result
+
+        return self.agent.generate_note(raw_content)
 
     def generate_questions(self, note: Note) -> Note:
         """

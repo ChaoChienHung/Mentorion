@@ -17,4 +17,4 @@ class Note(BaseModel):
 
 class NoteRequest(BaseModel):
     url: str = Field(default="", description="The URL of the note to be scraped.")
-    raw_content: str = Field(description="The raw content of the note to be parsed.")
+    raw_content: str = Field(default="", description="The raw content of the note to be parsed.")
