@@ -1,5 +1,6 @@
-# TODO
+#TODO: Impose filename sanitization.
 
+import os
 import sys
 import json
 import requests
@@ -8,6 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+# ------------------
+# Page Configuration
+# ------------------
+
+st.set_page_config(page_title="Mentorion", layout="wide")
 
 # --------------------
 # State Initialization
@@ -31,19 +38,42 @@ if "edit_mode" not in st.session_state:
     st.session_state.edit_mode = False
 
 if "repository_notes" not in st.session_state:
-    st.session_state.repository_notes = []
+    st.session_state.repository_notes = {}
 
+if "selected_note_title" not in st.session_state:
+    st.session_state.selected_note_title = None
 
 # Uploader Key
-# --------------------------------
+# ------------
+
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
-# ------------------
-# Page Configuration
-# ------------------
 
-st.set_page_config(page_title="Mentorion", layout="wide")
+# Load Notes from JSON files
+# --------------------------
+NOTES_PATH = os.path.join(ROOT, "Streamlit", "notes")
+os.makedirs(NOTES_PATH, exist_ok=True)
+if not st.session_state.repository_notes:
+    with st.spinner("Fetching and parsing note..."):
+        for file in os.listdir(NOTES_PATH):
+            if file.endswith(".json"):
+                with open(os.path.join(NOTES_PATH, file), "r", encoding="utf-8") as f:
+                    content = f.read()
+                    try:
+                        response = requests.post(
+                        "http://localhost:8000/notes/parse",
+                        json={"raw_content": content.strip()}
+                        )
+                        response.raise_for_status()
+
+                    except Exception as e:
+                        st.error(f"Failed to parse note: {e}")
+                        st.stop()
+
+                    structured_note = response.json()
+                    structured_note_title = structured_note.get("title", "Untitled")
+                    st.session_state.repository_notes[structured_note_title] = structured_note
 
 # -----
 # Title
@@ -74,32 +104,26 @@ with col1:
         st.markdown("<div class='section-container'>", unsafe_allow_html=True)
         st.header("Repository")
 
-        # Note Titles
-        # -----------
-        note_titles = [note.get("title", "Untitled") for note in st.session_state.repository_notes]
-
         # Web URL Input
         # -------------
-        url_input = st.text_input("Enter a note URL", value="")
+        url_input = st.text_input("Enter a note URL", value="", key="url_input")
         if st.button("➕ Add Note from URL"):
             if url_input.strip():
                 with st.spinner("Fetching and parsing note..."):
-                    structured_note = requests.post(
-                        "http://localhost:8000/notes/scrape",
-                        json={"url": url_input.strip()}
-                    ).json()
-                
+                    try:
+                        response = requests.post(
+                            "http://localhost:8000/notes/scrape",
+                            json={"url": url_input.strip()}
+                        )
+                        response.raise_for_status()
+
+                    except Exception as e:
+                        st.error(f"Failed to scrape note: {e}")
+                        st.stop()
+
+                structured_note = response.json()
                 structured_note_title = structured_note.get("title", "Untitled")
-                if structured_note_title not in note_titles:
-                    st.session_state.repository_notes.append(structured_note)
-                    note_titles.append(structured_note_title)
-
-                else:
-                    for i in range(len(st.session_state.repository_notes)):
-                        if st.session_state.repository_notes[i]["title"] == structured_note_title:
-                            st.session_state.repository_notes[i] = structured_note
-                            break
-
+                st.session_state.repository_notes[structured_note_title] = structured_note
                 st.success("Note fetched and parsed successfully!")
             else:
                 st.error("Please enter a valid URL.")
@@ -113,24 +137,21 @@ with col1:
             upload_file = uploaded_file.read().decode("utf-8")
 
             with st.spinner("Uploading and parsing note..."):
-                structured_note = requests.post(
+                try:
+                    response = requests.post(
                     "http://localhost:8000/notes/parse",
                     json={"raw_content": upload_file}
-                ).json()
+                )
+                    response.raise_for_status()
+
+                except Exception as e:
+                    st.error(f"Failed to parse note: {e}")
+                    st.stop()
+
+                structured_note = response.json()
             
             structured_note_title = structured_note.get("title", "Untitled")
-
-            if structured_note_title not in note_titles:
-                st.session_state.repository_notes.append(structured_note)
-                note_titles.append(structured_note_title)
-
-            else:
-                for i in range(len(st.session_state.repository_notes)):
-                    if st.session_state.repository_notes[i]["title"] == structured_note_title:
-                        st.session_state.repository_notes[i] = structured_note
-                        break
-
-            st.success("Note uploaded and parsed successfully!")
+            st.session_state.repository_notes[structured_note_title] = structured_note
             
             st.session_state.uploader_key += 1
             st.rerun()
@@ -138,14 +159,17 @@ with col1:
 
         # Repository Notes
         # ----------------
-        selected_note_title = st.radio("Notes", options=note_titles)
+        if st.session_state.selected_note_title:
+            default_index = list(st.session_state.repository_notes.keys()).index(st.session_state.selected_note_title)
+            st.session_state.selected_note_title = st.radio("Notes", options=list(st.session_state.repository_notes.keys()), index=default_index)
+
+        else:
+            st.session_state.selected_note_title = st.radio("Notes", options=list(st.session_state.repository_notes.keys()))
 
         # Find selected note
         selected_note = None
-        for note in st.session_state.repository_notes:
-            if note.get("title") == selected_note_title:
-                selected_note = note
-                break
+        if st.session_state.selected_note_title:
+            selected_note = st.session_state.repository_notes.get(st.session_state.selected_note_title)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -169,7 +193,16 @@ with col2:
             st.write("")  # vertical alignment spacer
             if not st.session_state.get("edit_mode", False):
                 if st.button("Edit"):
+                    if selected_note:
+                        st.session_state.title = selected_note.get("title", "")
+                        st.session_state.summary = selected_note.get("summary", "")
+                        st.session_state.content = selected_note.get("content", "")
+                        st.session_state.related_concepts = selected_note.get("related_concepts", [])
+                        qa_list = selected_note.get("qa", [])
+                        st.session_state.questions_answers = {qa.get("question"): qa.get("answer") for qa in qa_list}
+
                     st.session_state.edit_mode = True
+
 
         # Download Button
         # ---------------
@@ -210,35 +243,63 @@ with col2:
             )
             related_concepts_list = [line.strip() for line in related_concepts_input.split("\n") if line.strip()]
             
+            # Previous Title
+            # --------------
+            old_title = st.session_state.selected_note_title
 
-            if st.button("💾 Save Note"):
-                if selected_note:
-                    # Update existing note in repository
-                    # ----------------------------------
-                    selected_note["title"] = title_input
-                    selected_note["summary"] = summary_input
-                    selected_note["content"] = content_input
-                    selected_note["related_concepts"] = related_concepts_list
-                else:
-                    # Create new note and add to repository
-                    # -------------------------------------
-                    new_note = {
-                        "title": title_input,
-                        "summary": summary_input,
-                        "content": content_input,
-                        "related_concepts": related_concepts_list,
-                        "qa": []
-                    }
-                    if new_note["title"] not in note_titles:
-                        st.session_state.repository_notes.append(new_note)
-
+            # If Title Changed, Check for Duplicates
+            # --------------------------------------
+            if title_input != old_title and title_input in st.session_state.repository_notes:
+                st.error("A note with this title already exists.")
+                
+            else:
+                if st.button("💾 Save Note"):
+                    if selected_note:
+                        # Update existing note in repository
+                        # ----------------------------------
+                        selected_note["title"] = title_input
+                        selected_note["summary"] = summary_input
+                        selected_note["content"] = content_input
+                        selected_note["related_concepts"] = related_concepts_list
+                        
                     else:
-                        for i in range(len(st.session_state.repository_notes)):
-                            if st.session_state.repository_notes[i]["title"] == new_note["title"]:
-                                st.session_state.repository_notes[i] = new_note
-                                break
+                        # Create new note and add to repository
+                        # -------------------------------------
+                        new_note = {
+                            "title": title_input,
+                            "summary": summary_input,
+                            "content": content_input,
+                            "related_concepts": related_concepts_list,
+                            "qa": []
+                        }
+                        selected_note = new_note
+                        
+                    
+                    # Update Session State
+                    # --------------------
+                    if title_input != old_title:
+                        st.session_state.repository_notes.pop(old_title, None)
+                    
+                    st.session_state.repository_notes[title_input] = selected_note
 
-                st.session_state.edit_mode = False
+                    # Remove Old File
+                    # ---------------
+                    if f"{selected_note['title']}.json" != f"{st.session_state.selected_note_title}.json":
+                        
+                        old_file_path = os.path.join(NOTES_PATH, f"{st.session_state.selected_note_title}.json")
+                        if os.path.exists(old_file_path):
+                            os.remove(old_file_path)
+                            
+                    # Save Note
+                    # ---------
+                    note_json = json.dumps(selected_note, indent=2)
+                    file_path = os.path.join(NOTES_PATH, f"{selected_note['title']}.json")
+                    with open(file_path, "w", encoding='utf-8') as f:
+                        f.write(note_json)
+                    
+                    st.session_state.selected_note_title = title_input
+                    st.session_state.edit_mode = False
+                    st.rerun()
     
         # View Mode
         # ---------
