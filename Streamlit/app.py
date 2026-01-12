@@ -72,7 +72,34 @@ with col1:
         # Note Titles
         # -----------
         note_titles = [note.get("title", "Untitled") for note in st.session_state.repository_notes]
+
+        # Web URL Input
+        # -------------
+        url_input = st.text_input("Enter a note URL", value="")
+        if st.button("➕ Add Note from URL"):
+            if url_input.strip():
+                with st.spinner("Fetching and parsing note..."):
+                    structured_note = requests.post(
+                        "http://localhost:8000/notes/scrape",
+                        json={"url": url_input.strip()}
+                    ).json()
                 
+                structured_note_title = structured_note.get("title", "Untitled")
+                if structured_note_title not in note_titles:
+                    st.session_state.repository_notes.append(structured_note)
+                    note_titles.append(structured_note_title)
+
+                else:
+                    for i in range(len(st.session_state.repository_notes)):
+                        if st.session_state.repository_notes[i]["title"] == structured_note_title:
+                            st.session_state.repository_notes[i] = structured_note
+                            break
+
+                st.success("Note fetched and parsed successfully!")
+            else:
+                st.error("Please enter a valid URL.")
+
+        
         # File uploader
         # -------------
         uploaded_file = st.file_uploader("Upload a note (json or txt file)", type=["json", "txt"])
@@ -120,11 +147,18 @@ with col2:
 
         # Header row (title left, edit button right)
         # ------------------------------------------
-        title_col, download_col, button_col = st.columns([7.8, 1.2, 1])
+        title_col, button_col, download_col = st.columns([8.1, 0.7, 1.2])
 
         with title_col:
             st.header("Note Preview")
-            st.write("---")
+
+        # Edit Button
+        # -----------
+        with button_col:
+            st.write("")  # vertical alignment spacer
+            if not st.session_state.get("edit_mode", False):
+                if st.button("Edit"):
+                    st.session_state.edit_mode = True
 
         # Download Button
         # ---------------
@@ -139,12 +173,7 @@ with col2:
                 mime="application/json"
             )
 
-
-        with button_col:
-            st.write("")  # vertical alignment spacer
-            if not st.session_state.get("edit_mode", False):
-                if st.button("Edit"):
-                    st.session_state.edit_mode = True
+        st.write("---")
 
         # Edit Mode
         # ---------
