@@ -38,7 +38,7 @@ class NoteService:
 
         # Generate the note from scraped content
         # --------------------------------------
-        note = self.agent.parse_note(content)
+        note = self.agent.generate_note(content)
 
         return note
 
