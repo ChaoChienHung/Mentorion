@@ -34,6 +34,11 @@ if "repository_notes" not in st.session_state:
     st.session_state.repository_notes = []
 
 
+# Uploader Key
+# --------------------------------
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
 # ------------------
 # Page Configuration
 # ------------------
@@ -102,10 +107,11 @@ with col1:
         
         # File uploader
         # -------------
-        uploaded_file = st.file_uploader("Upload a note (json or txt file)", type=["json", "txt"])
+        uploaded_file = st.file_uploader("Upload a note (json or txt file)", type=["json", "txt"], key=f"note_uploader_{st.session_state.uploader_key}")
 
         if uploaded_file:
             upload_file = uploaded_file.read().decode("utf-8")
+
             with st.spinner("Uploading and parsing note..."):
                 structured_note = requests.post(
                     "http://localhost:8000/notes/parse",
@@ -113,6 +119,7 @@ with col1:
                 ).json()
             
             structured_note_title = structured_note.get("title", "Untitled")
+
             if structured_note_title not in note_titles:
                 st.session_state.repository_notes.append(structured_note)
                 note_titles.append(structured_note_title)
@@ -124,6 +131,10 @@ with col1:
                         break
 
             st.success("Note uploaded and parsed successfully!")
+            
+            st.session_state.uploader_key += 1
+            st.rerun()
+
 
         # Repository Notes
         # ----------------
