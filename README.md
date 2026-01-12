@@ -12,7 +12,7 @@ This system is organized into Frontend, Backend (Application Layer), and Server 
 
 ## Folder Structure
 
-```perl
+```bash
 Mentorion/
 │
 ├─ server/             # Server layer (API, authentication, routing)
@@ -28,35 +28,43 @@ Mentorion/
 │   │   └─ index.js    
 │   └─ package.json
 │
-├─ backend/                   # Backend layer (AI & application logic)
-│  └─ app/
+├─ backend/                         # Backend layer (AI & application logic)
+│     │
 │     ├─ main.py                    # FastAPI entry
+│     ├─ README.md                  # Backend Readme
+│     ├─ DevNotes.md                # Backend development notes
 │     │
 │     ├─ api/
 │     │  └─ v1/
-│     │     ├─ notes.py             # /notes/*
-│     │     └─ ai.py                # /notes/{id}/ai-action
+│     │     └─ notes.py             # /notes/*
 │     │
 │     ├─ core/
-│     │  ├─ rate_limiter.py         # Rate Limiter
-│     │  └─ config.py               # Configuration Setup
+│     │  ├─ logger.py               # Logger setup
+│     │  ├─ config.py               # Configuration setup
+│     │  ├─ ai_client.py            # Create and intialize a client using configured API key
+│     │  ├─ rate_limiter.py         # Rate limiter
+│     │  └─ request_throttler.py    # Request throttler
+│     │
+│     ├─ domain/                    
+│     │  ├─ agent.py                # Note agent (basic functionalities)
+│     │  └─ scraper.py              # Scraper
+│     │
+│     ├─ logs/                      # Logger files
+│     │  ├─ ErrorLogger.log         # Logger for WARNING, ERROR messages
+│     │  └─ MessageLogger.log       # Logger for DEBUG, INFO messages
 │     │
 │     ├─ schemas/
-│     │  ├─ note.py                 # Note Schema
-│     │  └─ scraper.py              # Scraped Article Schema
+│     │  └─ note.py                 # Note schema
 │     │
-│     ├─ services/
-│     │  ├─ note_service.py         # read/write notes
-│     │  └─ ai_service.py           # orchestrates Agent
-│     │
-│     └─ domain/                    
-│        ├─ agent.py                # AI Agent Class
-│        └─ scraper.py              # Scraper Class
+│     └─ services/
+│        └─ note_service.py         # Note services
+│      
+├─ Streamlit/                       # Streamlit app for application demonstration
 │
-├─ tests/              # Unit and integration tests
-├─ requirements.txt    # Python dependencies
-├─ TODO.md             # Features to be implemented
-└─ README.md           # Project overview
+├─ tests/                           # Unit and integration tests
+├─ README.md                        # Project overview
+├─ DevNotes.md                      # Mentorion development notes
+└─ requirements.txt                 # Mentorion Python dependencies
 ```
 
 ---

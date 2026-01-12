@@ -1,3 +1,41 @@
+## Folder Structure
+
+```bash
+backend/                          # Backend layer (AI & application logic)
+    │
+    ├─ main.py                    # FastAPI entry
+    ├─ README.md                  # Backend Readme
+    ├─ DevNotes.md                # Backend development notes
+    │
+    ├─ api/
+    │  └─ v1/
+    │     └─ notes.py             # /notes/*
+    │
+    ├─ core/
+    │  ├─ logger.py               # Logger setup
+    │  ├─ config.py               # Configuration setup
+    │  ├─ ai_client.py            # Create and intialize a client using configured API key
+    │  ├─ rate_limiter.py         # Rate limiter
+    │  └─ request_throttler.py    # Request throttler
+    │
+    ├─ domain/                    
+    │  ├─ agent.py                # Note agent (basic functionalities)
+    │  └─ scraper.py              # Scraper
+    │
+    ├─ logs/                      # Logger files
+    │  ├─ ErrorLogger.log         # Logger for WARNING, ERROR messages
+    │  └─ MessageLogger.log       # Logger for DEBUG, INFO messages
+    │
+    ├─ schemas/
+    │  └─ note.py                 # Note schema
+    │
+    └─ services/
+       └─ note_service.py         # Note services
+
+```
+
+---
+
 # Backend Layer (Application & AI Logic)
 
 ## Key Components
@@ -6,6 +44,8 @@
   - Scrape notes from websites (URL input)
   - Generate summary
   - Generate testing questions & answers
+
+
 
 ## Core APIs
 
