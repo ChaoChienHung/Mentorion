@@ -7,3 +7,6 @@ secret.txt
 /backend/domain/__pycache__
 /backend/__pycache__
 /Streamlit/notes
+/backend/services/__pycache__
+/backend/logs
+/backend/api/v1/__pycache__
