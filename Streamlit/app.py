@@ -62,7 +62,7 @@ if not st.session_state.repository_notes:
                     content = f.read()
                     try:
                         response = requests.post(
-                        "http://localhost:8000/notes/parse",
+                        "http://localhost:8000/api/v1/notes/parse",
                         json={"raw_content": content.strip()}
                         )
                         response.raise_for_status()
@@ -112,7 +112,7 @@ with col1:
                 with st.spinner("Fetching and parsing note..."):
                     try:
                         response = requests.post(
-                            "http://localhost:8000/notes/scrape",
+                            "http://localhost:8000/api/v1/notes/scrape",
                             json={"url": url_input.strip()}
                         )
                         response.raise_for_status()
@@ -139,7 +139,7 @@ with col1:
             with st.spinner("Uploading and parsing note..."):
                 try:
                     response = requests.post(
-                    "http://localhost:8000/notes/parse",
+                    "http://localhost:8000/api/v1/notes/parse",
                     json={"raw_content": upload_file}
                 )
                     response.raise_for_status()
@@ -159,12 +159,7 @@ with col1:
 
         # Repository Notes
         # ----------------
-        if st.session_state.selected_note_title:
-            default_index = list(st.session_state.repository_notes.keys()).index(st.session_state.selected_note_title)
-            st.session_state.selected_note_title = st.radio("Notes", options=list(st.session_state.repository_notes.keys()), index=default_index)
-
-        else:
-            st.session_state.selected_note_title = st.radio("Notes", options=list(st.session_state.repository_notes.keys()))
+        st.session_state.selected_note_title = st.radio("Notes", options=list(st.session_state.repository_notes.keys()))
 
         # Find selected note
         selected_note = None
