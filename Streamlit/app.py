@@ -1,4 +1,8 @@
-#TODO: Impose filename sanitization.
+# TODO: Impose filename sanitization.
+# TODO: Add delete note functionality.
+# TODO: Improve error handling and user feedback.
+# TODO: Add pagination or search for repository notes if too many.
+# TODO: Enhance UI/UX with sidebar, better styling, and layout.
 
 import os
 import sys
@@ -6,15 +10,16 @@ import json
 import requests
 import streamlit as st
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+from core.config import settings
+from core.logger import msg_logger, error_logger
 
 # ------------------
 # Page Configuration
 # ------------------
 
 st.set_page_config(page_title="Mentorion", layout="wide")
+
+msg_logger.info("Application started.")
 
 # --------------------
 # State Initialization
@@ -45,20 +50,19 @@ if "selected_note_title" not in st.session_state:
 
 # Uploader Key
 # ------------
-
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
+msg_logger.info("Session state initialized.")
 
 # Load Notes from JSON files
 # --------------------------
-NOTES_PATH = os.path.join(ROOT, "Streamlit", "notes")
-os.makedirs(NOTES_PATH, exist_ok=True)
+os.makedirs(settings.NOTE_FOLDER, exist_ok=True)
 if not st.session_state.repository_notes:
     with st.spinner("Fetching and parsing note..."):
-        for file in os.listdir(NOTES_PATH):
+        for file in os.listdir(settings.NOTE_FOLDER):
             if file.endswith(".json"):
-                with open(os.path.join(NOTES_PATH, file), "r", encoding="utf-8") as f:
+                with open(os.path.join(settings.NOTE_FOLDER, file), "r", encoding="utf-8") as f:
                     content = f.read()
                     try:
                         response = requests.post(
@@ -68,8 +72,8 @@ if not st.session_state.repository_notes:
                         response.raise_for_status()
 
                     except Exception as e:
-                        st.error(f"Failed to parse note: {e}")
-                        st.stop()
+                        st.error(f"Failed to parse note from {file}: {e}")
+                        error_logger.error(f"Failed to parse note: {e}")
 
                     structured_note = response.json()
                     structured_note_title = structured_note.get("title", "Untitled")
@@ -119,7 +123,7 @@ with col1:
 
                     except Exception as e:
                         st.error(f"Failed to scrape note: {e}")
-                        st.stop()
+                        error_logger.error(f"Failed to scrape note: {e}")
 
                 structured_note = response.json()
                 structured_note_title = structured_note.get("title", "Untitled")
@@ -127,6 +131,7 @@ with col1:
                 st.success("Note fetched and parsed successfully!")
             else:
                 st.error("Please enter a valid URL.")
+                error_logger.error("Invalid URL entered for note scraping.")
 
         
         # File uploader
@@ -281,14 +286,14 @@ with col2:
                     # ---------------
                     if f"{selected_note['title']}.json" != f"{st.session_state.selected_note_title}.json":
                         
-                        old_file_path = os.path.join(NOTES_PATH, f"{st.session_state.selected_note_title}.json")
+                        old_file_path = os.path.join(settings.NOTE_FOLDER, f"{st.session_state.selected_note_title}.json")
                         if os.path.exists(old_file_path):
                             os.remove(old_file_path)
                             
                     # Save Note
                     # ---------
                     note_json = json.dumps(selected_note, indent=2)
-                    file_path = os.path.join(NOTES_PATH, f"{selected_note['title']}.json")
+                    file_path = os.path.join(settings.NOTE_FOLDER, f"{selected_note['title']}.json")
                     with open(file_path, "w", encoding='utf-8') as f:
                         f.write(note_json)
                     
