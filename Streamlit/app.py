@@ -164,7 +164,9 @@ with col1:
 
         # Repository Notes
         # ----------------
-        st.session_state.selected_note_title = st.radio("Notes", options=list(st.session_state.repository_notes.keys()))
+        for title in st.session_state.repository_notes.keys():
+            if st.button(title, use_container_width=True):
+                st.session_state.selected_note_title = title
 
         # Find selected note
         selected_note = None
