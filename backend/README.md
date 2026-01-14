@@ -45,8 +45,6 @@ backend/                          # Backend layer (AI & application logic)
   - Generate summary
   - Generate testing questions & answers
 
-
-
 ## Core APIs
 
 - /notes/parse
