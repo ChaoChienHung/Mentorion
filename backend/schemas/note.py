@@ -1,10 +1,6 @@
 from typing import List
 from pydantic import BaseModel, Field
-
-class QA(BaseModel):
-    question: str = Field(..., description="A question generated from the note's content.")
-    answer: str = Field(..., description="The answer corresponding to the question.")
-
+from backend.schemas.question import ShortAnswer as QA
 
 class Note(BaseModel):
     title: str = Field(description="The title of the extracted note.")
