@@ -124,12 +124,8 @@ User Browser
 
 ### Core APIs
 
-- /notes/create  
-- /notes/append  
-- /notes/upload  
-- /notes/merge  
+- /notes/parse  
 - /notes/scrape  
-- /notes/{id}/ai-action  
 
 ### Note Ingestion Pipeline
 
@@ -181,35 +177,74 @@ Notes and AI Agents are separated. Notes remain stable, user-owned entities whil
 
 Follow the steps below to set up and run the project in an isolated environment.
 
-1. Create a virtual environment
+1. **Create a virtual environment**
+   
+   This creates a `venv` folder with an isolated Python environment.
 
-```bash
-python -m venv venv
-```
+   ```bash
+   python -m venv venv
+   ```
 
-2. Activate the virtual environment
+1. **Activate the virtual environment**
 
-* On macOS / Linux
+   * On macOS / Linux
 
-```bash
-source venv/bin/activate
-```
-* On Windows
+   ```bash
+   source venv/bin/activate
+   ```
+   * On Windows
 
-```bash
-venv\Scripts\activate
-```
+   ```bash
+   venv\Scripts\activate
+   ```
 
-3. Install required dependencies
+   * Windows (PowerShell)
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   venv\Scripts\Activate.ps1
+   ```
 
-4. Install Playwright browsers
+2. **Install required dependencies**
 
-```bash
-playwright install
-```
+   This installs all Python packages needed for the project.
 
-Once completed, the environment is ready to use.
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Install Playwright browsers**
+
+   Playwright needs browser binaries to run automated scripts.
+
+   ```bash
+   playwright install
+   ```
+
+4. **Export API Key**
+
+   * On macOS / Linux
+
+   ```bash
+   export GEMINI_API_KEY=YOUR_API_KEY
+   ```
+
+   * Windows (Command Prompt)
+
+   ```bash
+   set GEMINI_API_KEY=YOUR_API_KEY
+   ```
+
+   * Windows (PowerShell)
+
+   ```bash
+   $env:GEMINI_API_KEY="YOUR_API_KEY"
+   ```
+
+5. **Run the backend server**
+
+   ```bash
+   cd backend
+   uvicorn main:app --reload
+   ```
+   - This starts the FastAPI server in development mode.
+   - Access the API at http://127.0.0.1:8000
