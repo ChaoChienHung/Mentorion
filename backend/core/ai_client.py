@@ -1,5 +1,6 @@
 from google import genai
 from backend.core.config import settings
+from backend.core.logger import msg_logger, error_logger
 
 def create_gemini_client():
     """
@@ -10,21 +11,21 @@ def create_gemini_client():
     2. Tests the connection with a simple API call
     3. Returns the client or None if setup fails
     """
-    print("🔐 Setting up Gemini client...")
+    msg_logger.info("🔐 Setting up Gemini client...")
 
-    if not settings.API_KEY:
-        print("❌ No GEMINI_API_KEY found in environment variables.")
-        print("💡 Set it with:")
-        print("   • Linux/Mac: export GEMINI_API_KEY=your_key")
-        print("   • Windows:  setx GEMINI_API_KEY your_key")
+    if not settings.GEMINI_API_KEY:
+        error_logger.error("❌ No GEMINI_API_KEY found in environment variables.")
+        error_logger.info("💡 Set it with:")
+        error_logger.info("   • Linux/Mac: export GEMINI_API_KEY=your_key")
+        error_logger.info("   • Windows:  setx GEMINI_API_KEY your_key")
         raise RuntimeError("GEMINI_API_KEY not set")
 
     try:
-        client = genai.Client(api_key=settings.API_KEY)
-        print("✅ Gemini client created and tested successfully.")
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        msg_logger.info("✅ Gemini client created and tested successfully.")
 
     except Exception as e:
-        print(f"❌ Failed to create Gemini client: {e}")
-        print("🔍 Check your API key and internet connection.")
-
+        error_logger.error(f"❌ Failed to create Gemini client: {e}")
+        error_logger.info("🔍 Check your API key and internet connection.")
+        
     return client
