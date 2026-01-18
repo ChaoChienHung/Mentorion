@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from backend.schemas.note import Note, NoteRequest
-from backend.api.v1.dependencies import note_service, rate_limit
+from backend.api.v1.dependencies import note_service
 
 router = APIRouter()
 

@@ -1,11 +1,11 @@
 import time
 
-# ------------
-# Rate Limiter
-# ------------
+# -----------------
+# Request Throttler
+# -----------------
 class RequestThrottler:
     """
-    Basic rate limiter to control API request frequency and prevent server overload.
+    Basic request throttler to control API request frequency and prevent server overload.
 
     This class tracks the time of the last API request and enforces a minimum interval
     between requests based on the configured `requests_per_minute`. If a request is made

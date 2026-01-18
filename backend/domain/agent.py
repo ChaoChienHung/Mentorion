@@ -23,8 +23,9 @@ Until then, keeping logic consolidated here favors iteration speed and clarity.
 import json
 import time
 from google import genai
-from typing import Dict, Literal, Any
-from backend.schemas.note import Note, QA
+from typing import Literal, Any
+from backend.schemas.note import Note
+from backend.schemas.question import ShortAnswer as QA
 from backend.core.ai_client import create_gemini_client
 
 # ----------

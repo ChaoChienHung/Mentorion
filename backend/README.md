@@ -3,22 +3,22 @@
 ```bash
 backend/                          # Backend layer (AI & application logic)
     │
-    ├─ main.py                    # FastAPI entry
-    ├─ README.md                  # Backend Readme
-    ├─ DevNotes.md                # Backend development notes
-    │
     ├─ api/
     │  └─ v1/
-    │     └─ notes.py             # /notes/*
+    │     ├─ __init__.py
+    │     ├─ dependencies.py      # Dependencies for routes
+    │     └─ routes.py            # API Routes
     │
     ├─ core/
-    │  ├─ logger.py               # Logger setup
-    │  ├─ config.py               # Configuration setup
+    │  ├─ __init__.py
     │  ├─ ai_client.py            # Create and intialize a client using configured API key
+    │  ├─ config.py               # Configuration setup
+    │  ├─ logger.py               # Logger setup
     │  ├─ rate_limiter.py         # Rate limiter
     │  └─ request_throttler.py    # Request throttler
     │
     ├─ domain/                    
+    │  ├─ __init__.py
     │  ├─ agent.py                # Note agent (basic functionalities)
     │  └─ scraper.py              # Scraper
     │
@@ -27,10 +27,18 @@ backend/                          # Backend layer (AI & application logic)
     │  └─ MessageLogger.log       # Logger for DEBUG, INFO messages
     │
     ├─ schemas/
-    │  └─ note.py                 # Note schema
+    │  ├─ note.py                 # Note schema
+    │  └─ question.log            # Questions schema
     │
-    └─ services/
-       └─ note_service.py         # Note services
+    ├─ services/
+    │  ├─ __init__.py
+    │  └─ note_service.py         # Note services
+    │
+    ├─ __init__.py                
+    ├─ DevNotes.md                # Backend development notes
+    ├─ README.md                  # Backend Readme
+    └─ main.py                    # FastAPI entry
+    
 
 ```
 

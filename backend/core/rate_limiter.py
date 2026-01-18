@@ -1,7 +1,7 @@
 import time
 import threading
-from collections import deque
 from typing import Dict
+from collections import deque
 
 
 class SlidingWindowRateLimiter:
