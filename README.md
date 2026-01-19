@@ -15,84 +15,81 @@ This system is organized into Frontend, Backend (Application Layer), and Server 
 ```bash
 Mentorion/
 │
-├─ server/                           # (TODO) Server layer (API, authentication, routing)
-│   ├─ auth/                         # (TODO) Login, register, JWT/session handling
-│   ├─ routes/                       # (TODO) REST/GraphQL endpoints
-│   └─ middleware/                   # (TODO) Input validation, rate limiting
+├─ server/                             # Server layer (API, authentication, routing)
+│   ├─ auth/                           # Login, register, JWT/session handling
+│   ├─ routes/                         # REST/GraphQL endpoints
+│   └─ middleware/                     # Input validation, rate limiting
 │
-├─ frontend/                         # (TODO) Front-end code (React, Vue, Angular, etc.)
-│   ├─ public/
-│   │   └─ index.html    
-│   ├─ src/
-│   │   ├─ App.js
-│   │   └─ index.js    
-│   └─ package.json
-│
-├─ backend/                          # Backend layer (AI & application logic)
+├─ backend/                            # Backend layer (AI & application logic)
 │     │
 │     ├─ api/
 │     │  └─ v1/
 │     │     ├─ __init__.py
-│     │     ├─ dependencies.py       # Dependencies for routes
-│     │     └─ routes.py             # API Routes
+│     │     ├─ dependencies.py         # Dependencies for routes
+│     │     └─ routes.py               # API Routes
 │     │
 │     ├─ core/
 │     │  ├─ __init__.py
-│     │  ├─ ai_client.py             # Create and intialize a client using configured API key
-│     │  ├─ config.py                # Configuration setup
-│     │  ├─ logger.py                # Logger setup
-│     │  ├─ rate_limiter.py          # Rate limiter
-│     │  └─ request_throttler.py     # Request throttler
+│     │  ├─ ai_client.py               # Create and intialize a client using configured API key
+│     │  ├─ config.py                  # Configuration setup
+│     │  ├─ logger.py                  # Logger setup
+│     │  ├─ rate_limiter.py            # Rate limiter
+│     │  └─ request_throttler.py       # Request throttler
 │     │
 │     ├─ domain/                    
 │     │  ├─ __init__.py
-│     │  ├─ agent.py                 # Note agent (basic functionalities)
-│     │  └─ scraper.py               # Scraper
+│     │  ├─ agent.py                   # Note agent (basic functionalities)
+│     │  └─ scraper.py                 # Scraper
 │     │
-│     ├─ logs/                       # Logger files
-│     │  ├─ ErrorLogger.log          # Logger for WARNING, ERROR messages
-│     │  └─ MessageLogger.log        # Logger for DEBUG, INFO messages
+│     ├─ logs/                         # Logger files
+│     │  ├─ ErrorLogger.log            # Logger for WARNING, ERROR messages
+│     │  └─ MessageLogger.log          # Logger for DEBUG, INFO messages
 │     │
 │     ├─ schemas/
-│     │  ├─ note.py                  # Note schema
-│     │  └─ question.log             # Questions schema
+│     │  ├─ note.py                    # Note schema
+│     │  └─ question.log               # Questions schema
 │     │
 │     ├─ services/
 │     │  ├─ __init__.py
-│     │  └─ note_service.py          # Note services
+│     │  └─ note_service.py            # Note services
 │     │
 │     ├─ __init__.py                
-│     ├─ DevNotes.md                 # Backend development notes
-│     ├─ README.md                   # Backend Readme
-│     └─ main.py                     # FastAPI entry
-│
+│     ├─ DevNotes.md                   # Backend development notes
+│     ├─ README.md                     # Backend Readme
+│     └─ main.py                       # FastAPI entry
 │      
-├─ Streamlit/                        # Streamlit app
-│    ├── core/                       # Core functionalities
-│    │     ├─ __init__.py        
-│    │     ├─ config.py              # Configuration file
-│    │     └─ logger.py              # Logger file
-│    │
-│    ├── logs/                       # Logging files
-│    │     ├─ ErrorLogger.log        # Error logging
-│    │     └─ MessageLogger.log      # Info logging
-│    │
-│    ├── notes/                      # Local Storage for Notes
-│    │
-│    ├── pages/                      # Streamlit web pages
-│    │     └─ Notes.py               # Note Page
-│    │
-│    ├── __init__.py
-│    ├── DevNotes.md                 # Development notes
-│    ├── Home.py                     # Main Streamlit application
-│    ├── README.md                   # Project documentation
-│    └── requirements.txt            # Python dependencies
+├─ frontend/
+│     │
+│     ├─ DevNotes.md                   # Frontend development notes
+│     ├─ README.md                     # Frontend Readme
+│     └─ requirements.txt
 │
-├─ tests/                            # Unit and integration tests
-├─ .gitignore
-├─ DevNotes.md                       # Mentorion development notes
-├─ README.md                         # Project overview
-└─ requirements.txt                  # Mentorion Python dependencies
+├─ Streamlit/                          # Backend layer (AI & application logic)
+│      ├── core/                       # Core functionalities
+│      │     ├─ __init__.py        
+│      │     ├─ config.py              # Configuration file
+│      │     └─ logger.py              # Logger file
+│      │
+│      ├── logs/                       # Logging files
+│      │     ├─ ErrorLogger.log        # Error logging
+│      │     └─ MessageLogger.log      # Info logging
+│      │
+│      ├── notes/                      # Local Storage for Notes
+│      │
+│      ├── pages/                      # Streamlit web pages
+│      │     └─ Notes.py               # Note Page
+│      │
+│      ├── __init__.py
+│      ├── DevNotes.md                 # Development notes
+│      ├── Home.py                     # Main Streamlit application
+│      ├── README.md                   # Project documentation
+│      └── requirements.txt            # Python dependencies
+│
+│
+├─ tests/                           # Unit and integration tests
+├─ DevNotes.md                      # Mentorion development notes
+├─ README.md                        # Project overview
+└─ requirements.txt                 # Mentorion Python dependencies
 ```
 
 ---

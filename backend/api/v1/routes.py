@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from backend.schemas.note import Note, NoteRequest
 from backend.api.v1.dependencies import note_service
 

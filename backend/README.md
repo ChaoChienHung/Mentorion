@@ -1,3 +1,5 @@
+# Backend
+
 ## Folder Structure
 
 ```bash
@@ -39,7 +41,6 @@ backend/                          # Backend layer (AI & application logic)
     ├─ README.md                  # Backend Readme
     └─ main.py                    # FastAPI entry
     
-
 ```
 
 ---
