@@ -1,5 +1,5 @@
 import logging
-from backend.core.config import settings
+from core.config import settings
 
 # -----------------------
 # General Messages Logger

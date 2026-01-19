@@ -23,10 +23,10 @@ Until then, keeping logic consolidated here favors iteration speed and clarity.
 import json
 import time
 from google import genai
+from schemas.note import Note
 from typing import Literal, Any
-from backend.schemas.note import Note
-from backend.schemas.question import ShortAnswer as QA
-from backend.core.ai_client import create_gemini_client
+from schemas.question import ShortAnswer as QA
+from core.ai_client import create_gemini_client
 
 # ----------
 # Note Agent

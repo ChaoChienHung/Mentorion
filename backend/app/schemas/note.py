@@ -1,6 +1,6 @@
 from typing import List
 from pydantic import BaseModel, Field
-from backend.schemas.question import ShortAnswer as QA
+from schemas.question import ShortAnswer as QA
 
 class Note(BaseModel):
     title: str = Field(description="The title of the extracted note.")

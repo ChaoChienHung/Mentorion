@@ -2,7 +2,7 @@ import time
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 from crawl4ai import AsyncWebCrawler
-from backend.core.requrest_throttler import RequestThrottler
+from core.requrest_throttler import RequestThrottler
 
 # -------
 # Scraper 

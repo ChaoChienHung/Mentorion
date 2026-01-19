@@ -3,44 +3,49 @@
 ## Folder Structure
 
 ```bash
-backend/                          # Backend layer (AI & application logic)
+backend/                              # Backend layer (AI & application logic)
     │
-    ├─ api/
-    │  └─ v1/
-    │     ├─ __init__.py
-    │     ├─ dependencies.py      # Dependencies for routes
-    │     └─ routes.py            # API Routes
+    ├─ app/
+    │  │
+    │  ├─ api/
+    │  │  └─ v1/
+    │  │     ├─ __init__.py
+    │  │     ├─ dependencies.py          # Dependencies for routes
+    │  │     └─ routes.py                # API Routes
+    │  │
+    │  ├─ core/
+    │  │  ├─ __init__.py
+    │  │  ├─ ai_client.py                # Create and intialize a client using configured API key
+    │  │  ├─ config.py                   # Configuration setup
+    │  │  ├─ logger.py                   # Logger setup
+    │  │  ├─ rate_limiter.py             # Rate limiter
+    │  │  └─ request_throttler.py        # Request throttler
+    │  │
+    │  ├─ domain/                    
+    │  │  ├─ __init__.py
+    │  │  ├─ agent.py                    # Note agent (basic functionalities)
+    │  │  └─ scraper.py                  # Scraper
+    │  │
+    │  ├─ logs/                          # Logger files
+    │  │  ├─ ErrorLogger.log             # Logger for WARNING, ERROR messages
+    │  │  └─ MessageLogger.log           # Logger for DEBUG, INFO messages
+    │  │
+    │  ├─ schemas/
+    │  │  ├─ note.py                     # Note schema
+    │  │  └─ question.log                # Questions schema
+    │  │
+    │  ├─ services/
+    │  │  ├─ __init__.py
+    │  │  └─ note_service.py             # Note services
+    │  │
+    │  └─ main.py                        # FastAPI entry
     │
-    ├─ core/
-    │  ├─ __init__.py
-    │  ├─ ai_client.py            # Create and intialize a client using configured API key
-    │  ├─ config.py               # Configuration setup
-    │  ├─ logger.py               # Logger setup
-    │  ├─ rate_limiter.py         # Rate limiter
-    │  └─ request_throttler.py    # Request throttler
-    │
-    ├─ domain/                    
-    │  ├─ __init__.py
-    │  ├─ agent.py                # Note agent (basic functionalities)
-    │  └─ scraper.py              # Scraper
-    │
-    ├─ logs/                      # Logger files
-    │  ├─ ErrorLogger.log         # Logger for WARNING, ERROR messages
-    │  └─ MessageLogger.log       # Logger for DEBUG, INFO messages
-    │
-    ├─ schemas/
-    │  ├─ note.py                 # Note schema
-    │  └─ question.log            # Questions schema
-    │
-    ├─ services/
-    │  ├─ __init__.py
-    │  └─ note_service.py         # Note services
+    ├─ tests/
     │
     ├─ __init__.py                
-    ├─ DevNotes.md                # Backend development notes
-    ├─ README.md                  # Backend Readme
-    └─ main.py                    # FastAPI entry
-    
+    ├─ DevNotes.md                    # Backend development notes
+    └─ README.md                      # Backend Readme
+
 ```
 
 ---

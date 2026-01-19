@@ -1,7 +1,7 @@
+from domain.agent import NoteAgent
 from fastapi import Request, HTTPException
-from backend.domain.agent import NoteAgent
-from backend.services.note_service import NoteService
-from backend.core.rate_limiter import SlidingWindowRateLimiter
+from services.note_service import NoteService
+from core.rate_limiter import SlidingWindowRateLimiter
 
 # ------------------------------
 # Initialize Shared Dependencies
