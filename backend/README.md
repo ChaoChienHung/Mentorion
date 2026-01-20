@@ -42,7 +42,6 @@ backend/                              # Backend layer (AI & application logic)
     │
     ├─ tests/
     │
-    ├─ __init__.py                
     ├─ DevNotes.md                    # Backend development notes
     └─ README.md                      # Backend Readme
 
