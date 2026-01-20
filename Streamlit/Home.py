@@ -122,25 +122,6 @@ body {
     margin-bottom: 30px;
 }
 
-/* Hero buttons */
-.hero button {
-    background-color: #ffffff;
-    color: #000000;
-    font-size: 18px;
-    font-weight: bold;
-    padding: 15px 40px;
-    margin: 10px;
-    border-radius: 50px;
-    border: none;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-.hero button:hover {
-    background-color: #16a085;
-    color: #ffffff;
-}
-
 /* ---------------- */
 /* Features section */
 /* ---------------- */
@@ -183,7 +164,6 @@ st.markdown("""
     <div>
         <h1>Mentorion</h1>
         <p>Your AI-powered guide to growth and success</p>
-        <button onclick="window.location.href='#get-started'">Get Started</button>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -218,4 +198,41 @@ st.markdown("""
     <h2 style="color:#ffffff; font-size:42px;">Ready to transform your learning journey?</h2>
 </div>
 """, unsafe_allow_html=True)
+
+# -----------------------
+# Notes Navigation Button
+# -----------------------
+col1, col2, col3 = st.columns([11, 10, 5])
+with col2:
+    st.markdown("""
+    <style>
+    /* ---------------------------------------------- */ 
+    /* Style the button to look like your hero button */
+    /* ---------------------------------------------- */
+
+    div.stButton > button:first-child {
+        background-color: #ffffff;
+        color: #000000;
+        font-size: 18px;
+        font-weight: bold;
+        padding: 15px 40px;
+        border-radius: 50px;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-bottom: 30px;
+
+    }
+
+    div.stButton > button:first-child:hover {
+        background-color: #16a085;
+        color: #ffffff;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Go to Notes"):
+        st.switch_page("./pages/Notes.py")
+
+
 msg_logger.info("Home page UI rendered.")

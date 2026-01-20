@@ -20,70 +20,74 @@ Mentorion/
 │   ├─ routes/                         # REST/GraphQL endpoints
 │   └─ middleware/                     # Input validation, rate limiting
 │
-├─ backend/                            # Backend layer (AI & application logic)
-│     │
-│     ├─ api/
-│     │  └─ v1/
-│     │     ├─ __init__.py
-│     │     ├─ dependencies.py         # Dependencies for routes
-│     │     └─ routes.py               # API Routes
-│     │
-│     ├─ core/
-│     │  ├─ __init__.py
-│     │  ├─ ai_client.py               # Create and intialize a client using configured API key
-│     │  ├─ config.py                  # Configuration setup
-│     │  ├─ logger.py                  # Logger setup
-│     │  ├─ rate_limiter.py            # Rate limiter
-│     │  └─ request_throttler.py       # Request throttler
-│     │
-│     ├─ domain/                    
-│     │  ├─ __init__.py
-│     │  ├─ agent.py                   # Note agent (basic functionalities)
-│     │  └─ scraper.py                 # Scraper
-│     │
-│     ├─ logs/                         # Logger files
-│     │  ├─ ErrorLogger.log            # Logger for WARNING, ERROR messages
-│     │  └─ MessageLogger.log          # Logger for DEBUG, INFO messages
-│     │
-│     ├─ schemas/
-│     │  ├─ note.py                    # Note schema
-│     │  └─ question.log               # Questions schema
-│     │
-│     ├─ services/
-│     │  ├─ __init__.py
-│     │  └─ note_service.py            # Note services
-│     │
-│     ├─ __init__.py                
-│     ├─ DevNotes.md                   # Backend development notes
-│     ├─ README.md                     # Backend Readme
-│     └─ main.py                       # FastAPI entry
-│      
+├─ backend/                              # Backend layer (AI & application logic)
+│    │
+│    ├─ app/
+│    │  │
+│    │  ├─ api/
+│    │  │  └─ v1/
+│    │  │     ├─ __init__.py
+│    │  │     ├─ dependencies.py          # Dependencies for routes
+│    │  │     └─ routes.py                # API Routes
+│    │  │
+│    │  ├─ core/
+│    │  │  ├─ __init__.py
+│    │  │  ├─ ai_client.py                # Create and intialize a client using configured API key
+│    │  │  ├─ config.py                   # Configuration setup
+│    │  │  ├─ logger.py                   # Logger setup
+│    │  │  ├─ rate_limiter.py             # Rate limiter
+│    │  │  └─ request_throttler.py        # Request throttler
+│    │  │
+│    │  ├─ domain/                    
+│    │  │  ├─ __init__.py
+│    │  │  ├─ agent.py                    # Note agent (basic functionalities)
+│    │  │  └─ scraper.py                  # Scraper
+│    │  │
+│    │  ├─ logs/                          # Logger files
+│    │  │  ├─ ErrorLogger.log             # Logger for WARNING, ERROR messages
+│    │  │  └─ MessageLogger.log           # Logger for DEBUG, INFO messages
+│    │  │
+│    │  ├─ schemas/
+│    │  │  ├─ note.py                     # Note schema
+│    │  │  └─ question.log                # Questions schema
+│    │  │
+│    │  ├─ services/
+│    │  │  ├─ __init__.py
+│    │  │  └─ note_service.py             # Note services
+│    │  │
+│    │  └─ main.py                        # FastAPI entry
+│    │
+│    ├─ tests/
+│    │
+│    ├─ DevNotes.md                    # Backend development notes
+│    └─ README.md                      # Backend Readme
+│
 ├─ frontend/
-│     │
-│     ├─ DevNotes.md                   # Frontend development notes
-│     ├─ README.md                     # Frontend Readme
-│     └─ requirements.txt
+│    │
+│    ├─ DevNotes.md                   # Frontend development notes
+│    ├─ README.md                     # Frontend Readme
+│    └─ requirements.txt
 │
 ├─ Streamlit/                          # Backend layer (AI & application logic)
-│      ├── core/                       # Core functionalities
-│      │     ├─ __init__.py        
-│      │     ├─ config.py              # Configuration file
-│      │     └─ logger.py              # Logger file
-│      │
-│      ├── logs/                       # Logging files
-│      │     ├─ ErrorLogger.log        # Error logging
-│      │     └─ MessageLogger.log      # Info logging
-│      │
-│      ├── notes/                      # Local Storage for Notes
-│      │
-│      ├── pages/                      # Streamlit web pages
-│      │     └─ Notes.py               # Note Page
-│      │
-│      ├── __init__.py
-│      ├── DevNotes.md                 # Development notes
-│      ├── Home.py                     # Main Streamlit application
-│      ├── README.md                   # Project documentation
-│      └── requirements.txt            # Python dependencies
+│    ├─ core/                       # Core functionalities
+│    │  ├─ __init__.py        
+│    │  ├─ config.py              # Configuration file
+│    │  └─ logger.py              # Logger file
+│    │
+│    ├─ logs/                       # Logging files
+│    │  ├─ ErrorLogger.log        # Error logging
+│    │  └─ MessageLogger.log      # Info logging
+│    │
+│    ├─ notes/                      # Local Storage for Notes
+│    │
+│    ├─ pages/                      # Streamlit web pages
+│    │  └─ Notes.py               # Note Page
+│    │
+│    ├─ __init__.py
+│    ├─ DevNotes.md                 # Development notes
+│    ├─ Home.py                     # Main Streamlit application
+│    ├─ README.md                   # Project documentation
+│    └─ requirements.txt            # Python dependencies
 │
 │
 ├─ tests/                           # Unit and integration tests
@@ -268,7 +272,7 @@ Follow the steps below to set up and run the project in an isolated environment.
 5. **Run the backend server**
 
    ```bash
-   cd backend
+   cd backend/app
    uvicorn main:app --reload
    ```
    - This starts the FastAPI server in development mode.
