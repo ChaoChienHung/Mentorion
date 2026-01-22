@@ -38,7 +38,25 @@ backend/                              # Backend layer (AI & application logic)
     │  │  ├─ __init__.py
     │  │  └─ note_service.py             # Note services
     │  │
+    │  ├─ storage/
+    │  │  ├─ cloud/
+    │  │  │    ├─ __init__.py
+    │  │  │    └─ cloud_storage.py       # (TODO) Cloud storage implementation (for future use)
+    │  │  │
+    │  │  ├─ local/
+    │  │  │    ├─ __init__.py
+    │  │  │    ├─ sqlite.py              # Local SQLite storage (structured notes, questions)
+    │  │  │    └─ files.py               
+    │  │  │
+    │  │  ├─ __init__.py
+    │  │  ├─ base.py                     # Abstract interface
+    │  │  ├─ DevNotes.md
+    │  │  └─ README.md
+    │  │
     │  └─ main.py                        # FastAPI entry
+    │
+    ├─ data/
+    │    └─ notes_files/
     │
     ├─ tests/
     │

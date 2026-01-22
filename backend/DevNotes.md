@@ -1,5 +1,24 @@
 # Development Notes
 
+1. **Backend-Owned Storage (Source of Truth)**:
+In Mentorion, all authoritative user learning data (notes, parsed articles, AI outputs, review metadata) should be **owned** and **persisted** by the **backend layer**. This ensures **data consistency**, **reproducibility of AI results**, and **clean separation of concerns**. The backend—not the frontend or Streamlit UI—decides when and how data is stored.
+   1. **Guiding Rule for Data Placement**:
+   If **losing the data would be painful or break learning continuity**, it **belongs in backend storage**. **If losing it would only affect user convenience or UI state**, it may **live in frontend or Streamlit-local storage**.
+   1. **Meaning of “Local” Storage in Backend Context**:
+   **“Local storage”** refers to **storage that is local to the machine where the backend is running** (e.g., SQLite files or JSON on disk), **not storage in the user’s browser**. Whether the backend runs on a developer’s laptop or a remote server, backend-local storage is still considered local if it resides on the same machine as the backend process.
+   1. **Frontend / Streamlit Storage Is Non-Authoritative**:
+   **Frontend** or **Streamlit-local storage** should be **used only for temporary** or **auxiliary data**, such as **draft notes**, **cached views**, **UI state**, or **offline edits awaiting sync**. It **must not be treated as the primary** or **canonical store for user learning data**, as it **lacks consistency guarantees** and does not scale to multi-device usage.
+
+
+1. **Storage Is Part of the Backend, but a Separate Concern**:
+Although storage lives in the backend, it should be **implemented as a dedicated storage layer (e.g., `backend/app/storage/`)** rather than being embedded directly in services or routes. **Application services orchestrate workflows**, **domain models define valid data**, and the **storage layer handles persistence**. This separation allows storage implementations to be swapped without changing business logic.
+
+1. **Local vs Cloud Storage Is an Implementation Detail**:
+From the backend’s perspective, the **difference** between local storage (SQLite, filesystem) and cloud storage (Postgres, S3) is an **implementation detail**. **Services interact with storage through an abstraction (e.g., storage.save(note))**, allowing **future migration** to **cloud infrastructure** without rewriting core application logic.
+
+1. **AI Agents Should Not Mutate Core Data Directly**:
+AI agents **operate on backend-owned data** in a **read-and-append manner**. They **read stable note content** and **produce structured outputs (summaries, questions, evaluations) that are stored separately**. This **preserves reproducibility**, **simplifies debugging**, and **prevents** unintended **side effects**.
+
 1. **Why JSON over Markdown**:
 I chose JSON for storing notes because it is **easier for non-AI systems to parse**. Its structure also closely mirrors Python dictionaries, making it simple to manipulate, format, and convert within Python.
 
