@@ -21,6 +21,14 @@ backend/                              # Backend layer (AI & application logic)
     │  │  ├─ rate_limiter.py             # Rate limiter
     │  │  └─ request_throttler.py        # Request throttler
     │  │
+    │  ├─ db/
+    │  │  ├─ __init__.py
+    │  │  ├─ base.py                     # Abstract interface
+    │  │  ├─ DevNotes.md
+    │  │  ├─ models.py                   
+    │  │  ├─ README.md
+    │  │  └─ session.py                  # Database URL
+    │  │
     │  ├─ domain/                    
     │  │  ├─ __init__.py
     │  │  ├─ agent.py                    # Note agent (basic functionalities)
@@ -37,21 +45,6 @@ backend/                              # Backend layer (AI & application logic)
     │  ├─ services/
     │  │  ├─ __init__.py
     │  │  └─ note_service.py             # Note services
-    │  │
-    │  ├─ storage/
-    │  │  ├─ cloud/
-    │  │  │    ├─ __init__.py
-    │  │  │    └─ cloud_storage.py       # (TODO) Cloud storage implementation (for future use)
-    │  │  │
-    │  │  ├─ local/
-    │  │  │    ├─ __init__.py
-    │  │  │    ├─ sqlite.py              # Local SQLite storage (structured notes, questions)
-    │  │  │    └─ files.py               
-    │  │  │
-    │  │  ├─ __init__.py
-    │  │  ├─ base.py                     # Abstract interface
-    │  │  ├─ DevNotes.md
-    │  │  └─ README.md
     │  │
     │  └─ main.py                        # FastAPI entry
     │

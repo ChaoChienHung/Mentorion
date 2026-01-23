@@ -1,0 +1,10 @@
+google
+openai>=1.0.0
+crawl4ai>=0.2.0
+pydantic>=2.0.0
+requests>=2.25.0
+fastapi==0.128.0
+google-genai>=0.1.0
+python-dotenv>=1.0.0
+beautifulsoup4>=4.9.0
+SQLAlchemy[asyncio]==2.0.20
