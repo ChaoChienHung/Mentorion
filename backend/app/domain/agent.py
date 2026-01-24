@@ -52,7 +52,7 @@ class NoteAgent:
 
     Methods:
     - parse_note: Read and parse a structured note from json file
-    - scrape_note: Extracts structured data from raw text or JSON notes
+    - generate_note: Generate structured data from input text content
     - generate_qa: Generate question & answer pairs from a structured note
     """
     def __init__(self, client: genai.Client = None, model: Literal["gemini-2.5-flash"] = "gemini-2.5-flash", max_retries: int = 3):

@@ -1,8 +1,26 @@
+# -------
+# FastAPI
+# -------
 from fastapi import FastAPI
+
+# -------
+# Routers
+# -------
 from api.v1.dependencies import rate_limit
 from api.v1.routes import router as v1_router
 
+# --------
+# Database
+# --------
+from db.base import Base
+from db.session import engine
+
 app = FastAPI(title="Mentorion API")
+
+@app.on_event("startup")
+def on_startup():
+    # Create all tables in the database
+    Base.metadata.create_all(bind=engine)
 
 # ------------
 # Rate Limiter
