@@ -20,80 +20,94 @@ Mentorion/
 │   ├─ routes/                         # REST/GraphQL endpoints
 │   └─ middleware/                     # Input validation, rate limiting
 │
-├─ backend/                              # Backend layer (AI & application logic)
+├─ backend/                            # Backend layer (AI & application logic)
 │    │
 │    ├─ app/
 │    │  │
 │    │  ├─ api/
 │    │  │  └─ v1/
 │    │  │     ├─ __init__.py
-│    │  │     ├─ dependencies.py          # Dependencies for routes
-│    │  │     └─ routes.py                # API Routes
+│    │  │     ├─ dependencies.py       # Dependencies for routes
+│    │  │     └─ routes.py             # API Routes
 │    │  │
 │    │  ├─ core/
 │    │  │  ├─ __init__.py
-│    │  │  ├─ ai_client.py                # Create and intialize a client using configured API key
-│    │  │  ├─ config.py                   # Configuration setup
-│    │  │  ├─ logger.py                   # Logger setup
-│    │  │  ├─ rate_limiter.py             # Rate limiter
-│    │  │  └─ request_throttler.py        # Request throttler
+│    │  │  ├─ ai_client.py             # Create and intialize a client using configured API key
+│    │  │  ├─ config.py                # Configuration setup
+│    │  │  ├─ logger.py                # Logger setup
+│    │  │  ├─ rate_limiter.py          # Rate limiter
+│    │  │  └─ request_throttler.py     # Request throttler
+│    │  │
+│    │  ├─ db/
+│    │  │  ├─ __init__.py
+│    │  │  ├─ base.py                  # Abstract interface
+│    │  │  ├─ DevNotes.md
+│    │  │  ├─ models.py                   
+│    │  │  ├─ README.md
+│    │  │  └─ session.py               # Database URL
 │    │  │
 │    │  ├─ domain/                    
 │    │  │  ├─ __init__.py
-│    │  │  ├─ agent.py                    # Note agent (basic functionalities)
-│    │  │  └─ scraper.py                  # Scraper
+│    │  │  ├─ agent.py                 # Note agent (basic functionalities)
+│    │  │  └─ scraper.py               # Scraper
 │    │  │
-│    │  ├─ logs/                          # Logger files
-│    │  │  ├─ ErrorLogger.log             # Logger for WARNING, ERROR messages
-│    │  │  └─ MessageLogger.log           # Logger for DEBUG, INFO messages
+│    │  ├─ logs/                       # Logger files
+│    │  │  ├─ ErrorLogger.log          # Logger for WARNING, ERROR messages
+│    │  │  └─ MessageLogger.log        # Logger for DEBUG, INFO messages
 │    │  │
 │    │  ├─ schemas/
-│    │  │  ├─ note.py                     # Note schema
-│    │  │  └─ question.log                # Questions schema
+│    │  │  ├─ note.py                  # Note schema
+│    │  │  └─ question.log             # Questions schema
 │    │  │
 │    │  ├─ services/
 │    │  │  ├─ __init__.py
-│    │  │  └─ note_service.py             # Note services
+│    │  │  └─ note_service.py          # Note services
 │    │  │
-│    │  └─ main.py                        # FastAPI entry
+│    │  ├─ tests/
+│    │  │  ├─ __init__.py
+│    │  │  ├─ requirements.txt
+│    │  │  ├─ test_agent.py
+│    │  │  └─ test_scraper.py          # Scraper Unit Test
+│    │  │
+│    │  └─ main.py                     # FastAPI entry
 │    │
-│    ├─ tests/
+│    ├─ data/                             
 │    │
 │    ├─ DevNotes.md                    # Backend development notes
-│    └─ README.md                      # Backend Readme
+│    ├─ README.md                      # Backend Readme
+│    └─ requirements.txt                      
 │
 ├─ frontend/
 │    │
-│    ├─ DevNotes.md                   # Frontend development notes
-│    ├─ README.md                     # Frontend Readme
+│    ├─ DevNotes.md                    # Frontend development notes
+│    ├─ README.md                      # Frontend Readme
 │    └─ requirements.txt
 │
 ├─ Streamlit/                          # Backend layer (AI & application logic)
-│    ├─ core/                       # Core functionalities
+│    ├─ core/                          # Core functionalities
 │    │  ├─ __init__.py        
-│    │  ├─ config.py              # Configuration file
-│    │  └─ logger.py              # Logger file
+│    │  ├─ config.py                   # Configuration file
+│    │  └─ logger.py                   # Logger file
 │    │
-│    ├─ logs/                       # Logging files
-│    │  ├─ ErrorLogger.log        # Error logging
-│    │  └─ MessageLogger.log      # Info logging
+│    ├─ logs/                          # Logging files
+│    │  ├─ ErrorLogger.log             # Error logging
+│    │  └─ MessageLogger.log           # Info logging
 │    │
-│    ├─ notes/                      # Local Storage for Notes
+│    ├─ notes/                         # Local Storage for Notes
 │    │
-│    ├─ pages/                      # Streamlit web pages
-│    │  └─ Notes.py               # Note Page
+│    ├─ pages/                         # Streamlit web pages
+│    │  └─ Notes.py                    # Note Page
 │    │
 │    ├─ __init__.py
-│    ├─ DevNotes.md                 # Development notes
-│    ├─ Home.py                     # Main Streamlit application
-│    ├─ README.md                   # Project documentation
-│    └─ requirements.txt            # Python dependencies
+│    ├─ DevNotes.md                    # Development notes
+│    ├─ Home.py                        # Main Streamlit application
+│    ├─ README.md                      # Project documentation
+│    └─ requirements.txt               # Python dependencies
 │
 │
-├─ tests/                           # Unit and integration tests
-├─ DevNotes.md                      # Mentorion development notes
-├─ README.md                        # Project overview
-└─ requirements.txt                 # Mentorion Python dependencies
+├─ tests/                              # Unit and integration tests
+├─ DevNotes.md                         # Mentorion development notes
+└─ README.md                           # Project overview
 ```
 
 ---
@@ -237,8 +251,14 @@ Follow the steps below to set up and run the project in an isolated environment.
 
    This installs all Python packages needed for the project.
 
+   **Backend**
    ```bash
-   pip install -r requirements.txt
+   pip install -r backend/requirements.txt
+   ```
+
+   **Streamlit**
+   ```bash
+   pip install -r Streamlit/requirements.txt
    ```
 
 3. **Install Playwright browsers**

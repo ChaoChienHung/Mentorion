@@ -46,12 +46,16 @@ backend/                              # Backend layer (AI & application logic)
     │  │  ├─ __init__.py
     │  │  └─ note_service.py             # Note services
     │  │
+    │  ├─ tests/
+    │  │  ├─ __init__.py
+    │  │  ├─ requirements.txt
+    │  │  ├─ test_agent.py
+    │  │  └─ test_scraper.py             # Scraper Unit Test
+    │  │
     │  └─ main.py                        # FastAPI entry
     │
     ├─ data/
-    │    └─ notes_files/
-    │
-    ├─ tests/
+    │    └─ 
     │
     ├─ DevNotes.md                    # Backend development notes
     └─ README.md                      # Backend Readme
