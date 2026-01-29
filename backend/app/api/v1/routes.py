@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from db.dependency import get_db
+from sqlalchemy.orm import Session
+from fastapi import Depends, APIRouter
 from schemas.note import Note, NoteRequest
 from api.v1.dependencies import note_service
 
@@ -12,6 +14,7 @@ router = APIRouter()
 # --------------------
 # Scrape Note from URL
 # --------------------
+
 @router.post("/notes/scrape", response_model=Note)
 async def scrape_note(request: NoteRequest) -> Note:
     return await note_service.create_note_from_url(request.url)

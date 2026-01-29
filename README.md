@@ -77,11 +77,50 @@ Mentorion/
 │    ├─ README.md                      # Backend Readme
 │    └─ requirements.txt                      
 │
-├─ frontend/
+├─ frontend/                             # Frontend layer
+│    ├── node_modules/                 # Warehouse of all installed dependencies (auto-generated, do not edit)
 │    │
-│    ├─ DevNotes.md                    # Frontend development notes
-│    ├─ README.md                      # Frontend Readme
-│    └─ requirements.txt
+│    ├── public/                       # Static assets served as-is (images, favicon, robots.txt)
+│    │     └─ index.html
+│    │
+│    ├── src/                          # Application source code (components, pages, styles, utils)
+│    │  ├─ api/                     # Axios/fetch functions for backend API calls
+│    │  │  ├─ auth.js
+│    │  │  └─ notes.js
+│    │  │                   
+│    │  ├─ assets/
+│    │  │  └─ react.svg
+│    │  │
+│    │  ├─ components/              # Reusable components
+│    │  │  ├─ NoteCard.jsx
+│    │  │  ├─ NoteEditor.jsx
+│    │  │  ├─ Dashboard.jsx
+│    │  │  └─ AIActionPanel.jsx
+│    │  │
+│    │  ├─ context/                 # React Context for global state (auth, notes)
+│    │  │  └─ AuthContext.jsx
+│    │  │
+│    │  ├─ pages/                   # Page-level components
+│    │  │  ├─ Login.jsx
+│    │  │  ├─ Register.jsx
+│    │  │  ├─ NotesDashboard.jsx
+│    │  │  └─ SkillReviewer.jsx
+│    │  │
+│    │  ├─ styles/                  # CSS or SCSS files
+│    │  │
+│    │  ├─ App.css
+│    │  ├─ App.jsx
+│    │  ├─ main.css
+│    │  └─ main.jsx
+│    │
+│    ├─ DevNotes.md                   # Frontend developer notes
+│    ├─ eslint.config.js              # ESLint configuration (rules, plugins, environments)
+│    ├─ index.html                    # Entry point of the app (contains <div id="root"></div>)
+│    ├─ package-lock.json             # Exact versions of all dependencies for reproducible builds
+│    ├─ package.json                  # Project metadata, dependencies, and scripts
+│    ├─ README.md                     # Project overview, instructions
+│    └─ vite.config.js                # Vite configuration (plugins, build & dev server settings)
+│
 │
 ├─ Streamlit/                          # Backend layer (AI & application logic)
 │    ├─ core/                          # Core functionalities

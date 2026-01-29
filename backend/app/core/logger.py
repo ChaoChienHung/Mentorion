@@ -1,5 +1,12 @@
+import os
 import logging
 from core.config import settings
+
+# ------------------------------
+# Ensure Logger Directory Exists
+# ------------------------------
+
+os.makedirs(settings.LOGGER_FOLDER, exist_ok=True)
 
 # -----------------------
 # General Messages Logger

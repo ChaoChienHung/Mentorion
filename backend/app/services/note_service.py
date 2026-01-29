@@ -1,7 +1,9 @@
+from db.models import Item
 from typing import Dict, Any
 from schemas.note import Note
 from domain.agent import NoteAgent
 from domain.scraper import Scraper
+from sqlalchemy.orm import Session
 
 
 class NoteService:
@@ -30,15 +32,26 @@ class NoteService:
                 error_messages=["URL is required"]
             )
         
+        # --------------------------
         # Scrape the article content
         # --------------------------
         scraper: Scraper = Scraper()
         scrape_result: Dict[str, Any] = await scraper.scrape_article(url)
         content: str = scrape_result.get("text", "")
 
+        # --------------------------------------
         # Generate the note from scraped content
         # --------------------------------------
         note = self.agent.generate_note(content)
+
+        # -----------------------------
+        # Save the note to the database
+        # -----------------------------
+        # note_data = note.to_dict()
+        # db_item = Item(id=id, title=note_data.title, data=note_data.dict())
+        # db.add(db_item)
+        # db.commit()
+        # db.refresh(db_item)
 
         return note
 
