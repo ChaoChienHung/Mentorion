@@ -24,7 +24,7 @@ import json
 import time
 from google import genai
 from schemas.note import Note
-from typing import Literal, Any
+from typing import Any, Literal, Optional
 from schemas.question import ShortAnswer as QA
 from core.ai_client import create_gemini_client
 
@@ -56,7 +56,7 @@ class NoteAgent:
     - generate_qa: Generate question & answer pairs from a structured note
     """
     def __init__(self, client: genai.Client = None, model: Literal["gemini-2.5-flash"] = "gemini-2.5-flash", max_retries: int = 3):
-        self.client: genai.Client | None = client or create_gemini_client()            # LLM Agent
+        self.client: Optional[genai.Client] = client or create_gemini_client()
         self.model: str = model                                                        # LLM Model, default is gemini-2.5-flash
         self.max_retries: int = max_retries                                            # Maximum number of retries
 

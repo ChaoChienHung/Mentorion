@@ -86,7 +86,8 @@ def test_generate_note_no_client():
 
     note = agent.generate_note("Some content")
 
-    assert note.success is True
+    assert note.success is False
+    assert "No client detected" in note.error_messages[0]
 
 
 # -----------

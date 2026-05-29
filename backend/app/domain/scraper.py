@@ -1,8 +1,9 @@
+import asyncio
 import time
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
-from crawl4ai import AsyncWebCrawler
-from core.requrest_throttler import RequestThrottler
+import requests
+from core.request_throttler import RequestThrottler
 
 # -------
 # Scraper 
@@ -68,61 +69,51 @@ class Scraper:
                 'error': "URL must be in string type."
             }
         
-        # Initialize an Asynchronous Crawler
-        # ----------------------------------
-        async with AsyncWebCrawler() as crawler:
+        try:
+            response = await asyncio.to_thread(
+                requests.get,
+                url,
+                timeout=20,
+                headers={"User-Agent": "Mentorion/1.0 (+https://example.com)"},
+            )
+            response.raise_for_status()
+            html = response.text
 
-            # Crawl the target url
-            result = await crawler.arun(url=url)
+            soup = BeautifulSoup(html, "html.parser")
+            title = (
+                soup.title.string.strip()
+                if soup.title and soup.title.string and soup.title.string.strip()
+                else "Unknown Title"
+            )
+            links_found = len(soup.find_all("a"))
+            text = self.clean_content(html)
 
-            try:
-                # Check the result of crawling
-                if result.success:
-                    print(f"✅ Successfully crawled: {len(result.markdown)} chars")
-                    return {
-                        'success': True,
-                        'title': result.metadata.get('title', 'Unknown Title'),
-                        'html': result.html,
-                        'markdown': result.markdown,
-                        'html_length': len(result.html),
-                        'markdown_length': len(result.markdown),
-                        'links_found': len(result.links.get('internal', [])) + len(result.links.get('external', [])),
-                        'crawl_time': time.time(),
-                        'text': self.clean_content(result.html),
-                        'error': None
-                    }
-
-                else:
-                    # Error when crawling (e.g., network failure, blocked request, bad URL)
-                    # ---------------------------------------------------------------------
-                    print(f"❌ Failed to crawl {url}: {result.error_message}")
-                    return {
-                        'success': False,
-                        'title': None,
-                        'html': None,
-                        'markdown': None,
-                        'html_length': None,
-                        'markdown_length': None,
-                        'links_found': None,
-                        'crawl_time': None,
-                        'text': "None",
-                        'error': result.error_message
-                    }
-
-            except Exception as e:
-                print(f"❌ Exception crawling {url}: {str(e)}")
-                return {
-                    'success': False,
-                    'title': None,
-                    'html': None,
-                    'markdown': None,
-                    'html_length': None,
-                    'markdown_length': None,
-                    'links_found': None,
-                    'crawl_time': None,
-                    'text': "None",
-                    'error': str(e)
-                }
+            return {
+                'success': True,
+                'title': title,
+                'html': html,
+                'markdown': text,
+                'html_length': len(html),
+                'markdown_length': len(text),
+                'links_found': links_found,
+                'crawl_time': time.time(),
+                'text': text,
+                'error': None
+            }
+        except Exception as e:
+            print(f"❌ Exception crawling {url}: {str(e)}")
+            return {
+                'success': False,
+                'title': None,
+                'html': None,
+                'markdown': None,
+                'html_length': None,
+                'markdown_length': None,
+                'links_found': None,
+                'crawl_time': None,
+                'text': "None",
+                'error': str(e)
+            }
 
     # ----------------------------------
     # Scrape and Clean Multiple Articles

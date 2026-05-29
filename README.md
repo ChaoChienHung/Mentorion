@@ -1,338 +1,85 @@
 # Mentorion
 
-This project is designed to practice LLM (Gemini) integration while building a learning support application. The application includes features such as automatic article parsing, note-taking, question generation, and answer evaluation.
+Mentorion 是一個練習 LLM（Gemini）整合的學習輔助專案，包含：
+- Backend（FastAPI）：抓取文章 → 產生結構化筆記 → 產生 Q&A
+- Frontend（React/Vite）：Web UI
+- Streamlit：另一套簡易 UI
 
----
+## 需求
 
-## Overall Architecture and Workflow
+- Python：建議 3.11+（目前也可在 3.9 跑，但第三方套件會有 EOL 警告）
+- Node.js：用於 frontend（npm）
 
-This system is organized into Frontend, Backend (Application Layer), and Server / Infrastructure Logic to clearly separate responsibilities. This architecture supports a web-based learning assistant with authentication, note management, AI enrichment, and persistent storage.
-
----
-
-## Folder Structure
+## 目錄結構（現況）
 
 ```bash
 Mentorion/
-│
-├─ server/                             # Server layer (API, authentication, routing)
-│   ├─ auth/                           # Login, register, JWT/session handling
-│   ├─ routes/                         # REST/GraphQL endpoints
-│   └─ middleware/                     # Input validation, rate limiting
-│
-├─ backend/                            # Backend layer (AI & application logic)
-│    │
-│    ├─ app/
-│    │  │
-│    │  ├─ api/
-│    │  │  └─ v1/
-│    │  │     ├─ __init__.py
-│    │  │     ├─ dependencies.py       # Dependencies for routes
-│    │  │     └─ routes.py             # API Routes
-│    │  │
-│    │  ├─ core/
-│    │  │  ├─ __init__.py
-│    │  │  ├─ ai_client.py             # Create and intialize a client using configured API key
-│    │  │  ├─ config.py                # Configuration setup
-│    │  │  ├─ logger.py                # Logger setup
-│    │  │  ├─ rate_limiter.py          # Rate limiter
-│    │  │  └─ request_throttler.py     # Request throttler
-│    │  │
-│    │  ├─ db/
-│    │  │  ├─ __init__.py
-│    │  │  ├─ base.py                  # Abstract interface
-│    │  │  ├─ DevNotes.md
-│    │  │  ├─ models.py                   
-│    │  │  ├─ README.md
-│    │  │  └─ session.py               # Database URL
-│    │  │
-│    │  ├─ domain/                    
-│    │  │  ├─ __init__.py
-│    │  │  ├─ agent.py                 # Note agent (basic functionalities)
-│    │  │  └─ scraper.py               # Scraper
-│    │  │
-│    │  ├─ logs/                       # Logger files
-│    │  │  ├─ ErrorLogger.log          # Logger for WARNING, ERROR messages
-│    │  │  └─ MessageLogger.log        # Logger for DEBUG, INFO messages
-│    │  │
-│    │  ├─ schemas/
-│    │  │  ├─ note.py                  # Note schema
-│    │  │  └─ question.log             # Questions schema
-│    │  │
-│    │  ├─ services/
-│    │  │  ├─ __init__.py
-│    │  │  └─ note_service.py          # Note services
-│    │  │
-│    │  ├─ tests/
-│    │  │  ├─ __init__.py
-│    │  │  ├─ requirements.txt
-│    │  │  ├─ test_agent.py
-│    │  │  └─ test_scraper.py          # Scraper Unit Test
-│    │  │
-│    │  └─ main.py                     # FastAPI entry
-│    │
-│    ├─ data/                             
-│    │
-│    ├─ DevNotes.md                    # Backend development notes
-│    ├─ README.md                      # Backend Readme
-│    └─ requirements.txt                      
-│
-├─ frontend/                             # Frontend layer
-│    ├── node_modules/                 # Warehouse of all installed dependencies (auto-generated, do not edit)
-│    │
-│    ├── public/                       # Static assets served as-is (images, favicon, robots.txt)
-│    │     └─ index.html
-│    │
-│    ├── src/                          # Application source code (components, pages, styles, utils)
-│    │  ├─ api/                     # Axios/fetch functions for backend API calls
-│    │  │  ├─ auth.js
-│    │  │  └─ notes.js
-│    │  │                   
-│    │  ├─ assets/
-│    │  │  └─ react.svg
-│    │  │
-│    │  ├─ components/              # Reusable components
-│    │  │  ├─ NoteCard.jsx
-│    │  │  ├─ NoteEditor.jsx
-│    │  │  ├─ Dashboard.jsx
-│    │  │  └─ AIActionPanel.jsx
-│    │  │
-│    │  ├─ context/                 # React Context for global state (auth, notes)
-│    │  │  └─ AuthContext.jsx
-│    │  │
-│    │  ├─ pages/                   # Page-level components
-│    │  │  ├─ Login.jsx
-│    │  │  ├─ Register.jsx
-│    │  │  ├─ NotesDashboard.jsx
-│    │  │  └─ SkillReviewer.jsx
-│    │  │
-│    │  ├─ styles/                  # CSS or SCSS files
-│    │  │
-│    │  ├─ App.css
-│    │  ├─ App.jsx
-│    │  ├─ main.css
-│    │  └─ main.jsx
-│    │
-│    ├─ DevNotes.md                   # Frontend developer notes
-│    ├─ eslint.config.js              # ESLint configuration (rules, plugins, environments)
-│    ├─ index.html                    # Entry point of the app (contains <div id="root"></div>)
-│    ├─ package-lock.json             # Exact versions of all dependencies for reproducible builds
-│    ├─ package.json                  # Project metadata, dependencies, and scripts
-│    ├─ README.md                     # Project overview, instructions
-│    └─ vite.config.js                # Vite configuration (plugins, build & dev server settings)
-│
-│
-├─ Streamlit/                          # Backend layer (AI & application logic)
-│    ├─ core/                          # Core functionalities
-│    │  ├─ __init__.py        
-│    │  ├─ config.py                   # Configuration file
-│    │  └─ logger.py                   # Logger file
-│    │
-│    ├─ logs/                          # Logging files
-│    │  ├─ ErrorLogger.log             # Error logging
-│    │  └─ MessageLogger.log           # Info logging
-│    │
-│    ├─ notes/                         # Local Storage for Notes
-│    │
-│    ├─ pages/                         # Streamlit web pages
-│    │  └─ Notes.py                    # Note Page
-│    │
-│    ├─ __init__.py
-│    ├─ DevNotes.md                    # Development notes
-│    ├─ Home.py                        # Main Streamlit application
-│    ├─ README.md                      # Project documentation
-│    └─ requirements.txt               # Python dependencies
-│
-│
-├─ tests/                              # Unit and integration tests
-├─ DevNotes.md                         # Mentorion development notes
-└─ README.md                           # Project overview
+├─ backend/
+│  ├─ app/                 # FastAPI app（在這層執行 uvicorn）
+│  ├─ data/                # sqlite db
+│  └─ requirements.txt
+├─ frontend/               # React + Vite
+├─ Streamlit/              # Streamlit app
+├─ examples/               # 小範例腳本
+├─ requirements.txt        # 聚合依賴（backend + streamlit）
+└─ requirements-dev.txt    # 開發依賴（含測試）
 ```
 
----
+## Backend API（FastAPI）
 
-## Frontend Layer (Web Application)
+- 入口：[backend/app/main.py](file:///Users/bytedance/Desktop/Ludwig/Mentorion/backend/app/main.py)
+- prefix：`/api/v1`
 
-### Key Components
-- Web UI (React / Vue / Next.js / etc.)
-- Authentication pages (Login / Register)
-- Dashboard (Notes overview)
-- Note Editor & Viewer
+### Endpoints
 
-### Frontend Features
-- User authentication (login/logout)
-- Create, view, edit, and append notes
-- Upload notes (text / markdown / PDF)
-- AI Actions (Merge notes, scrape notes, QA generation, etc.)
-- Skill Reviewer
+- `POST /api/v1/notes/scrape`：body `{"url": "https://..."}` → `Note`
+- `POST /api/v1/notes/parse`：body `{"raw_content": "..."}` → `Note`
+- `POST /api/v1/notes/generate-questions`：body `Note` → `Note`（填入 qa）
 
-```text
-User Browser
-   ├── Login / Register
-   ├── Notes Dashboard
-   ├── Note Editor
-   ├── AI Actions Panel
-   └── Skill Reviewer
+## 環境變數
+
+- `GEMINI_API_KEY`：未設定時，後端仍可啟動，但 LLM 相關功能（generate_note / generate_qa）會回傳 `success=false`
+- `GEMINI_MODEL`：預設 `gemini-2.5-flash`
+
+## 開發指令
+
+### Python（Backend + Streamlit）
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
 ```
 
----
+### Run backend
 
-## Server Layer (API & Authentication)
-
-### Responsibilities
-- Request routing (REST / GraphQL)
-- Authentication & authorization (JWT / session-based)
-- Input validation & rate limiting
-- Secure access to user-specific data
-
-### Core APIs
-
-- /auth/login  
-- /auth/register  
-
----
-
-## Backend Layer (Application & AI Logic)
-
-### Key Components
-- AI Agent Capabilities:
-  - Merge multiple notes
-  - Scrape notes from websites (URL input)
-  - Generate summary
-  - Generate questions & answers
-  - Check and correct answers
-- Skill Reviewer
-  - Store questions and their review dates
-
-### Core APIs
-
-- /notes/parse  
-- /notes/scrape  
-
-### Note Ingestion Pipeline
-
-**Supported Inputs**
-- Manual text entry
-- File upload
-- Website scraping (Wikipedia & generic pages)
-- Note merging
-
-**Processing Flow**
-```
-Input → Parser → Cleaner → Normalizer → Structured Note
+```bash
+cd backend/app
+uvicorn main:app --reload
 ```
 
-- HTML Parser / File Parser  
-- Content cleaning & deduplication  
-- Normalization into a common schema  
+### Run Streamlit
 
----
-
-## End-to-End Workflow Summary
-
-```
-Web Frontend
-   ↓
-Authentication (Server)
-   ↓
-Notes API
-   ↓
-Parser / Cleaner / Normalizer
-   ↓
-Database (JSON Notes)
-   ↓
-LLM Agent
-   ├── Summarize
-   ├── Quiz and Answer Generation
-   └── Review and Evaluation
-   ↓
-Updated Note Stored
-   ↓
-Frontend Displays Results
+```bash
+streamlit run Streamlit/Home.py
 ```
 
-Notes and AI Agents are separated. Notes remain stable, user-owned entities while AI Agents operate on notes and store outputs in a structured ai_outputs section. This allows independent AI upgrades, versioning, and reproducibility without affecting the core note data.
+### Run frontend
 
----
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-## Instruction
+### Run tests
 
-Follow the steps below to set up and run the project in an isolated environment.
+```bash
+./venv/bin/python -m pytest backend/app/tests
+```
 
-1. **Create a virtual environment**
-   
-   This creates a `venv` folder with an isolated Python environment.
+## Example
 
-   ```bash
-   python -m venv venv
-   ```
-
-1. **Activate the virtual environment**
-
-   * On macOS / Linux
-
-   ```bash
-   source venv/bin/activate
-   ```
-   * On Windows
-
-   ```bash
-   venv\Scripts\activate
-   ```
-
-   * Windows (PowerShell)
-
-   ```bash
-   venv\Scripts\Activate.ps1
-   ```
-
-2. **Install required dependencies**
-
-   This installs all Python packages needed for the project.
-
-   **Backend**
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-
-   **Streamlit**
-   ```bash
-   pip install -r Streamlit/requirements.txt
-   ```
-
-3. **Install Playwright browsers**
-
-   Playwright needs browser binaries to run automated scripts.
-
-   ```bash
-   playwright install
-   ```
-
-4. **Export API Key**
-
-   * On macOS / Linux
-
-   ```bash
-   export GEMINI_API_KEY=YOUR_API_KEY
-   ```
-
-   * Windows (Command Prompt)
-
-   ```bash
-   set GEMINI_API_KEY=YOUR_API_KEY
-   ```
-
-   * Windows (PowerShell)
-
-   ```bash
-   $env:GEMINI_API_KEY="YOUR_API_KEY"
-   ```
-
-5. **Run the backend server**
-
-   ```bash
-   cd backend/app
-   uvicorn main:app --reload
-   ```
-   - This starts the FastAPI server in development mode.
-   - Access the API at http://127.0.0.1:8000
+```bash
+./venv/bin/python examples/demo_scrape_and_qa.py
+```

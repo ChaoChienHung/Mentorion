@@ -18,14 +18,14 @@ def create_gemini_client():
         error_logger.info("💡 Set it with:")
         error_logger.info("   • Linux/Mac: export GEMINI_API_KEY=your_key")
         error_logger.info("   • Windows:  setx GEMINI_API_KEY your_key")
-        raise RuntimeError("GEMINI_API_KEY not set")
+        return None
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         msg_logger.info("✅ Gemini client created and tested successfully.")
+        return client
 
     except Exception as e:
         error_logger.error(f"❌ Failed to create Gemini client: {e}")
         error_logger.info("🔍 Check your API key and internet connection.")
-        
-    return client
+        return None

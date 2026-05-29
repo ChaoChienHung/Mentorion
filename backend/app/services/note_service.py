@@ -1,9 +1,7 @@
-from db.models import Item
 from typing import Dict, Any
 from schemas.note import Note
 from domain.agent import NoteAgent
 from domain.scraper import Scraper
-from sqlalchemy.orm import Session
 
 
 class NoteService:
@@ -27,8 +25,7 @@ class NoteService:
                 summary="",
                 content="",
                 related_concepts=[],
-                questions=[],
-                answers=[],
+                qa=[],
                 error_messages=["URL is required"]
             )
         
@@ -67,8 +64,7 @@ class NoteService:
                 summary="",
                 content="",
                 related_concepts=[],
-                questions=[],
-                answers=[],
+                qa=[],
                 error_messages=["Note content is empty"]
             )
 
