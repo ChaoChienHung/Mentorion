@@ -23,10 +23,11 @@ Until then, keeping logic consolidated here favors iteration speed and clarity.
 import json
 import time
 from google import genai
-from schemas.note import Note
 from typing import Any, Literal, Optional
-from schemas.question import ShortAnswer as QA
-from core.ai_client import create_gemini_client
+from ..schemas.note import Note
+from ..schemas.question import ShortAnswer as QA
+from ..core.ai_client import create_gemini_client
+from ..core.logger import msg_logger, error_logger
 
 # ----------
 # Note Agent
@@ -106,8 +107,7 @@ class NoteAgent:
             )
 
         except Exception as e:
-            # TODO: change to logging
-            print(f"🔄 Naive JSON Parsing failed due to {e}.")
+            error_logger.warning("Naive JSON parsing failed: %s", e)
             extracted_note = Note(
                 title="Untitled",
                 success=False,
@@ -115,7 +115,7 @@ class NoteAgent:
                 content=note_content,
                 related_concepts=[],
                 qa=[],
-                error_messages=[f"🔄 Naive JSON Parsing failed due to {e}."]
+                error_messages=[f"Naive JSON parsing failed: {e}."]
             )
         return extracted_note
                 
@@ -136,11 +136,10 @@ class NoteAgent:
         - extracted_note (Note): A structured Note object.
         """
 
-        # If no client is available, print out error messages
-        # ---------------------------------------------------
-        # TODO: change to logging
         if not self.client:
-            print("No client detected. Please check your client and API configuration is correct.")
+            error_logger.error(
+                "No client detected. Please check your client and API configuration is correct."
+            )
             return Note(
                 title="Untitled",
                 success=False,
@@ -191,26 +190,21 @@ class NoteAgent:
                     extracted_note: Note = Note.model_validate_json(response.text)
 
                 except Exception as e:
-                    # TODO: change to logging
-                    print(f"❌ Validation failed: {e}")
+                    error_logger.error("Validation failed: %s", e)
                     continue
 
-                # TODO: change to logging
-                print(f"✅ Article processed successfully using {self.model}.")
+                msg_logger.info("Article processed successfully using %s.", self.model)
                 return extracted_note
 
             except Exception as e:
-                # Extraction Error
-                # ----------------
-                print(f"❌ Attempt {attempt + 1} failed: {e}")
+                error_logger.error("Attempt %s failed: %s", attempt + 1, e)
 
                 # Wait before retry (Exponential Backoff)
                 # ---------------------------------------
                 time.sleep(2 ** attempt)
 
                 if attempt == self.max_retries - 1:
-                    # TODO: change to logging
-                    print(f"🔄 All extraction attempts failed: {e}")
+                    error_logger.error("All extraction attempts failed: %s", e)
                     return Note(
                         title="Untitled",
                         success=False,
@@ -240,7 +234,7 @@ class NoteAgent:
         # Error Handling for Missing Client or Invalid Note
         # -------------------------------------------------
         if not self.client:
-            print("No client detected. Please check your client and API configuration.")
+            error_logger.error("No client detected. Please check your client and API configuration.")
             note.success = False
             note.error_messages.append(
                 "No client detected. Please check your client and API configuration."
@@ -248,7 +242,7 @@ class NoteAgent:
             return note
 
         if not isinstance(note, Note):
-            print("Invalid note format. Expected a Note object.")
+            error_logger.error("Invalid note format. Expected a Note object.")
             return Note(
                 title="Untitled",
                 success=False,
@@ -260,7 +254,7 @@ class NoteAgent:
             )
 
         if not note.content:
-            print("Note content is empty. Cannot generate Q&A.")
+            error_logger.error("Note content is empty. Cannot generate Q&A.")
             note.success = False
             note.error_messages.append("Note content is empty. Cannot generate Q&A.")
             return note
@@ -314,14 +308,14 @@ class NoteAgent:
                 note.qa = [QA(**item) for item in qa_data.get("qa", [])]
 
                 note.success = True
-                print(f"✅ Q&A generation completed successfully using {self.model}.")
+                msg_logger.info("Q&A generation completed successfully using %s.", self.model)
                 return note
 
             except Exception as e:
-                print(f"❌ Attempt {attempt + 1} failed: {e}")
+                error_logger.error("Attempt %s failed: %s", attempt + 1, e)
                 time.sleep(2 ** attempt)
                 if attempt == self.max_retries - 1:
-                    print(f"❌ Q&A generation failed: {e}")
+                    error_logger.error("Q&A generation failed: %s", e)
                     note.error_messages.append(f"Q&A generation failed: {e}")
                     note.success = False
                     return note

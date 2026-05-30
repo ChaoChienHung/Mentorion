@@ -1,6 +1,6 @@
 from google import genai
-from core.config import settings
-from core.logger import msg_logger, error_logger
+from .config import settings
+from .logger import msg_logger, error_logger
 
 def create_gemini_client():
     """

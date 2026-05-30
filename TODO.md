@@ -9,34 +9,6 @@
 - [ ] Python 版本升級到 3.11+（目前可跑，但第三方套件對 3.9 會有 EOL 警告）
 - [ ] Frontend `npm audit` 漏洞處理（目前 `npm ci` 會提示 vulnerabilities）
 
-### Python Package 化 / Import 統一
-
-- [ ] 把 `backend/app` 變成可安裝 package（避免依賴 cwd 才能 import）
-  - [ ] 規劃 package 名稱（例如 `mentorion`）
-  - [ ] 調整 imports：`from domain...` → `from mentorion.domain...`
-  - [ ] 加入 `pyproject.toml`（或最小 `setup.cfg`）並提供 `pip install -e .` 流程
-  - [ ] 測試/啟動指令不用 `cd backend/app` 也能跑
-
-### Logging 統一
-
-- [ ] 把 `print(...)` 統一替換成 logger（agent/scraper/service 層）
-- [ ] 將 logger 目標（console/file）做成可配置（dev 用 console，prod 用 file）
-
-### Backend API
-
-- [ ] 補上 OpenAPI 範例（request/response examples）
-- [ ] 加上 error response schema（統一 HTTP 錯誤碼與格式）
-
-### Testing
-
-- [ ] 加入 API 層測試（FastAPI TestClient）
-- [ ] Agent/Scraper 測試補 edge cases（空內容、超長內容、解析失敗）
-
-### DoD（P0）
-
-- [ ] `pip install -e .` 後，`pytest` 與 `uvicorn` 都可在 repo root 直接執行
-- [ ] API 測試可跑，且不依賴外部網路/金鑰
-
 ## P1（功能可用）
 
 ### Persistence（DB）

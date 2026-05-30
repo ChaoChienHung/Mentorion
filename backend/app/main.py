@@ -6,14 +6,14 @@ from fastapi import FastAPI
 # -------
 # Routers
 # -------
-from api.v1.dependencies import rate_limit
-from api.v1.routes import router as v1_router
+from .api.v1.dependencies import rate_limit
+from .api.v1.routes import router as v1_router
 
 # --------
 # Database
 # --------
-from db.base import Base
-from db.session import engine
+from .db.base import Base
+from .db.session import engine
 
 app = FastAPI(title="Mentorion API")
 

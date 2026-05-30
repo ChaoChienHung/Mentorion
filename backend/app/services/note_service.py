@@ -1,7 +1,7 @@
 from typing import Dict, Any
-from schemas.note import Note
-from domain.agent import NoteAgent
-from domain.scraper import Scraper
+from ..schemas.note import Note
+from ..domain.agent import NoteAgent
+from ..domain.scraper import Scraper
 
 
 class NoteService:

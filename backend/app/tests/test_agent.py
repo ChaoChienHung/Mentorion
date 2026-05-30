@@ -1,7 +1,7 @@
 import json
-from schemas.note import Note
-from domain.agent import NoteAgent
-from schemas.question import ShortAnswer as QA
+from backend.app.schemas.note import Note
+from backend.app.domain.agent import NoteAgent
+from backend.app.schemas.question import ShortAnswer as QA
 
 # ------------------
 # Mock Gemini Client
@@ -66,7 +66,7 @@ def test_parse_note_invalid_json():
     note = agent.parse_note("invalid json")
 
     assert note.success is False
-    assert "Naive JSON Parsing failed" in note.error_messages[0]
+    assert "Naive JSON parsing failed" in note.error_messages[0]
 
 
 # -------------
@@ -129,3 +129,12 @@ def test_generate_qa_empty_content():
 
     assert result.success is False
     assert "Note content is empty" in result.error_messages[0]
+
+
+def test_generate_qa_invalid_note_type():
+    agent = NoteAgent(client=MockGeminiQAClient())
+
+    result = agent.generate_qa("not a note")
+
+    assert result.success is False
+    assert "Invalid note format" in result.error_messages[0]

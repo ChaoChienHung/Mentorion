@@ -1,5 +1,5 @@
 import pytest
-from domain.scraper import Scraper
+from backend.app.domain.scraper import Scraper
 
 TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"
 
@@ -21,7 +21,7 @@ def mock_requests(monkeypatch):
             "<html><head><title>Hi</title></head><body><h1>Hi</h1></body></html>"
         )
 
-    monkeypatch.setattr("domain.scraper.requests.get", mock_get)
+    monkeypatch.setattr("backend.app.domain.scraper.requests.get", mock_get)
 
 
 @pytest.mark.asyncio
@@ -48,6 +48,18 @@ async def test_scrape_article_invalid_url():
 
     assert result["success"] is False
     assert result["error"] is not None
+
+
+@pytest.mark.asyncio
+async def test_scrape_article_http_error(monkeypatch):
+    def mock_get(url, timeout=20, headers=None):
+        return MockResponse("oops", status_code=500)
+
+    monkeypatch.setattr("backend.app.domain.scraper.requests.get", mock_get)
+
+    scraper = Scraper()
+    result = await scraper.scrape_article(TEST_URL)
+    assert result["success"] is False
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-from db.base import Base
+from .base import Base
 from sqlalchemy.types import JSON
 from sqlalchemy import Column, Integer, String
 

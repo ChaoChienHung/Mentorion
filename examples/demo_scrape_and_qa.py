@@ -1,14 +1,7 @@
 import asyncio
 import os
-import sys
-from pathlib import Path
-
-
-APP_DIR = Path(__file__).resolve().parents[1] / "backend" / "app"
-sys.path.insert(0, str(APP_DIR))
-
-from domain.agent import NoteAgent
-from domain.scraper import Scraper
+from backend.app.domain.agent import NoteAgent
+from backend.app.domain.scraper import Scraper
 
 
 async def main():

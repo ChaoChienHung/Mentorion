@@ -3,7 +3,8 @@ import time
 from bs4 import BeautifulSoup
 from typing import List, Dict, Any
 import requests
-from core.request_throttler import RequestThrottler
+from ..core.request_throttler import RequestThrottler
+from ..core.logger import msg_logger, error_logger
 
 # -------
 # Scraper 
@@ -54,8 +55,7 @@ class Scraper:
         """
 
         if not isinstance(url, str):
-            # TODO: Use proper logging
-            print(f"URL must be in string type, got {type(url)}")
+            error_logger.error("URL must be a string, got %s", type(url))
             return {
                 'success': False,
                 'title': None,
@@ -101,7 +101,7 @@ class Scraper:
                 'error': None
             }
         except Exception as e:
-            print(f"❌ Exception crawling {url}: {str(e)}")
+            error_logger.error("Exception crawling %s: %s", url, e)
             return {
                 'success': False,
                 'title': None,
@@ -140,7 +140,7 @@ class Scraper:
         URLs: List[str] = []
 
         if not urls:
-            print("❌ No URLs provided for scraping.")
+            error_logger.error("No URLs provided for scraping.")
             return []
 
         URLs = urls
@@ -148,7 +148,7 @@ class Scraper:
         results = [None] * len(URLs)
 
         for i, url in enumerate(URLs):
-            print(f"🔍 Crawling {i+1}/{len(URLs)}: {url}")
+            msg_logger.info("Crawling %s/%s: %s", i + 1, len(URLs), url)
 
             try:
                 # -------------
@@ -160,7 +160,7 @@ class Scraper:
             # Error when crawling (e.g., network failure, blocked request, bad URL)
             # ---------------------------------------------------------------------
             except Exception as e:
-                print(f"❌ Exception crawling {url}: {str(e)}")
+                error_logger.error("Exception crawling %s: %s", url, e)
                 result = {'error': str(e)}
 
             results[i] = result
@@ -203,5 +203,5 @@ class Scraper:
             return cleaned_text
 
         except Exception as e:
-            print(f"❌ Error cleaning HTML content: {str(e)}")
+            error_logger.error("Error cleaning HTML content: %s", e)
             return "Empty Content Due to Cleaning Error"
