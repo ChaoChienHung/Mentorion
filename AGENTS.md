@@ -81,6 +81,18 @@
    - 改動牽涉 API：更新 `docs/api.md` + README 的 endpoints 區段。
    - 改動牽涉協作/角色：更新本文件與 `docs/collaboration.md`。
 
+## 文件更新規則（當使用者要求「更新文檔」）
+
+當使用者提出「請協助更新專案文件／幫我把文件補齊／幫我同步更新 README 與 docs」等需求時，不要求每次把所有文件全部重寫；應採用「先定位、再最小修改」的方式：
+
+1. 先讀 `docs/doc-map.md`，確認本 repo 的文件清單與各文件責任範圍。
+2. 根據本次改動影響面，挑選需要更新的文件（通常是 README + 1–3 份 docs）。
+3. 優先更新「入口與契約」類文件：
+   - README（啟動方式、最短指令、協作入口）
+   - docs/api.md（API 契約、examples、error format）
+4. 若改動涉及協作流程/規範，更新 AGENTS.md 與 docs/collaboration.md。
+5. 更新後必須檢查：文件間連結是否仍正確，且內容描述與程式行為一致。
+
 ## Doc Map
 
 - README（入口與最短指令）：README.md
