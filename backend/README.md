@@ -48,7 +48,6 @@ backend/                              # Backend layer (AI & application logic)
     │  │
     │  ├─ tests/
     │  │  ├─ __init__.py
-    │  │  ├─ requirements.txt
     │  │  ├─ test_agent.py
     │  │  └─ test_scraper.py             # Scraper Unit Test
     │  │

@@ -8,9 +8,9 @@
 - `requrest_throttler.py` 更名為 `request_throttler.py`，並修正 TypeError 訊息。
 - Scraper 移除對 `crawl4ai` 的強耦合，改成 `requests + bs4`，避免在較舊 Python 版本被第三方套件型別語法卡住。
 - 移除重複且過期的根目錄 `tests/` 與 `main.py`，新增可執行範例：[examples/demo_scrape_and_qa.py](file:///Users/bytedance/Desktop/Ludwig/Mentorion/examples/demo_scrape_and_qa.py)。
-- Python 依賴改為：
-  - [requirements.txt](file:///Users/bytedance/Desktop/Ludwig/Mentorion/requirements.txt)：聚合 backend + streamlit
-  - [requirements-dev.txt](file:///Users/bytedance/Desktop/Ludwig/Mentorion/requirements-dev.txt)：加上測試依賴
+- Python 依賴改為以 `setup.cfg` 為單一真相來源（SSOT），用 extras 管理 dev/streamlit：
+  - `pip install -e '.[dev]'`
+  - `pip install -e '.[streamlit]'`
 - Streamlit/backend logger 行為對齊：確保 log dir 存在，並避免重複掛載 handler。
 
 ## 建議開發流程

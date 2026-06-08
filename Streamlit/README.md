@@ -36,7 +36,6 @@ Streamlit/                            # Backend layer (AI & application logic)
     ├── DevNotes.md                   # Development notes
     ├── Home.py                       # Main Streamlit application
     ├── README.md                     # Project documentation
-    └── requirements.txt              # Python dependencies
 ```
 
 ---
@@ -45,7 +44,7 @@ Streamlit/                            # Backend layer (AI & application logic)
 
 Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -e '.[streamlit]'
 ```
 ---
 

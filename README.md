@@ -23,12 +23,11 @@ Mentorion/
 ├─ backend/
 │  ├─ app/                 # FastAPI app（在這層執行 uvicorn）
 │  ├─ data/                # sqlite db
-│  └─ requirements.txt
 ├─ frontend/               # React + Vite
 ├─ Streamlit/              # Streamlit app
 ├─ examples/               # 小範例腳本
-├─ requirements.txt        # 聚合依賴（backend + streamlit）
-└─ requirements-dev.txt    # 開發依賴（含測試）
+├─ setup.cfg               # Python dependencies（SSOT）
+└─ setup.py
 ```
 
 ## Backend API（FastAPI）
@@ -54,7 +53,7 @@ Mentorion/
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -e '.[dev,streamlit]'
 ```
 
 ### Run backend

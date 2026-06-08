@@ -1,13 +1,6 @@
 # TODO
 
-本文件是「可執行」的待辦清單（里程碑式）。建議先把 P0 做完，確保專案可穩定開發、可測、可擴充。
-
-## P0（可開發、可測、可擴充）
-
-### Infra / Tooling
-
-- [ ] Python 版本升級到 3.11+（目前可跑，但第三方套件對 3.9 會有 EOL 警告）
-- [ ] Frontend `npm audit` 漏洞處理（目前 `npm ci` 會提示 vulnerabilities）
+本文件是「可執行」的待辦清單（里程碑式），只保留 P1 / P2 / P3。每個里程碑都應有明確交付條件（可驗收）。
 
 ## P1（功能可用）
 
@@ -42,12 +35,34 @@
 
 - [ ] 串接 backend API 或共用 domain logic（避免兩套行為分歧）
 
-### DoD（P1）
+### 交付條件（P1）
 
-- [ ] 可以從 UI（Frontend 或 Streamlit）建立一筆 note，並在 DB 中可查到
+- [ ] 可以從 UI（Frontend 或 Streamlit）建立/更新一筆 note，並在 DB 中可查到
+- [ ] 複習模式可走完一輪：取 due → 顯示題目 → 0-5 打分 → next_due 更新
+- [ ] Review 與 Notes 的核心 API 皆有測試覆蓋（不依賴外網/金鑰）
 
 ## P2（品質與可維運）
 
+- [ ] Python 版本升級到 3.11+（目前可跑，但第三方套件對 3.9 會有 EOL 警告）
+- [ ] Frontend `npm audit` 漏洞處理（目前 `npm ci` 會提示 vulnerabilities）
 - [ ] 統一 error handling（HTTPException / 統一 error response）
 - [ ] 加入 CI（lint + test）
 - [ ] 設定檔集中化（env / config loader，避免多份 config）
+
+### 交付條件（P2）
+
+- [ ] CI 在 main 分支穩定通過（backend tests + frontend lint/build）
+- [ ] 後端錯誤回傳格式一致（至少涵蓋常見錯誤碼），且 docs/api.md 同步更新
+- [ ] 專案用一套清楚的 config 規範（env keys、預設值、dev/prod 行為）
+
+## P3（產品化與擴充）
+
+- [ ] 多使用者/登入（user-id 綁定 notes 與 review schedule）
+- [ ] Review stats（/review/stats）與可視化（完成數、due、遺忘曲線/間隔分布）
+- [ ] 題目策略優化（短答/MCQ 混合比例、難度分級、依照弱項補題）
+- [ ] 內容匯入/匯出（Markdown/JSON/Anki）與資料備份
+
+### 交付條件（P3）
+
+- [ ] 不同使用者資料彼此隔離，且 review schedule 正確按 user 維護
+- [ ] 統計頁面能反映真實 review log，並可用於驗收 spacing revision 成效
