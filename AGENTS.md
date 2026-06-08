@@ -81,17 +81,21 @@
    - 改動牽涉 API：更新 `docs/api.md` + README 的 endpoints 區段。
    - 改動牽涉協作/角色：更新本文件與 `docs/collaboration.md`。
 
-## 文件更新規則（當使用者要求「更新文檔」）
 
-當使用者提出「請協助更新專案文件／幫我把文件補齊／幫我同步更新 README 與 docs」等需求時，不要求每次把所有文件全部重寫；應採用「先定位、再最小修改」的方式：
 
-1. 先讀 `docs/doc-map.md`，確認本 repo 的文件清單與各文件責任範圍。
-2. 根據本次改動影響面，挑選需要更新的文件（通常是 README + 1–3 份 docs）。
-3. 優先更新「入口與契約」類文件：
-   - README（啟動方式、最短指令、協作入口）
-   - docs/api.md（API 契約、examples、error format）
-4. 若改動涉及協作流程/規範，更新 AGENTS.md 與 docs/collaboration.md。
-5. 更新後必須檢查：文件間連結是否仍正確，且內容描述與程式行為一致。
+本模塊的目標是降低協作成本：在完成 feature/refactor/任何 repo 變更之後，不必每次把所有文檔全量重讀，而是以 `docs/doc-map.md` 作為索引，僅更新「受影響」的文檔並保持一致性。
+
+### 觸發時機
+
+- 當完成任何 repo 變更（feature/refactor/bugfix/文檔調整）後，需主動評估是否要同步更新文檔
+- 當使用者提出「請協助更新項目的相關文檔」類需求時，需按下列流程處理
+
+### 流程
+
+- 變更盤點：先看此次變更影響到哪些面向（CLI/訓練輸出/評估輸出/dataset pipeline/benchmark recipe/目錄結構/檔名）
+- 以 `docs/doc-map.md` 作為入口：根據 doc-map 的職責邊界，定位需要更新的最小文件集合
+- 分段交付：允許分多輪完成，不要求一次性調整完所有文檔
+- 索引同步：每次有文檔新增/遷移/更名/職責變更，必須同步更新 `docs/doc-map.md` 與本文件的 `doc-map` 模組
 
 ## Doc Map
 
