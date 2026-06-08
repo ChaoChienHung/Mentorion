@@ -5,6 +5,12 @@ Mentorion 是一個練習 LLM（Gemini）整合的學習輔助專案，包含：
 - Frontend（React/Vite）：Web UI
 - Streamlit：另一套簡易 UI
 
+## 協作入口
+
+- 角色分工與協作規範：[AGENTS.md](file:///Users/bytedance/Desktop/Ludwig/Mentorion/AGENTS.md)
+- 文件索引（Doc Map）：[docs/doc-map.md](file:///Users/bytedance/Desktop/Ludwig/Mentorion/docs/doc-map.md)
+- 待辦清單（完成後會移除）：[TODO.md](file:///Users/bytedance/Desktop/Ludwig/Mentorion/TODO.md)
+
 ## 需求
 
 - Python：建議 3.11+（目前也可在 3.9 跑，但第三方套件會有 EOL 警告）
@@ -54,8 +60,8 @@ pip install -r requirements-dev.txt
 ### Run backend
 
 ```bash
-cd backend/app
-uvicorn main:app --reload
+pip install -e '.[dev]'
+./venv/bin/uvicorn backend.app.main:app --reload
 ```
 
 ### Run Streamlit
@@ -75,6 +81,7 @@ npm run dev
 ### Run tests
 
 ```bash
+pip install -e '.[dev]'
 ./venv/bin/python -m pytest backend/app/tests
 ```
 

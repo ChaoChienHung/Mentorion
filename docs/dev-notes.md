@@ -18,8 +18,8 @@
 ### Backend
 
 ```bash
-cd backend/app
-uvicorn main:app --reload
+pip install -e '.[dev]'
+./venv/bin/uvicorn backend.app.main:app --reload
 ```
 
 ### Streamlit
