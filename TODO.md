@@ -22,14 +22,35 @@
   - [ ] `POST /review/generate`：從 note 生成/補題（短答+MCQ），可選擇「即時生成」或「落庫保存」
   - [ ] `GET /review/due`：取得到期卡片（可加 limit）
   - [ ] `POST /review/grade`：回傳 0-5 評分並更新 next_due
+- [ ] Review Journal（Calendar）資料模型
+  - [ ] 定義 journal event schema：`note_created` / `review_due` / `review_done` / `manual_review`
+  - [ ] 所有 calendar / 統計資料先走 SQL DB，避免以零散 files 作為主儲存
+  - [ ] 支援手動新增「自己的複習任務」（指定日期、標題、備註、關聯 note）
+- [ ] Planit package 整合
+  - [ ] 定義 Mentorion 與 Planit 的邊界：Mentorion 管資料與排程，Planit 管 calendar UI
+  - [ ] 先以 package 方式整合 Planit，不使用 submodule
+  - [ ] 準備 event adapter，讓 Planit 可以吃 Mentorion 的 journal event 格式
 - [ ] 最小前端頁面
   - [ ] `/review`：開始複習（顯示題目 → 選項/答案 → 0-5 打分）
   - [ ] `/review/stats`：顯示 due 數量、今日完成數、近期複習曲線（可後做）
+  - [ ] `/calendar`：用 Planit package 顯示 Review Journal（日 / 週 / 月檢視）
+  - [ ] 在 calendar 中支援「新增筆記」與「複習筆記」兩種主要操作入口
+  - [ ] 在 calendar 中顯示每日統計：新增筆記數、已複習筆記數、待複習數
 
 ### Frontend（最小可用）
 
 - [ ] 串接 backend API（notes scrape / parse / generate）
 - [ ] 加上最小可用路由（Notes 列表/編輯頁）
+
+### Image to Note（拍照轉筆記）
+
+- [ ] 支援拍照 / 圖片上傳後轉成筆記
+  - [ ] 定義最小輸入：圖片檔 + 選填補充提示詞
+  - [ ] 輸出沿用既有 `Note` schema，避免另開一套 note 結構
+  - [ ] 路線 A：串接外部多模態 API（例如 Gemini API）做圖片理解與筆記生成
+  - [ ] 路線 B：評估自建 VLM model 流程（OCR / 視覺理解 / 結構化輸出）
+  - [ ] 新增對應 API 規劃，例如 `POST /notes/from-image`
+  - [ ] 前端提供上傳預覽、轉換結果確認、失敗重試
 
 ### Streamlit（避免分歧）
 
@@ -48,6 +69,12 @@
 - [ ] 統一 error handling（HTTPException / 統一 error response）
 - [ ] 加入 CI（lint + test）
 - [ ] 設定檔集中化（env / config loader，避免多份 config）
+- [ ] Review Journal 清理策略
+  - [ ] 提供 archive / hide completed，避免 calendar 視圖過度擁擠
+  - [ ] 暫不做 memory 壓縮，先以 DB 查詢與保留策略控制資料量
+- [ ] Google Calendar 遷移準備
+  - [ ] 定義 internal event -> Google Calendar event 的欄位對映
+  - [ ] 先支援匯出 / 轉換格式，後續再補 import / sync
 
 ### 交付條件（P2）
 
@@ -61,6 +88,7 @@
 - [ ] Review stats（/review/stats）與可視化（完成數、due、遺忘曲線/間隔分布）
 - [ ] 題目策略優化（短答/MCQ 混合比例、難度分級、依照弱項補題）
 - [ ] 內容匯入/匯出（Markdown/JSON/Anki）與資料備份
+- [ ] 若 Planit 日後成為獨立產品，再評估 package 升級為 API 整合
 
 ### 交付條件（P3）
 

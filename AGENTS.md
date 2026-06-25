@@ -106,3 +106,4 @@
 - API 契約：docs/api.md
 - 協作規範：docs/collaboration.md
 - 複習模式設計：docs/review-mode.md
+- Review Journal / Calendar 設計：docs/review-journal.md

@@ -14,3 +14,4 @@
 - API 契約：api.md
 - 協作規範：collaboration.md
 - 複習模式設計：review-mode.md
+- Review Journal / Calendar 設計：review-journal.md
