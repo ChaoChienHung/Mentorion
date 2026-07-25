@@ -1,0 +1,3 @@
+venv
+secret.txt
+.pytest_cache
