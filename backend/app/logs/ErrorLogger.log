@@ -1,0 +1,83 @@
+2026-06-27 01:14:31,970 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:14:32,264 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:14:32,265 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:14:32,265 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:14:32,268 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:14:32,268 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:14:32,269 - ErrorLogger - ERROR - Note content is empty. Cannot generate Q&A.
+2026-06-27 01:14:32,270 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:14:32,284 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:14:32,286 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:16:51,146 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:16:51,365 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:16:51,366 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:16:51,432 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:16:51,432 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:16:51,433 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:16:51,434 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:16:51,449 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:16:51,451 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:18:12,599 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:18:13,078 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:18:13,079 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:18:13,079 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:18:13,153 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:18:13,153 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:18:13,154 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:18:13,155 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:18:13,180 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:18:13,181 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:20:36,345 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:20:36,569 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:20:36,570 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:20:36,570 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:20:36,575 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:20:36,575 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:20:36,577 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:20:36,578 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:20:36,600 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:20:36,601 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:34:30,401 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:34:30,671 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:34:30,672 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:34:30,672 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:34:30,677 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:34:30,677 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:34:30,678 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:34:30,679 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:34:30,697 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:34:30,699 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:35:26,062 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:39:52,205 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:40:08,233 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:40:08,347 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:40:08,348 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:40:08,348 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:40:08,352 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:40:08,352 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:40:08,353 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:40:08,354 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:40:08,371 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:40:08,372 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:42:46,103 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:42:46,220 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:42:46,221 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:42:46,221 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:42:46,225 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:42:46,225 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:42:46,226 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:42:46,226 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:42:47,924 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:42:47,926 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:43:06,823 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:43:06,940 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:43:06,940 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:43:06,940 - ErrorLogger - WARNING - Naive JSON parsing failed: Expecting value: line 1 column 1 (char 0)
+2026-06-27 01:43:06,944 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:43:06,944 - ErrorLogger - ERROR - No client detected. Please check your client and API configuration is correct.
+2026-06-27 01:43:06,945 - ErrorLogger - ERROR - Note content is empty. Cannot generate questions.
+2026-06-27 01:43:06,946 - ErrorLogger - ERROR - Invalid note format. Expected a Note object.
+2026-06-27 01:43:09,090 - ErrorLogger - ERROR - URL must be a string, got <class 'int'>
+2026-06-27 01:43:09,091 - ErrorLogger - ERROR - Exception crawling https://en.wikipedia.org/wiki/Python_(programming_language): mock http error
+2026-06-27 01:44:43,607 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
+2026-06-27 01:44:45,417 - ErrorLogger - ERROR - ❌ No GEMINI_API_KEY found in environment variables.
