@@ -521,8 +521,10 @@ export function EditorialReaderView({
       {/* Left Hover Overlay Drawer (Priority Review Tasks + Prev/Next + Utilities) */}
       <div
         onMouseLeave={() => setDrawerOpen(false)}
-        className={`fixed left-0 md:left-72 top-0 bottom-0 w-80 z-40 bg-white/95 backdrop-blur-md border-r border-zinc-200 shadow-2xl p-6 flex flex-col justify-between transition-transform duration-200 ease-out ${
-          drawerOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+        className={`fixed left-0 md:left-72 top-0 bottom-0 w-80 z-40 bg-white/95 backdrop-blur-md border-r border-zinc-200 shadow-2xl p-6 flex flex-col justify-between transition-all duration-200 ease-out ${
+          drawerOpen
+            ? "opacity-100 translate-x-0 visible"
+            : "opacity-0 -translate-x-4 invisible pointer-events-none"
         }`}
       >
         <div className="space-y-6 overflow-y-auto">

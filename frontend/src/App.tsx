@@ -500,7 +500,7 @@ export default function App() {
     <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#fafafa] text-[#111827] flex flex-col md:flex-row font-sans" id="applet-root">
       
       {/* LEFT SIDEBAR PANEL */}
-      <aside className="w-full md:w-72 md:h-screen md:sticky md:top-0 bg-[#0e0f11] text-[#d4d4d8] flex flex-col shrink-0 border-r border-zinc-800/80" id="app-sidebar">
+      <aside className="w-full md:w-72 md:h-screen md:sticky md:top-0 z-50 bg-[#0e0f11] text-[#d4d4d8] flex flex-col shrink-0 border-r border-zinc-800/80" id="app-sidebar">
         {/* Brand header */}
         <div className="px-6 py-7 border-b border-zinc-800/80 flex items-center justify-between gap-2">
           <button
