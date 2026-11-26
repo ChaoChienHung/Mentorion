@@ -30,6 +30,16 @@ app.middleware("http")(rate_limit)
 app.include_router(v1_router, prefix="/api/v1")
 app.include_router(v1_router, prefix="/api")
 
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "mentorion"}
+
 @app.get("/")
 def root():
     return {"Hello": "World"}
+
+if __name__ == "__main__":
+    import uvicorn
+    from .core.config import settings
+
+    uvicorn.run("backend.app.main:app", host=settings.HOST, port=settings.PORT, reload=True)

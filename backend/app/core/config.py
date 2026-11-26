@@ -7,6 +7,8 @@ class Settings:
     """
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
     MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    HOST: str = os.getenv("MENTORION_HOST", "127.0.0.1")
+    PORT: int = int(os.getenv("MENTORION_PORT") or os.getenv("PORT") or "8000")
     LOGGER_FOLDER: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
     LOG_TARGET: str = os.getenv("MENTORION_LOG_TARGET", "file")
     DATABASE: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")

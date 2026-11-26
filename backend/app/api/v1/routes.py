@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 
 from ...schemas.note import Note, NoteRequest
 from ...schemas.error import ErrorResponse
+from ...domain.schema_source import DocumentSchemaMapping, scan_markdown_source
+from pydantic import BaseModel
 from .dependencies import note_service, get_current_user_optional, get_current_user_required
 from ...db.dependency import get_db
 from ...db.models import Note as DBNote, Task as DBTask, ReviewLog as DBReviewLog, JournalEvent as DBJournalEvent, User as DBUser
@@ -683,6 +685,128 @@ def get_stats(db: Session = Depends(get_db), current_user: DBUser = Depends(get_
             }
             for d in daily_points_list
         ]
+    }
+
+
+# -------------------------------------------
+# User-Customizable Schema Source Sync Routes
+# -------------------------------------------
+
+class SchemaMappingRequest(BaseModel):
+    source_dir: str
+    id_field: str = "id"
+    title_field: str = "title"
+    summary_field: str = "summary"
+    category_field: str = "category"
+    review_field: str = "review"
+    filename_pattern: str = "*.md"
+    only_fresh: bool = True
+
+
+def _build_mapping(req: SchemaMappingRequest) -> DocumentSchemaMapping:
+    return DocumentSchemaMapping(
+        id_field=req.id_field.strip() or "id",
+        title_field=req.title_field.strip() or "title",
+        summary_field=req.summary_field.strip() or "summary",
+        category_field=req.category_field.strip() or "category",
+        review_field=req.review_field.strip() or "review",
+        filename_pattern=req.filename_pattern.strip() or "*.md",
+    )
+
+
+@router.post("/schema-sync/preview")
+def preview_schema_sync(payload: SchemaMappingRequest):
+    """Preview documents discovered from a local Markdown folder using a custom schema mapping."""
+    try:
+        docs = scan_markdown_source(
+            payload.source_dir,
+            mapping=_build_mapping(payload),
+            only_fresh=payload.only_fresh,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "count": len(docs),
+        "documents": [
+            {
+                "source_doc_id": d.source_doc_id,
+                "title": d.title,
+                "summary": d.summary,
+                "category": d.category,
+                "review_status": d.review_status,
+                "rel_path": d.rel_path,
+            }
+            for d in docs
+        ],
+    }
+
+
+@router.post("/schema-sync/import")
+def import_schema_sync(
+    payload: SchemaMappingRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional),
+):
+    """Import or refresh notes from a schema-compatible Markdown folder into Mentorion."""
+    try:
+        docs = scan_markdown_source(
+            payload.source_dir,
+            mapping=_build_mapping(payload),
+            only_fresh=payload.only_fresh,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    user_id = current_user.id if current_user else 1
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    now_iso = datetime.utcnow().isoformat()
+    created_count = 0
+    updated_count = 0
+
+    for doc in docs:
+        existing = (
+            db.query(DBNote)
+            .filter(
+                DBNote.user_id == user_id,
+                DBNote.source_doc_id == doc.source_doc_id,
+            )
+            .first()
+        )
+        if existing:
+            existing.title = doc.title
+            existing.content = doc.body
+            existing.category = doc.category
+            updated_count += 1
+        else:
+            note = DBNote(
+                user_id=user_id,
+                source_doc_id=doc.source_doc_id,
+                title=doc.title,
+                content=doc.body,
+                category=doc.category,
+                type="new",
+                pattern="C",
+                created_at=now_iso,
+                first_date=today_str,
+            )
+            db.add(note)
+            db.flush()
+            task = DBTask(
+                note_id=note.id,
+                type="new",
+                scheduled_date=today_str,
+                revision_number=0,
+            )
+            db.add(task)
+            created_count += 1
+
+    db.commit()
+    return {
+        "ok": True,
+        "created": created_count,
+        "updated": updated_count,
+        "total": len(docs),
     }
 
 

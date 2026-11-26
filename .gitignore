@@ -1,3 +1,6 @@
 venv
 secret.txt
 .pytest_cache
+logs/
+backend/app/logs/
+*.log

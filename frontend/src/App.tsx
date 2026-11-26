@@ -2,7 +2,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Note, Task, JournalEvent, StatsResponse, CategoryStat } from "./types";
 import { useAuth } from "./context/AuthContext";
 import { authApi } from "./api/auth";
-import { 
+import { EditorialReaderView } from "./components/EditorialReaderView";
+import { SchemaSourcePanel } from "./components/SchemaSourcePanel";
+import {
+  Database,
   BookMarked, 
   Calendar as CalendarIcon, 
   BarChart3, 
@@ -99,7 +102,7 @@ export default function App() {
   };
 
   // Sidebar tab state
-  const [activeTab, setActiveTab] = useState<"cover" | "calendar" | "add_task" | "stats" | "sync">("cover");
+  const [activeTab, setActiveTab] = useState<"cover" | "reading" | "calendar" | "add_task" | "stats" | "schema" | "sync">("cover");
   
   // Google API credential
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
@@ -617,10 +620,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row font-sans" id="applet-root">
+    <div className="min-h-screen bg-[#f5eedc] text-[#3b2a1e] flex flex-col md:flex-row font-sans" id="applet-root">
       
       {/* LEFT SIDEBAR PANEL */}
-      <aside className="w-full md:w-80 bg-[#0f172a] text-slate-200 flex flex-col shrink-0 border-r border-slate-800" id="app-sidebar">
+      <aside className="w-full md:w-80 bg-[#161514] text-[#d9d6cf] flex flex-col shrink-0 border-r border-[#ebe8e2]/10" id="app-sidebar">
         {/* Brand header */}
         <div className="p-6 border-b border-slate-800 flex items-center space-x-3.5">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white border border-blue-500 shadow-sm shadow-blue-500/20">
@@ -684,12 +687,36 @@ export default function App() {
             onClick={() => setActiveTab("cover")}
             className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
               activeTab === "cover"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                ? "bg-[#8f4b23] text-white shadow-md"
+                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
             }`}
           >
             <Sparkles size={16} />
             <span>🏡 學習控制台 (Dashboard)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("reading")}
+            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+              activeTab === "reading"
+                ? "bg-[#8f4b23] text-white shadow-md"
+                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+            }`}
+          >
+            <BookOpen size={16} />
+            <span>📖 閱讀模式 (Reading Mode)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("schema")}
+            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+              activeTab === "schema"
+                ? "bg-[#8f4b23] text-white shadow-md"
+                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+            }`}
+          >
+            <Database size={16} />
+            <span>🧩 自訂 Schema 資料來源</span>
           </button>
 
           <button
@@ -1540,6 +1567,22 @@ export default function App() {
                   </div>
                 );
               })()}
+
+              {/* --- VIEW: EDITORIAL MINIMAL READING MODE --- */}
+              {activeTab === "reading" && (
+                <EditorialReaderView
+                  notes={notes}
+                  onCopyQuizPrompt={(note) => {
+                    const prompt = `請根據以下筆記內容，為我設計 3 題主動回憶測驗（包含 2 題簡答題與 1 題情境應用題），並在我作答後逐題給予回饋：\n\n# ${note.title}\n\n${note.content}`;
+                    void navigator.clipboard?.writeText(prompt);
+                  }}
+                />
+              )}
+
+              {/* --- VIEW: CUSTOMIZABLE SCHEMA SOURCE --- */}
+              {activeTab === "schema" && (
+                <SchemaSourcePanel onImported={() => void fetchData()} />
+              )}
 
               {/* --- VIEW 5: GOOGLE CALENDAR SYNC CONSOLE --- */}
               {activeTab === "sync" && (

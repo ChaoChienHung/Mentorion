@@ -24,6 +24,7 @@ class Note(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1")
+    source_doc_id = Column(String, nullable=True, index=True)
     title = Column(String, nullable=False, index=True)
     content = Column(String, nullable=False, default="")
     category = Column(String, nullable=False, default="Other")
