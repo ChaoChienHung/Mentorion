@@ -65,6 +65,27 @@
 
 ## P2（品質與可維運）
 
+### 可組合架構與 Schema 驅動連動（Standalone + Nexus Composition）
+
+> 設計哲學（詳見 `../Nexus/docs/architecture/composable-suite.md`）：**Unix 哲學的可組合本地端工具組**。
+> - **Mentorion 獨立可用**：採與 Nexus 一致的 **Editorial Minimal** 視覺風格與筆記 Reading Mode，但聚焦在複習排程與出題（**不包含** Terminology 與 Knowledge Graph）。
+> - **Schema 驅動、不綁定 Nexus**：透過開放且**允許使用者自訂欄位對映**的 Markdown Document Schema 讀取任何相容筆記庫；內容 SSOT 留在外部 Markdown，排程與作答紀錄 SSOT 留在 Mentorion SQLite。
+> - **整合端放在 Nexus**：當同時使用 Nexus 與 Mentorion 時，由 **Nexus 作為主入口（Composition Hub）** 掛載 Mentorion API，完整保留 Knowledge Graph 與 Terminology，同時組合進 SM-2 排程、日曆與 Quiz 能力。
+
+- [ ] **Phase 1：Schema 驅動讀取與獨立 Reading Mode**
+  - [ ] 定義開放的 Document Source Schema 與可自訂欄位對映設定（預設對應 `id` / `title` / `summary` / `review` / 正文，支援使用者覆寫 frontmatter key 名稱）
+  - [ ] 在 Mentorion `notes` 資料表新增可選通用橋接欄位 `source_doc_id`（唯一索引），不綁定特定工具
+  - [ ] 新增同步端點／Adapter，掃描符合 schema 的 Markdown 資料夾（含 `Nexus-Vault/wiki/`），將新文件（優先 `review: fresh`）自動註冊進 Mentorion 並排入初次複習 `Task`
+  - [ ] 前端實作 **Editorial Minimal Reading Mode**（沿用 Nexus 色彩與排版 tokens，聚焦閱讀與測驗，不含 Terminology / Knowledge Graph）
+- [ ] **Phase 2：開放本地 API 供 Nexus 組合掛載 + 狀態回寫**
+  - [ ] 穩定 Mentorion 本地 API 契約（due 清單、單篇 SM-2 狀態查詢、Quiz 生成與評分、手動觸發同步），讓 Nexus 可透過 `MENTORION_API_URL` 無縫整合
+  - [ ] 複習打分完成（寫入 `ReviewLog`）時，透過可插拔回寫機制更新來源文件的複習狀態（例如呼叫 Nexus `PATCH /api/docs/:docId/review` 或依 schema mapping 更新 frontmatter 為 `reviewed`）
+  - [ ] 當來源文件重新標記為 `fresh` 時，下次同步可重新排入複習佇列
+- [ ] **Phase 3：選配 Graph-Aware 進階出題**
+  - [ ] 當偵測到來源知識庫具備 Ontology / Knowledge Graph 能力（如 Nexus `npm run query -- subgraph <concept_id>`）時，自動解鎖跨概念比較題與關聯題（無圖譜時優雅退化為單篇出題）
+
+### 工程品質與維運
+
 - [ ] Python 版本升級到 3.11+（目前可跑，但第三方套件對 3.9 會有 EOL 警告）
 - [ ] Frontend `npm audit` 漏洞處理（目前 `npm ci` 會提示 vulnerabilities）
 - [ ] 統一 error handling（HTTPException / 統一 error response）
