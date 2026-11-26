@@ -661,9 +661,7 @@ export function EditorialReaderView({
               className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-900 mb-3 cursor-pointer"
             >
               <ArrowLeft size={13} />
-              <span>{t.navReading}</span>
-              <span>/</span>
-              <span>{activeNote.category}</span>
+              <span>{lang === "zh-Hant" ? "返回筆記庫" : "Back to Library"}</span>
             </button>
             <h1 className="text-3xl md:text-4xl font-bold font-display tracking-tight text-zinc-950">
               {activeNote.title}
