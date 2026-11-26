@@ -548,12 +548,36 @@ export function EditorialReaderView({
             <h1 className="text-3xl md:text-4xl font-bold font-display tracking-tight text-zinc-950">
               {activeNote.title}
             </h1>
-            <div className="text-xs font-mono text-zinc-400 flex items-center gap-2 mt-2">
+            <div className="text-xs font-mono text-zinc-500 flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-3">
+              <span className="px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-700 font-sans font-medium">
+                {activeNote.category || "General"}
+              </span>
+              <span>
+                {lang === "zh-Hant" ? "上次複習" : "Last Reviewed"}:{" "}
+                <strong className="text-zinc-900">
+                  {activeNote.last_reviewed_at
+                    ? activeNote.last_reviewed_at.slice(0, 10)
+                    : lang === "zh-Hant"
+                      ? "尚未複習"
+                      : "Never"}
+                </strong>
+              </span>
+              <span>·</span>
+              <span>
+                {lang === "zh-Hant" ? "下次排程" : "Next"}:{" "}
+                <strong className="text-zinc-900">
+                  {nextReviewDateByNote.get(activeNote.id) || (lang === "zh-Hant" ? "未排程" : "None")}
+                </strong>
+              </span>
+              <span>·</span>
+              <span>
+                {lang === "zh-Hant" ? "累計複習" : "Reps"}{" "}
+                <strong className="text-zinc-900">{activeNote.repetitions}</strong>
+              </span>
+              <span>·</span>
               <span>Ease {activeNote.ease_factor.toFixed(2)}</span>
               <span>·</span>
               <span>Interval {activeNote.interval_days}d</span>
-              <span>·</span>
-              <span>Reps {activeNote.repetitions}</span>
             </div>
           </div>
         </div>

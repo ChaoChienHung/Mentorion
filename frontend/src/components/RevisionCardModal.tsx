@@ -370,17 +370,22 @@ export function RevisionCardModal({
       <div className="relative bg-white text-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 max-w-3xl w-full my-auto overflow-hidden text-left">
         {/* Header */}
         <div className="flex justify-between items-start gap-4 px-6 py-5 border-b border-zinc-200">
-          <div className="space-y-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-zinc-400">
-              <span>{task.note_category}</span>
-              <span>·</span>
-              <span>{task.scheduled_date}</span>
-              <span>·</span>
-              <span>Reps {task.repetitions || 0}</span>
-              <span>·</span>
-              <span>Interval {task.interval_days || 0}d</span>
+          <div className="space-y-2 min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-[11px] font-medium text-zinc-700">
+                {task.note_category || "General"}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-zinc-950 text-white text-[11px] font-mono">
+                {task.revision_number === 0
+                  ? zh
+                    ? "首次學習"
+                    : "Initial Study"
+                  : zh
+                    ? `本系列第 ${task.revision_number} 次複習`
+                    : `Revision #${task.revision_number}`}
+              </span>
               {task.is_completed ? (
-                <span className="px-2 py-0.5 rounded bg-zinc-950 text-white text-[10px]">
+                <span className="px-2 py-0.5 rounded-md border border-zinc-300 bg-zinc-50 text-zinc-600 text-[11px] font-medium">
                   {zh ? "已完成" : "Completed"}
                 </span>
               ) : null}
@@ -388,6 +393,27 @@ export function RevisionCardModal({
             <h3 className="text-xl font-bold font-display text-zinc-950 leading-snug">
               {task.note_title}
             </h3>
+            {/* Trackable Review Metadata Strip */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-mono text-zinc-500 pt-0.5">
+              <span>
+                {zh ? "排程" : "Scheduled"}: <strong className="text-zinc-800">{task.scheduled_date}</strong>
+              </span>
+              <span>·</span>
+              <span>
+                {zh ? "上次複習" : "Last Reviewed"}:{" "}
+                <strong className="text-zinc-800">
+                  {note.last_reviewed_at ? note.last_reviewed_at.slice(0, 10) : zh ? "尚未複習" : "Never"}
+                </strong>
+              </span>
+              <span>·</span>
+              <span>
+                {zh ? "累計完成" : "Reps"}: <strong className="text-zinc-800">{note.repetitions || task.repetitions || 0}</strong>
+              </span>
+              <span>·</span>
+              <span>
+                {zh ? "間隔" : "Interval"}: <strong className="text-zinc-800">{task.interval_days || note.interval_days || 0}d</strong>
+              </span>
+            </div>
           </div>
           <button
             type="button"

@@ -186,8 +186,9 @@ def format_note(note: Note) -> dict:
 @router.get("/notes")
 def get_notes(db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user_optional)):
     sql = """
-        SELECT n.id, n.title, n.content, n.category, n.type, n.pattern, 
+        SELECT n.id, n.title, n.content, n.category, n.type, n.pattern,
                n.created_at, n.first_date, n.ease_factor, n.interval_days, n.repetitions,
+               n.last_reviewed_at, n.next_review_date, n.file_path, n.source_doc_id,
                (SELECT COUNT(*) FROM tasks t WHERE t.note_id = n.id AND t.is_completed = 1) as completed_tasks,
                (SELECT COUNT(*) FROM tasks t WHERE t.note_id = n.id AND t.is_completed = 0) as pending_tasks
         FROM notes n
