@@ -1415,6 +1415,25 @@ def delete_single_task(task_id: int, db: Session = Depends(get_db)):
     return {"ok": True, "deleted_task_id": task_id, "note_id": note_id}
 
 
+class EaseFactorUpdateRequest(BaseModel):
+    ease_factor: float = Field(..., ge=1.3, le=3.0)
+
+
+@router.patch("/notes/{note_id}/ease-factor")
+def update_note_ease_factor(
+    note_id: int,
+    payload: EaseFactorUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """Allows the learner to manually tune a note's SM-2 Ease Factor (1.30 - 3.00)."""
+    note = db.query(DBNote).filter(DBNote.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    note.ease_factor = round(float(payload.ease_factor), 2)
+    db.commit()
+    return {"ok": True, "note_id": note.id, "ease_factor": note.ease_factor}
+
+
 class PickPathRequest(BaseModel):
     mode: str = "folder"  # "folder" | "file"
 

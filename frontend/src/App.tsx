@@ -5,6 +5,7 @@ import { authApi } from "./api/auth";
 import { EditorialReaderView } from "./components/EditorialReaderView";
 import { SchemaSourcePanel } from "./components/SchemaSourcePanel";
 import { CoachPanel } from "./components/CoachPanel";
+import { QuizPanel } from "./components/QuizPanel";
 import { CustomSelect } from "./components/CustomSelect";
 import { SettingsModal } from "./components/SettingsModal";
 import { MENTORION_COPY, type MentorionLang } from "./i18n";
@@ -404,6 +405,26 @@ export default function App() {
       }
     } catch (err) {
       console.error("Error shifting trajectory:", err);
+    }
+  };
+
+  // Manually tune a note's SM-2 Ease Factor (1.30 - 3.00)
+  const handleUpdateEaseFactor = async (noteId: number, nextEf: number) => {
+    const clamped = Math.max(1.3, Math.min(3.0, Math.round(nextEf * 100) / 100));
+    setActiveRevisionCardTask((prev) =>
+      prev && prev.note_id === noteId ? { ...prev, ease_factor: clamped } : prev,
+    );
+    try {
+      const res = await authFetch(`/api/notes/${noteId}/ease-factor`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ease_factor: clamped }),
+      });
+      if (res.ok) {
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Error updating ease factor:", err);
     }
   };
 
@@ -1684,126 +1705,133 @@ export default function App() {
         </div>
       </main>
 
-      {/* --- MODAL: REVISION METADATA CARD (Crisp Studio Monochrome) --- */}
-      {activeRevisionCardTask && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs">
-          <div className="bg-white text-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full overflow-hidden text-left">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-200">
-              <div className="flex items-center gap-2">
-                <BookOpen size={17} className="text-zinc-900" />
-                <h3 className="font-semibold text-zinc-950 text-sm font-display">
-                  {lang === "zh-Hant" ? "複習資訊卡" : "Revision Details"}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveRevisionCardTask(null)}
-                className="text-zinc-400 hover:text-zinc-900 p-1 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={16} />
-              </button>
-            </div>
+      {/* --- MODAL: ACTIVE RECALL REVISION CARD (Directly presents Quiz + Editable Ease Factor) --- */}
+      {activeRevisionCardTask && (() => {
+        const matchedNote = notes.find((n) => n.id === activeRevisionCardTask.note_id) ?? {
+          id: activeRevisionCardTask.note_id,
+          title: activeRevisionCardTask.note_title,
+          content: activeRevisionCardTask.note_content,
+          category: activeRevisionCardTask.note_category,
+          type: activeRevisionCardTask.note_type,
+          pattern: activeRevisionCardTask.note_pattern,
+          created_at: "",
+          first_date: activeRevisionCardTask.note_first_date,
+          ease_factor: activeRevisionCardTask.ease_factor || 2.5,
+          interval_days: activeRevisionCardTask.interval_days || 0,
+          repetitions: activeRevisionCardTask.repetitions || 0,
+        };
+        const currentEf = activeRevisionCardTask.ease_factor || 2.5;
 
-            <div className="p-6 space-y-5 text-xs">
-              <div className="space-y-1">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
-                  {activeRevisionCardTask.note_category}
-                </span>
-                <p className="text-lg font-bold font-display text-zinc-950 leading-snug">
-                  {activeRevisionCardTask.note_title}
-                </p>
-              </div>
-
-              {activeRevisionCardTask.note_content && (
-                <div className="bg-zinc-50 border border-zinc-200 px-3.5 py-3 rounded-xl max-h-28 overflow-y-auto text-zinc-600 leading-relaxed text-xs">
-                  {activeRevisionCardTask.note_content
-                    .replace(/^#+\s+/gm, "")
-                    .replace(/\[\[(?:concept|doc)\.([^\]]+)\]\]/g, (_m, s: string) => s.replace(/_/g, " "))
-                    .replace(/\*\*([^*]+)\*\*/g, "$1")
-                    .slice(0, 260)}
-                  {activeRevisionCardTask.note_content.length > 260 ? "..." : ""}
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center p-4 md:p-8 bg-black/50 backdrop-blur-xs">
+            <div className="bg-white text-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 max-w-3xl w-full my-auto overflow-hidden text-left">
+              {/* Header */}
+              <div className="flex justify-between items-start gap-4 px-6 py-5 border-b border-zinc-200">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-zinc-400">
+                    <span>{activeRevisionCardTask.note_category}</span>
+                    <span>·</span>
+                    <span>{activeRevisionCardTask.scheduled_date}</span>
+                    <span>·</span>
+                    <span>Reps {activeRevisionCardTask.repetitions || 0}</span>
+                    <span>·</span>
+                    <span>Interval {activeRevisionCardTask.interval_days || 0}d</span>
+                  </div>
+                  <h3 className="text-xl font-bold font-display text-zinc-950 leading-snug">
+                    {activeRevisionCardTask.note_title}
+                  </h3>
                 </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4 pt-1 border-t border-zinc-100">
-                <div className="space-y-0.5">
-                  <span className="text-[11px] text-zinc-400">
-                    {lang === "zh-Hant" ? "本次排程日期" : "Scheduled Date"}
-                  </span>
-                  <p className="text-zinc-950 font-mono font-semibold text-xs">
-                    {activeRevisionCardTask.scheduled_date}
-                  </p>
-                </div>
-
-                <div className="space-y-0.5">
-                  <span className="text-[11px] text-zinc-400">
-                    {lang === "zh-Hant" ? "累計複習次數" : "Repetitions"}
-                  </span>
-                  <p className="text-zinc-950 font-mono font-semibold text-xs">
-                    {activeRevisionCardTask.repetitions || 0}
-                  </p>
-                </div>
-
-                <div className="space-y-0.5">
-                  <span className="text-[11px] text-zinc-400">
-                    {lang === "zh-Hant" ? "難易因子" : "Ease Factor"}
-                  </span>
-                  <p className="text-zinc-950 font-mono font-semibold text-xs">
-                    {(activeRevisionCardTask.ease_factor || 2.5).toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="space-y-0.5">
-                  <span className="text-[11px] text-zinc-400">
-                    {lang === "zh-Hant" ? "間隔天數" : "Interval"}
-                  </span>
-                  <p className="text-zinc-950 font-mono font-semibold text-xs">
-                    {activeRevisionCardTask.interval_days || 0}d
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveRevisionCardTask(null)}
+                  className="text-zinc-400 hover:text-zinc-900 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              {/* Trajectory shift controls */}
-              <div className="space-y-2 pt-2 border-t border-zinc-100">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
-                  {lang === "zh-Hant" ? "延後後續排程" : "Shift Trajectory"}
-                </span>
-                <div className="grid grid-cols-3 gap-2">
+              {/* Compact SM-2 Ease Factor Control + Quick Actions */}
+              <div className="px-6 py-4 bg-zinc-50 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div
+                    className="text-xs font-medium text-zinc-700"
+                    title={
+                      lang === "zh-Hant"
+                        ? "SM-2 記憶倍率：數值越低複習越頻繁（難），越高間隔拉越長（簡單）。"
+                        : "SM-2 multiplier: lower = more frequent reviews (harder), higher = longer intervals (easier)."
+                    }
+                  >
+                    {lang === "zh-Hant" ? "難易度因子 (EF)" : "Ease Factor"}:{" "}
+                    <span className="font-mono font-bold text-zinc-950">{currentEf.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1.3}
+                    max={3.0}
+                    step={0.05}
+                    value={currentEf}
+                    onChange={(e) =>
+                      void handleUpdateEaseFactor(activeRevisionCardTask.note_id, Number(e.target.value))
+                    }
+                    className="w-28 accent-zinc-950 cursor-pointer"
+                  />
+                  <div className="inline-flex items-center gap-1">
+                    {[
+                      { label: lang === "zh-Hant" ? "難" : "Hard", val: 1.7 },
+                      { label: lang === "zh-Hant" ? "標準" : "Normal", val: 2.5 },
+                      { label: lang === "zh-Hant" ? "簡單" : "Easy", val: 2.8 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => void handleUpdateEaseFactor(activeRevisionCardTask.note_id, preset.val)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer ${
+                          Math.abs(currentEf - preset.val) < 0.08
+                            ? "bg-zinc-950 text-white border-zinc-950"
+                            : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-500"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
                   {[1, 3, 7].map((days) => (
                     <button
                       key={days}
                       type="button"
                       onClick={() => handleTrajectoryShift(activeRevisionCardTask.note_id, days)}
-                      className="py-2 bg-zinc-50 hover:bg-zinc-950 hover:text-white text-zinc-800 rounded-xl border border-zinc-200 font-medium text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 bg-white hover:bg-zinc-950 hover:text-white text-zinc-700 rounded-lg border border-zinc-200 font-mono text-[11px] transition-colors cursor-pointer"
+                      title={lang === "zh-Hant" ? `延後後續排程 ${days} 天` : `Shift trajectory +${days}d`}
                     >
-                      <ArrowRightLeft size={11} />
-                      <span>{lang === "zh-Hant" ? `+${days} 天` : `+${days}d`}</span>
+                      +{days}d
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteSingleTask(activeRevisionCardTask.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-950 hover:text-white text-zinc-600 text-[11px] font-medium transition-colors cursor-pointer"
+                    title={lang === "zh-Hant" ? "只刪除此筆排程（保留筆記庫）" : "Remove only this task"}
+                  >
+                    <Trash2 size={12} />
+                    <span>{lang === "zh-Hant" ? "刪除此排程" : "Remove"}</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex gap-2.5 pt-3 border-t border-zinc-100">
-                <button
-                  type="button"
-                  onClick={() => setActiveRevisionCardTask(null)}
-                  className="w-1/2 py-2.5 border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-medium rounded-xl transition-colors cursor-pointer"
-                >
-                  {lang === "zh-Hant" ? "關閉" : "Close"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteSingleTask(activeRevisionCardTask.id)}
-                  className="w-1/2 py-2.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Trash2 size={13} />
-                  <span>{lang === "zh-Hant" ? "刪除此筆排程" : "Remove Task"}</span>
-                </button>
+              {/* Direct Active Recall Quiz Body */}
+              <div className="px-6 pb-6 max-h-[68vh] overflow-y-auto">
+                <QuizPanel
+                  note={matchedNote}
+                  onClose={() => setActiveRevisionCardTask(null)}
+                />
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* --- MODAL: COMPLETE WITH SM-2 RATING POPUP (Pattern C Only) --- */}
       {completingTask && (
