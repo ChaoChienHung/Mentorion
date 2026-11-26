@@ -67,14 +67,36 @@ html {
   margin: 0 0 16px;
 }
 
-.editorial-prose ul,
-.editorial-prose ol {
+.editorial-prose ul {
+  list-style-type: disc;
   margin: 0 0 16px;
-  padding-left: 22px;
+  padding-left: 24px;
+}
+
+.editorial-prose ul ul {
+  list-style-type: circle;
+  margin: 6px 0 6px;
+}
+
+.editorial-prose ol {
+  list-style-type: decimal;
+  margin: 0 0 16px;
+  padding-left: 24px;
 }
 
 .editorial-prose li {
   margin-bottom: 6px;
+  display: list-item;
+}
+
+.editorial-prose li::marker {
+  color: var(--ed-text-muted);
+}
+
+.editorial-prose hr {
+  border: 0;
+  border-top: 1px solid var(--ed-border-subtle);
+  margin: 24px 0;
 }
 
 .editorial-prose blockquote {

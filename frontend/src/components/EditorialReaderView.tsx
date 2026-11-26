@@ -90,12 +90,12 @@ function renderSimpleMarkdown(md: string): string {
   let codeLines: string[] = [];
   let inMath = false;
   let mathLines: string[] = [];
-  let inList = false;
+  let listType: "ul" | "ol" | null = null;
 
   const closeList = () => {
-    if (inList) {
-      out.push("</ul>");
-      inList = false;
+    if (listType) {
+      out.push(`</${listType}>`);
+      listType = null;
     }
   };
 
@@ -150,11 +150,17 @@ function renderSimpleMarkdown(md: string): string {
       continue;
     }
 
-    const hMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    const hMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
     if (hMatch) {
       closeList();
       const level = hMatch[1].length;
       out.push(`<h${level}>${renderInline(hMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      closeList();
+      out.push("<hr />");
       continue;
     }
 
@@ -164,12 +170,29 @@ function renderSimpleMarkdown(md: string): string {
       continue;
     }
 
-    if (/^[-*]\s+/.test(trimmed)) {
-      if (!inList) {
+    const ulMatch = line.match(/^(\s*)[-*+]\s+(.+)$/);
+    if (ulMatch) {
+      if (listType !== "ul") {
+        closeList();
         out.push("<ul>");
-        inList = true;
+        listType = "ul";
       }
-      out.push(`<li>${renderInline(trimmed.replace(/^[-*]\s+/, ""))}</li>`);
+      const indentLevel = Math.min(3, Math.floor(ulMatch[1].length / 2));
+      const styleAttr = indentLevel > 0 ? ` style="margin-left:${indentLevel * 20}px;list-style-type:circle"` : "";
+      out.push(`<li${styleAttr}>${renderInline(ulMatch[2])}</li>`);
+      continue;
+    }
+
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+    if (olMatch) {
+      if (listType !== "ol") {
+        closeList();
+        out.push("<ol>");
+        listType = "ol";
+      }
+      const indentLevel = Math.min(3, Math.floor(olMatch[1].length / 2));
+      const styleAttr = indentLevel > 0 ? ` style="margin-left:${indentLevel * 20}px"` : "";
+      out.push(`<li${styleAttr}>${renderInline(olMatch[2])}</li>`);
       continue;
     }
 
