@@ -377,6 +377,7 @@ def get_tasks(
 @router.post("/tasks/{id}/complete")
 def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user_optional)):
     rating = payload.get("rating")
+    next_interval_days = payload.get("nextIntervalDays")
     anchor_option = payload.get("anchorOption", "A")
     actual_date = payload.get("actualDate", datetime.now().strftime("%Y-%m-%d"))
     gcal_event_id = payload.get("gcalEventId")
@@ -399,8 +400,37 @@ def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db)
     if gcal_event_id is not None:
         task.gcal_event_id = gcal_event_id
         
-    # 2. SM-2 Spaced Repetition calculation
-    if note.pattern == "C" and rating is not None:
+    # 2. Spaced Repetition calculation (explicit +Xd quick interval OR SM-2 rating)
+    if next_interval_days is not None:
+        interval_days = max(1, int(next_interval_days))
+        note.repetitions = int(note.repetitions or 0) + 1
+        note.interval_days = interval_days
+        note.last_reviewed_at = now_str
+        anchor_date = actual_date if anchor_option == "A" else task.scheduled_date
+        next_review_date = add_days(anchor_date, interval_days)
+        note.next_review_date = next_review_date
+
+        db.add(
+            DBTask(
+                note_id=note.id,
+                type="revision",
+                scheduled_date=next_review_date,
+                revision_number=task.revision_number + 1,
+                time_start=task.time_start,
+                time_end=task.time_end,
+                is_completed=0,
+                is_archived=0,
+            )
+        )
+        db.add(
+            DBReviewLog(
+                note_id=note.id,
+                time=now_str,
+                grade=int(rating) if rating is not None else 4,
+                feedback=f"快速完成複習，排程 +{interval_days} 天後再次複習（{next_review_date}）",
+            )
+        )
+    elif note.pattern == "C" and rating is not None:
         grade = int(rating)
         ease_factor = note.ease_factor
         repetitions = note.repetitions
@@ -1378,13 +1408,40 @@ def delete_library_note(note_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/tasks/{task_id}")
-def delete_single_task(task_id: int, db: Session = Depends(get_db)):
-    """Deletes ONLY a single scheduled review task without deleting the parent Note or sibling tasks."""
+def delete_single_task(
+    task_id: int,
+    scope: str = "single",  # "single" | "future" | "all"
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes scheduled review task(s) without EVER deleting the parent Note in Library:
+    - scope='single': deletes only this specific task
+    - scope='future': deletes this task and all subsequent uncompleted tasks of this note (keeps completed history)
+    - scope='all': deletes all tasks of this note series (keeps the Note in Library)
+    """
     task = db.query(DBTask).filter(DBTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     note_id = task.note_id
-    db.delete(task)
+    target_date = task.scheduled_date
+    deleted_count = 0
+
+    if scope == "all":
+        deleted_count = db.query(DBTask).filter(DBTask.note_id == note_id).delete(synchronize_session=False)
+    elif scope == "future":
+        # Delete this task + any uncompleted tasks on or after its scheduled_date (preserving past completed history)
+        deleted_count = (
+            db.query(DBTask)
+            .filter(
+                DBTask.note_id == note_id,
+                (DBTask.id == task_id) | ((DBTask.is_completed == 0) & (DBTask.scheduled_date >= target_date)),
+            )
+            .delete(synchronize_session=False)
+        )
+    else:
+        db.delete(task)
+        deleted_count = 1
+
     db.commit()
 
     # Recompute parent note's next_review_date from remaining earliest pending task
@@ -1399,7 +1456,7 @@ def delete_single_task(task_id: int, db: Session = Depends(get_db)):
         note.next_review_date = next_pending.scheduled_date if next_pending else None
         db.commit()
 
-    return {"ok": True, "deleted_task_id": task_id, "note_id": note_id}
+    return {"ok": True, "scope": scope, "deleted_count": deleted_count, "note_id": note_id}
 
 
 class EaseFactorUpdateRequest(BaseModel):

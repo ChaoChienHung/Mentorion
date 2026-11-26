@@ -5,7 +5,7 @@ import { authApi } from "./api/auth";
 import { EditorialReaderView } from "./components/EditorialReaderView";
 import { SchemaSourcePanel } from "./components/SchemaSourcePanel";
 import { CoachPanel } from "./components/CoachPanel";
-import { QuizPanel } from "./components/QuizPanel";
+import { RevisionCardModal } from "./components/RevisionCardModal";
 import { CustomSelect } from "./components/CustomSelect";
 import { SettingsModal } from "./components/SettingsModal";
 import { MENTORION_COPY, type MentorionLang } from "./i18n";
@@ -544,9 +544,11 @@ export default function App() {
     return days;
   }, [currentCalendarDate]);
 
-  // Map events to selected date
+  // Map events to selected date (uncompleted ALWAYS above completed)
   const selectedDateTasks = useMemo(() => {
-    return tasks.filter(t => t.scheduled_date === selectedDateStr);
+    return tasks
+      .filter((t) => t.scheduled_date === selectedDateStr)
+      .sort((a, b) => Number(a.is_completed) - Number(b.is_completed) || a.id - b.id);
   }, [tasks, selectedDateStr]);
 
   // Aggregate points completed vs scheduled for today (for deficit tracker)
@@ -1004,7 +1006,9 @@ export default function App() {
                     <div className="grid grid-cols-7 gap-2.5">
                       {monthDays.map(({ date, isCurrentMonth }, idx) => {
                         const dateStr = date.toISOString().split("T")[0];
-                        const dateTasks = tasks.filter(t => t.scheduled_date === dateStr);
+                        const dateTasks = tasks
+                          .filter(t => t.scheduled_date === dateStr)
+                          .sort((a, b) => Number(a.is_completed) - Number(b.is_completed) || a.id - b.id);
                         const isSelected = selectedDateStr === dateStr;
                         const isToday = dateStr === new Date().toISOString().split("T")[0];
                         
@@ -1088,7 +1092,7 @@ export default function App() {
                         
                         <button
                           onClick={handleClearCompleted}
-                          className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+                          className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-500 hover:text-zinc-900 border border-zinc-200 text-[11px] font-medium rounded-md transition-colors cursor-pointer shrink-0"
                         >
                           清除已完成
                         </button>
@@ -1739,7 +1743,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* --- MODAL: ACTIVE RECALL REVISION CARD (Directly presents Quiz + Editable Ease Factor) --- */}
+      {/* --- MODAL: ACTIVE RECALL REVISION CARD (Unified Markdown + Quiz Setup + 3-mode Delete) --- */}
       {activeRevisionCardTask && (() => {
         const matchedNote = notes.find((n) => n.id === activeRevisionCardTask.note_id) ?? {
           id: activeRevisionCardTask.note_id,
@@ -1754,215 +1758,16 @@ export default function App() {
           interval_days: activeRevisionCardTask.interval_days || 0,
           repetitions: activeRevisionCardTask.repetitions || 0,
         };
-        const currentEf = activeRevisionCardTask.ease_factor || 2.5;
-
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center p-4 md:p-8 bg-black/50 backdrop-blur-xs">
-            <div className="bg-white text-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 max-w-3xl w-full my-auto overflow-hidden text-left">
-              {/* Header */}
-              <div className="flex justify-between items-start gap-4 px-6 py-5 border-b border-zinc-200">
-                <div className="space-y-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-zinc-400">
-                    <span>{activeRevisionCardTask.note_category}</span>
-                    <span>·</span>
-                    <span>{activeRevisionCardTask.scheduled_date}</span>
-                    <span>·</span>
-                    <span>Reps {activeRevisionCardTask.repetitions || 0}</span>
-                    <span>·</span>
-                    <span>Interval {activeRevisionCardTask.interval_days || 0}d</span>
-                  </div>
-                  <h3 className="text-xl font-bold font-display text-zinc-950 leading-snug">
-                    {activeRevisionCardTask.note_title}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveRevisionCardTask(null)}
-                  className="text-zinc-400 hover:text-zinc-900 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Compact SM-2 Ease Factor Control + Quick Actions */}
-              <div className="px-6 py-4 bg-zinc-50 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div
-                    className="text-xs font-medium text-zinc-700"
-                    title={
-                      lang === "zh-Hant"
-                        ? "SM-2 記憶倍率：數值越低複習越頻繁（難），越高間隔拉越長（簡單）。"
-                        : "SM-2 multiplier: lower = more frequent reviews (harder), higher = longer intervals (easier)."
-                    }
-                  >
-                    {lang === "zh-Hant" ? "難易度因子 (EF)" : "Ease Factor"}:{" "}
-                    <span className="font-mono font-bold text-zinc-950">{currentEf.toFixed(2)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={1.3}
-                    max={3.0}
-                    step={0.05}
-                    value={currentEf}
-                    onChange={(e) =>
-                      void handleUpdateEaseFactor(activeRevisionCardTask.note_id, Number(e.target.value))
-                    }
-                    className="w-28 accent-zinc-950 cursor-pointer"
-                  />
-                  <div className="inline-flex items-center gap-1">
-                    {[
-                      { label: lang === "zh-Hant" ? "難" : "Hard", val: 1.7 },
-                      { label: lang === "zh-Hant" ? "標準" : "Normal", val: 2.5 },
-                      { label: lang === "zh-Hant" ? "簡單" : "Easy", val: 2.8 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.val}
-                        type="button"
-                        onClick={() => void handleUpdateEaseFactor(activeRevisionCardTask.note_id, preset.val)}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer ${
-                          Math.abs(currentEf - preset.val) < 0.08
-                            ? "bg-zinc-950 text-white border-zinc-950"
-                            : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-500"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {[1, 3, 7].map((days) => (
-                    <button
-                      key={days}
-                      type="button"
-                      onClick={() => handleTrajectoryShift(activeRevisionCardTask.note_id, days)}
-                      className="px-2.5 py-1.5 bg-white hover:bg-zinc-950 hover:text-white text-zinc-700 rounded-lg border border-zinc-200 font-mono text-[11px] transition-colors cursor-pointer"
-                      title={lang === "zh-Hant" ? `延後後續排程 ${days} 天` : `Shift trajectory +${days}d`}
-                    >
-                      +{days}d
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteSingleTask(activeRevisionCardTask.id)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-950 hover:text-white text-zinc-600 text-[11px] font-medium transition-colors cursor-pointer"
-                    title={lang === "zh-Hant" ? "只刪除此筆排程（保留筆記庫）" : "Remove only this task"}
-                  >
-                    <Trash2 size={12} />
-                    <span>{lang === "zh-Hant" ? "刪除此排程" : "Remove"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Body: Two-stage flow (Note Preview -> Active Recall Quiz + SM-2 Completion) */}
-              {revisionModalMode === "note" ? (
-                <div className="px-6 py-6 space-y-5">
-                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 max-h-[48vh] overflow-y-auto text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap font-sans">
-                    {matchedNote.content || (lang === "zh-Hant" ? "此筆記尚無內文。" : "No content yet.")}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                    <span className="text-xs text-zinc-400">
-                      {lang === "zh-Hant"
-                        ? "準備好了嗎？進入主動回憶解題並更新下次複習排程。"
-                        : "Ready? Start active recall to test yourself and schedule the next review."}
-                    </span>
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveRevisionCardTask(null);
-                          setRevisionModalMode("note");
-                        }}
-                        className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
-                      >
-                        {lang === "zh-Hant" ? "關閉" : "Close"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRevisionModalMode("quiz")}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium cursor-pointer"
-                      >
-                        <Sparkles size={14} />
-                        <span>{lang === "zh-Hant" ? "進入複習解題" : "Start Active Recall"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="px-6 pb-6 space-y-5">
-                  <div className="pt-4 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setRevisionModalMode("note")}
-                      className="text-xs font-medium text-zinc-500 hover:text-zinc-950 cursor-pointer"
-                    >
-                      ← {lang === "zh-Hant" ? "返回筆記內容" : "Back to Note"}
-                    </button>
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-                      ACTIVE RECALL SESSION
-                    </span>
-                  </div>
-
-                  <div className="max-h-[48vh] overflow-y-auto pr-1">
-                    <QuizPanel
-                      note={matchedNote}
-                      onClose={() => setRevisionModalMode("note")}
-                    />
-                  </div>
-
-                  {/* Finish & Update SM-2 Review Status + Schedule Next Single Task */}
-                  <div className="pt-4 border-t border-zinc-200 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-zinc-900">
-                        {lang === "zh-Hant"
-                          ? "根據本次作答狀況評分（更新 SM-2 並排程下一次複習）"
-                          : "Rate mastery to update SM-2 & schedule next review"}
-                      </span>
-                      <span className="text-xs font-mono text-zinc-500">
-                        {revisionRating} / 5
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {[0, 1, 2, 3, 4, 5].map((score) => (
-                        <button
-                          key={score}
-                          type="button"
-                          onClick={() => setRevisionRating(score)}
-                          className={`py-2 rounded-xl border text-xs font-mono font-semibold transition-colors cursor-pointer ${
-                            revisionRating === score
-                              ? "bg-zinc-950 text-white border-zinc-950"
-                              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-500"
-                          }`}
-                        >
-                          {score}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex justify-end gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        disabled={submittingRevision}
-                        onClick={() => void handleCompleteFromRevisionCard()}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
-                      >
-                        {submittingRevision ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <CheckCircle2 size={14} />
-                        )}
-                        <span>
-                          {lang === "zh-Hant"
-                            ? "完成本次複習並更新下次排程"
-                            : "Complete Review & Schedule Next"}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <RevisionCardModal
+            task={activeRevisionCardTask}
+            note={matchedNote}
+            lang={lang}
+            anchorOption={anchorOption}
+            onClose={() => setActiveRevisionCardTask(null)}
+            onRefresh={fetchData}
+            onUpdateEaseFactor={handleUpdateEaseFactor}
+          />
         );
       })()}
 

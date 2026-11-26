@@ -45,6 +45,7 @@ interface EssayGrade {
 
 interface QuizPanelProps {
   note: Note;
+  initialQuestions?: QuizQuestion[];
   onClose: () => void;
 }
 
@@ -59,8 +60,8 @@ function getSavedSourceDir(): string | null {
   }
 }
 
-export function QuizPanel({ note, onClose }: QuizPanelProps) {
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
+  const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
@@ -120,8 +121,13 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
   );
 
   useEffect(() => {
+    if (initialQuestions && initialQuestions.length > 0) {
+      setQuestions(initialQuestions);
+      setLoadedOnce(true);
+      return;
+    }
     void loadQuestions(false);
-  }, [loadQuestions]);
+  }, [initialQuestions, loadQuestions]);
 
   const handleGradeEssay = async (idx: number, q: QuizQuestion) => {
     const answerText = (essayDrafts[idx] || "").trim();
