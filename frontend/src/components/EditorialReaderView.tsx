@@ -1,9 +1,13 @@
 import { useMemo, useState } from "react";
 import { BookOpen, Check, Copy, Sparkles } from "lucide-react";
 import type { Note } from "../types";
+import { CustomSelect } from "./CustomSelect";
+import { QuizPanel } from "./QuizPanel";
+import { MENTORION_COPY, type MentorionLang } from "../i18n";
 
 interface EditorialReaderViewProps {
   notes: Note[];
+  lang: MentorionLang;
   onCopyQuizPrompt: (note: Note) => void;
 }
 
@@ -96,11 +100,14 @@ function renderSimpleMarkdown(md: string): string {
 
 export function EditorialReaderView({
   notes,
+  lang,
   onCopyQuizPrompt,
 }: EditorialReaderViewProps) {
+  const t = MENTORION_COPY[lang];
   const [selectedId, setSelectedId] = useState<number | null>(notes[0]?.id ?? null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [quizOpen, setQuizOpen] = useState(false);
 
   const categories = useMemo(
     () => Array.from(new Set(notes.map((n) => n.category))).sort(),
@@ -132,18 +139,16 @@ export function EditorialReaderView({
   if (notes.length === 0) {
     return (
       <div
-        className="max-w-2xl mx-auto rounded-2xl p-10 text-center"
+        className="max-w-4xl mx-auto rounded-2xl px-10 py-16 text-center"
         style={{
           background: "var(--ed-bg-elevated)",
           border: "1px solid var(--ed-border-subtle)",
           color: "var(--ed-text-secondary)",
         }}
       >
-        <BookOpen size={28} className="mx-auto mb-3 opacity-60" />
-        <p className="text-base font-medium mb-1">尚未匯入或建立筆記</p>
-        <p className="text-sm opacity-80">
-          可以從「Schema 資料來源」匯入 Markdown 知識庫，或直接新增學習筆記。
-        </p>
+        <BookOpen size={36} className="mx-auto mb-4 opacity-50" />
+        <p className="text-xl font-semibold mb-2 text-zinc-950">{t.readingEmptyTitle}</p>
+        <p className="text-base text-zinc-500">{t.readingEmptyDesc}</p>
       </div>
     );
   }
@@ -158,31 +163,23 @@ export function EditorialReaderView({
           border: "1px solid var(--ed-border-subtle)",
         }}
       >
-        <div className="flex items-center justify-between gap-2">
+        <div className="space-y-2.5">
           <span
-            className="text-xs font-semibold uppercase tracking-wider"
+            className="text-xs font-semibold uppercase tracking-wider block"
             style={{ color: "var(--ed-text-muted)" }}
           >
-            閱讀清單 ({visibleNotes.length})
+            Notes ({visibleNotes.length})
           </span>
           {categories.length > 1 && (
-            <select
+            <CustomSelect
+              compact
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="text-xs rounded-md px-2 py-1"
-              style={{
-                background: "var(--ed-bg-page)",
-                border: "1px solid var(--ed-border-subtle)",
-                color: "var(--ed-text-primary)",
-              }}
-            >
-              <option value="all">全部類別</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              onChange={setCategoryFilter}
+              options={[
+                { value: "all", label: "All Categories" },
+                ...categories.map((cat) => ({ value: cat, label: cat })),
+              ]}
+            />
           )}
         </div>
 
@@ -251,28 +248,32 @@ export function EditorialReaderView({
               </h1>
             </div>
 
-            <button
-              onClick={() => handleCopyPrompt(activeNote)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-              style={{
-                background: "var(--ed-accent-soft)",
-                color: "var(--ed-accent)",
-                border: "1px solid rgba(143, 75, 35, 0.3)",
-              }}
-            >
-              {copiedId === activeNote.id ? (
-                <>
-                  <Check size={14} />
-                  <span>已複製 Quiz Prompt</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={14} />
-                  <span>複製出題 Prompt</span>
-                  <Copy size={12} />
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => setQuizOpen((v) => !v)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13.5px] font-medium transition-colors cursor-pointer bg-zinc-950 hover:bg-zinc-800 text-white"
+              >
+                <Sparkles size={15} />
+                <span>{quizOpen ? "Hide Quiz" : "Start Quiz"}</span>
+              </button>
+
+              <button
+                onClick={() => handleCopyPrompt(activeNote)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13.5px] font-medium transition-colors cursor-pointer bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-200"
+              >
+                {copiedId === activeNote.id ? (
+                  <>
+                    <Check size={15} />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={13} />
+                    <span>Copy Prompt</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           <div
@@ -283,6 +284,8 @@ export function EditorialReaderView({
                 `<p style="color:var(--ed-text-muted)">此筆記尚無內文。</p>`,
             }}
           />
+
+          {quizOpen && <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />}
         </article>
       )}
     </div>

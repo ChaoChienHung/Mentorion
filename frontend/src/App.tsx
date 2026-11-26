@@ -4,8 +4,12 @@ import { useAuth } from "./context/AuthContext";
 import { authApi } from "./api/auth";
 import { EditorialReaderView } from "./components/EditorialReaderView";
 import { SchemaSourcePanel } from "./components/SchemaSourcePanel";
+import { CustomSelect } from "./components/CustomSelect";
+import { SettingsModal } from "./components/SettingsModal";
+import { MENTORION_COPY, type MentorionLang } from "./i18n";
 import {
   Database,
+  Settings,
   BookMarked, 
   Calendar as CalendarIcon, 
   BarChart3, 
@@ -44,55 +48,9 @@ const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
 
 export default function App() {
-  const { token, user, login, logout, isLoading: authLoading } = useAuth();
+  const { token } = useAuth();
 
-  // Guest mode & Auth form states
-  const [isGuest, setIsGuest] = useState(() => localStorage.getItem("mentorion_guest") === "true");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [authUsername, setAuthUsername] = useState("");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [authSubmitting, setAuthSubmitting] = useState(false);
-
-  const handleContinueAsGuest = () => {
-    setIsGuest(true);
-    localStorage.setItem("mentorion_guest", "true");
-  };
-
-  const handleLogout = () => {
-    logout();
-    localStorage.removeItem("mentorion_guest");
-    setIsGuest(false);
-  };
-
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthSubmitting(true);
-    try {
-      if (authMode === "login") {
-        const data = await authApi.login(authEmail || authUsername, authPassword);
-        const userData = await authApi.testToken(data.access_token);
-        login(data.access_token, userData);
-        localStorage.removeItem("mentorion_guest");
-        setIsGuest(false);
-      } else {
-        await authApi.register(authUsername, authEmail, authPassword);
-        const data = await authApi.login(authEmail, authPassword);
-        const userData = await authApi.testToken(data.access_token);
-        login(data.access_token, userData);
-        localStorage.removeItem("mentorion_guest");
-        setIsGuest(false);
-      }
-    } catch (err: any) {
-      setAuthError(err.message || "Authentication failed");
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  // Custom fetch wrapper injecting Bearer token
+  // Custom fetch wrapper injecting Bearer token if present (local single-user mode by default)
   const authFetch = async (url: string, options: RequestInit = {}) => {
     const headers = { ...options.headers } as any;
     if (token && !headers['Authorization']) {
@@ -101,8 +59,18 @@ export default function App() {
     return fetch(url, { ...options, headers });
   };
 
-  // Sidebar tab state
+  // Sidebar tab state & language setting
   const [activeTab, setActiveTab] = useState<"cover" | "reading" | "calendar" | "add_task" | "stats" | "schema" | "sync">("cover");
+  const [lang, setLang] = useState<MentorionLang>(() =>
+    localStorage.getItem("mentorion-lang") === "en" ? "en" : "zh-Hant",
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const t = MENTORION_COPY[lang];
+
+  const handleChangeLang = (next: MentorionLang) => {
+    setLang(next);
+    localStorage.setItem("mentorion-lang", next);
+  };
   
   // Google API credential
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
@@ -493,230 +461,58 @@ export default function App() {
     return { scheduled, completed, percent: scheduled > 0 ? Math.round((completed / 5.0) * 100) : 0 };
   }, [tasks]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="animate-spin text-blue-500" size={40} />
-          <p className="text-slate-400 text-sm font-semibold tracking-wider font-display">Loading Mentorion auth state...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!token && !isGuest) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
-          
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600/10 text-blue-500 rounded-2xl mb-4 border border-blue-500/20">
-              <BrainCircuit size={28} className="animate-pulse" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-white font-display tracking-tight">
-              {authMode === "login" ? "Welcome to Mentorion" : "Create your Account"}
-            </h1>
-            <p className="text-slate-400 text-xs mt-1.5 font-semibold">
-              {authMode === "login" ? "Sign in to track your study sessions" : "Sign up to start spaced repetition scheduling"}
-            </p>
-          </div>
-
-          {authError && (
-            <div className="mb-6 p-4 bg-red-950/30 border border-red-500/20 text-red-400 text-xs font-semibold rounded-2xl text-center">
-              ⚠️ {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
-            {authMode === "register" && (
-              <div>
-                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Username</label>
-                <input
-                  type="text"
-                  required
-                  value={authUsername}
-                  onChange={(e) => setAuthUsername(e.target.value)}
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-2xl px-4 py-3 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                  placeholder="e.g. ludwig"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                {authMode === "login" ? "Username or Email" : "Email Address"}
-              </label>
-              <input
-                type={authMode === "login" ? "text" : "email"}
-                required
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                className="w-full bg-slate-950/60 border border-slate-800 rounded-2xl px-4 py-3 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder={authMode === "login" ? "ludwig or you@example.com" : "you@example.com"}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                required
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                className="w-full bg-slate-950/60 border border-slate-800 rounded-2xl px-4 py-3 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={authSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-2xl py-3.5 font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
-            >
-              {authSubmitting ? (
-                <>
-                  <Loader2 className="animate-spin" size={16} />
-                  <span>{authMode === "login" ? "Signing In..." : "Signing Up..."}</span>
-                </>
-              ) : (
-                <span>{authMode === "login" ? "Sign In" : "Sign Up"}</span>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 flex flex-col space-y-3.5 items-center">
-            <p className="text-slate-400 text-xs font-semibold">
-              {authMode === "login" ? "New to Mentorion?" : "Already have an account?"}{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode(authMode === "login" ? "register" : "login");
-                  setAuthError("");
-                }}
-                className="text-blue-500 font-bold hover:underline"
-              >
-                {authMode === "login" ? "Create an account" : "Sign In instead"}
-              </button>
-            </p>
-
-            <div className="w-full flex items-center justify-center space-x-3 my-2">
-              <div className="h-[1px] bg-slate-800 grow" />
-              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">Or</span>
-              <div className="h-[1px] bg-slate-800 grow" />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleContinueAsGuest}
-              className="w-full border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 rounded-2xl py-3 font-semibold text-xs transition-colors"
-            >
-              Continue as Guest (No Account)
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#f5eedc] text-[#3b2a1e] flex flex-col md:flex-row font-sans" id="applet-root">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#fafafa] text-[#111827] flex flex-col md:flex-row font-sans" id="applet-root">
       
       {/* LEFT SIDEBAR PANEL */}
-      <aside className="w-full md:w-80 bg-[#161514] text-[#d9d6cf] flex flex-col shrink-0 border-r border-[#ebe8e2]/10" id="app-sidebar">
+      <aside className="w-full md:w-72 md:h-screen md:sticky md:top-0 bg-[#0e0f11] text-[#d4d4d8] flex flex-col shrink-0 border-r border-zinc-800/80" id="app-sidebar">
         {/* Brand header */}
-        <div className="p-6 border-b border-slate-800 flex items-center space-x-3.5">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white border border-blue-500 shadow-sm shadow-blue-500/20">
-            <BrainCircuit size={20} className="animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-sm font-extrabold text-white tracking-wide font-display">
-              Planit Study Calendar
+        <div className="px-6 py-7 border-b border-zinc-800/80 flex items-center justify-between gap-2">
+          <button
+            onClick={() => setActiveTab("cover")}
+            className="text-left group cursor-pointer"
+          >
+            <h1 className="text-2xl font-bold text-white tracking-tight font-display group-hover:opacity-80 transition-opacity">
+              Mentorion
             </h1>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
-              V2 Spaced Repetition Engine
+            <span className="text-xs text-zinc-400 tracking-wide block mt-1">
+              {t.subtitle}
             </span>
-          </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            title={t.settings}
+            className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <Settings size={18} />
+          </button>
         </div>
-
-        {/* User Profile Info & Logout */}
-        {user ? (
-          <div className="px-6 py-3 border-b border-slate-800/60 bg-slate-900/40 flex items-center justify-between">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">
-                {user.username.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">{user.username}</p>
-                <p className="text-[9px] text-slate-500 truncate">{user.email}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="text-[10px] font-bold text-slate-400 hover:text-red-400 transition-colors py-1 px-2 border border-slate-800 hover:border-red-950 bg-slate-950/20 rounded-md shrink-0 ml-2"
-            >
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          <div className="px-6 py-3 border-b border-slate-800/60 bg-slate-900/40 flex items-center justify-between">
-            <div className="flex items-center space-x-2.5">
-              <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 flex items-center justify-center text-xs font-bold">
-                G
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-300">Guest User</p>
-                <p className="text-[9px] text-slate-500">Local Default Mode</p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                localStorage.removeItem("mentorion_guest");
-                setIsGuest(false);
-              }}
-              className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors py-1 px-2 border border-slate-800 hover:border-blue-900 bg-slate-950/20 rounded-md"
-            >
-              Sign In
-            </button>
-          </div>
-        )}
 
         {/* Navigation Section */}
         <nav className="p-4 flex-1 space-y-1.5 overflow-y-auto">
           <button
             onClick={() => setActiveTab("cover")}
-            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
               activeTab === "cover"
-                ? "bg-[#8f4b23] text-white shadow-md"
-                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
             }`}
           >
-            <Sparkles size={16} />
-            <span>🏡 學習控制台 (Dashboard)</span>
+            <Sparkles size={18} strokeWidth={1.75} />
+            <span>{t.navOverview}</span>
           </button>
 
           <button
             onClick={() => setActiveTab("reading")}
-            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
               activeTab === "reading"
-                ? "bg-[#8f4b23] text-white shadow-md"
-                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
             }`}
           >
-            <BookOpen size={16} />
-            <span>📖 閱讀模式 (Reading Mode)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("schema")}
-            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
-              activeTab === "schema"
-                ? "bg-[#8f4b23] text-white shadow-md"
-                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
-            }`}
-          >
-            <Database size={16} />
-            <span>🧩 自訂 Schema 資料來源</span>
+            <BookOpen size={18} strokeWidth={1.75} />
+            <span>{t.navReading}</span>
           </button>
 
           <button
@@ -724,80 +520,83 @@ export default function App() {
               setActiveTab("calendar");
               setSelectedDateStr(new Date().toISOString().split("T")[0]);
             }}
-            className={`w-full flex items-center justify-between px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+            className={`w-full flex items-center justify-between px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
               activeTab === "calendar"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
             }`}
           >
-            <div className="flex items-center space-x-3">
-              <CalendarIcon size={16} />
-              <span>📅 Planit 複習月曆</span>
+            <div className="flex items-center gap-3.5">
+              <CalendarIcon size={18} strokeWidth={1.75} />
+              <span>{t.navCalendar}</span>
             </div>
             {tasks.filter(t => !t.is_completed).length > 0 && (
-              <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                {tasks.filter(t => !t.is_completed).length} 待辦
+              <span className={`text-xs font-mono ${activeTab === "calendar" ? "text-zinc-600" : "text-zinc-400"}`}>
+                {tasks.filter(t => !t.is_completed).length}
               </span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab("add_task")}
-            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
               activeTab === "add_task"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
             }`}
           >
-            <PlusCircle size={16} />
-            <span>✍️ 新增複習任務</span>
+            <PlusCircle size={18} strokeWidth={1.75} />
+            <span>{t.navNewTask}</span>
           </button>
 
           <button
             onClick={() => setActiveTab("stats")}
-            className={`w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold rounded-xl transition-all text-left ${
+            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
               activeTab === "stats"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/10"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
             }`}
           >
-            <BarChart3 size={16} />
-            <span>📊 Statistics / 統計數據</span>
+            <BarChart3 size={18} strokeWidth={1.75} />
+            <span>{t.navStats}</span>
           </button>
 
-          <div className="pt-4 border-t border-slate-800 my-4" />
+          <button
+            onClick={() => setActiveTab("schema")}
+            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
+              activeTab === "schema"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
+            }`}
+          >
+            <Database size={18} strokeWidth={1.75} />
+            <span>{t.navSchema}</span>
+          </button>
 
-          {/* Quick Stats sidebar info widget */}
-          <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800 text-[11px] space-y-3.5">
-            <span className="font-bold text-slate-400 uppercase tracking-widest text-[9px] block">
-              學習積分 (Daily Target: 5 pts)
-            </span>
-            <div className="space-y-1.5">
-              <div className="flex justify-between font-mono">
-                <span className="text-slate-400">今日已得積分:</span>
-                <span className="text-emerald-400 font-bold">{todayPoints.completed} pts</span>
-              </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-emerald-500 transition-all duration-300"
-                  style={{ width: `${Math.min(100, (todayPoints.completed / 5.0) * 100)}%` }}
-                />
-              </div>
+          <div className="pt-4 border-t border-zinc-800/80 my-4" />
+
+          {/* Minimal Daily Target widget */}
+          <div className="px-4 py-4 rounded-xl bg-zinc-900/75 border border-zinc-800/80 text-[13px] space-y-3">
+            <div className="flex items-center justify-between text-zinc-300">
+              <span className="font-medium">{t.dailyTarget}</span>
+              <span className="font-mono text-white font-semibold">{todayPoints.completed} / 5.0</span>
+            </div>
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white transition-all duration-300"
+                style={{ width: `${Math.min(100, (todayPoints.completed / 5.0) * 100)}%` }}
+              />
             </div>
 
             {stats && (
-              <div className="pt-2 space-y-1 border-t border-slate-800 font-mono text-slate-400">
+              <div className="pt-2.5 space-y-1.5 border-t border-zinc-800/80 font-mono text-xs text-zinc-400">
                 <div className="flex justify-between">
-                  <span>待補足赤字:</span>
-                  <span className={stats.deficitPoints > 0 ? "text-rose-400 font-bold" : "text-slate-400"}>
-                    {stats.deficitPoints} pts
-                  </span>
+                  <span>{t.deficit}</span>
+                  <span className="text-zinc-200">{stats.deficitPoints} pts</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>逾期未複習:</span>
-                  <span className={stats.overdueCount > 0 ? "text-rose-400 font-bold" : "text-slate-400"}>
-                    {stats.overdueCount} 個
-                  </span>
+                  <span>{t.overdue}</span>
+                  <span className="text-zinc-200">{stats.overdueCount}</span>
                 </div>
               </div>
             )}
@@ -805,128 +604,103 @@ export default function App() {
         </nav>
 
         {/* Sidebar Footer Google Calendar status */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950 flex flex-col space-y-2.5">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-500">Google Calendar:</span>
-            {googleAccessToken ? (
-              <span className="text-emerald-400 font-bold flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-                <span>已同步</span>
-              </span>
-            ) : (
-              <span className="text-rose-400 font-bold">未連接</span>
-            )}
+        <div className="p-5 border-t border-zinc-800/80 flex flex-col space-y-3">
+          <div className="flex items-center justify-between text-[13px] text-zinc-400">
+            <span>Google Calendar</span>
+            <span className={googleAccessToken ? "text-white font-medium" : "text-zinc-500"}>
+              {googleAccessToken ? t.gcalConnected : t.gcalOff}
+            </span>
           </div>
-          {googleAccessToken ? (
-            <button 
-              onClick={() => setActiveTab("sync")}
-              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-bold uppercase rounded-lg transition-all flex items-center justify-center space-x-1"
-            >
-              <FolderSync size={11} />
-              <span>開啟同步控制台</span>
-            </button>
-          ) : (
-            <button 
-              onClick={handleConnectGoogle}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold uppercase rounded-lg transition-all flex items-center justify-center space-x-1"
-            >
-              <FolderSync size={11} />
-              <span>綁定 Google Calendar</span>
-            </button>
-          )}
+          <button
+            onClick={googleAccessToken ? () => setActiveTab("sync") : handleConnectGoogle}
+            className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 text-[13px] font-medium rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <FolderSync size={15} />
+            <span>{googleAccessToken ? t.syncConsole : t.connectCalendar}</span>
+          </button>
         </div>
       </aside>
 
       {/* RIGHT MAIN WORKSPACE */}
-      <main className="flex-1 flex flex-col min-w-0" id="app-workspace">
-        {/* Mentor quote upper strip */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center space-x-3 shadow-xs">
-          <Sparkles className="text-blue-500 shrink-0 animate-bounce" size={16} />
-          <p className="text-xs text-blue-700 font-medium italic transition-all duration-500">
-            {mentorTips[activeTipIdx]}
-          </p>
-        </div>
-
+      <main className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-hidden" id="app-workspace">
         {/* Dynamic Inner Tab container */}
-        <div className="p-6 md:p-8 flex-1 overflow-y-auto">
+        <div className="p-8 md:p-12 flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-              <Loader2 size={36} className="animate-spin text-blue-600 mb-3" />
-              <p className="text-sm font-semibold">正在載入學習排程資料...</p>
+            <div className="flex flex-col items-center justify-center h-96 text-zinc-400">
+              <Loader2 size={24} className="animate-spin mb-3" />
+              <p className="text-xs tracking-wide">Loading Mentorion...</p>
             </div>
           ) : (
-            <div className="animate-fadeIn">
+            <div>
               
-              {/* --- VIEW 1: COVER/DASHBOARD --- */}
+              {/* --- VIEW 1: COVER / OVERVIEW --- */}
               {activeTab === "cover" && (
-                <div className="max-w-4xl mx-auto space-y-8" id="view-cover">
-                  {/* Hero Invitation Greeting */}
-                  <div className="relative bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white rounded-3xl p-8 md:p-10 shadow-xl overflow-hidden border border-slate-800">
-                    <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-y-1/4 translate-x-1/4">
-                      <BrainCircuit size={360} />
+                <div className="max-w-5xl mx-auto space-y-12" id="view-cover">
+                  {/* Minimal Studio Hero */}
+                  <div className="py-12 md:py-16 border-b border-zinc-200 space-y-6">
+                    <div className="text-xs font-mono uppercase tracking-[0.22em] text-zinc-400">
+                      {t.heroKicker}
                     </div>
-                    <div className="relative z-10 max-w-xl space-y-4">
-                      <span className="text-[10px] bg-blue-500 text-white px-3 py-1 rounded-full font-bold uppercase tracking-widest font-mono">
-                        Welcome to Planit Spaced Repetition
-                      </span>
-                      <h2 className="text-2xl md:text-3xl font-extrabold font-display leading-tight">
-                        掌握科學記憶規律，<br />打造堅不可摧的知識行事曆
-                      </h2>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        整合了頂尖的 SM-2 自適應複習算法與 Planit 日程規劃規格。您只需記錄學習筆記或加入複習科目，系統將自動生成未來所有的複習排程並同步至行事曆！
-                      </p>
-                      <div className="pt-4 flex flex-wrap gap-3">
-                        <button
-                          onClick={() => setActiveTab("calendar")}
-                          className="px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-blue-500/20"
-                        >
-                          進入學習與複習月曆 →
-                        </button>
-                        <button
-                          onClick={() => setActiveTab("add_task")}
-                          className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all"
-                        >
-                          + 新增今日學習主題
-                        </button>
-                      </div>
+                    <h2 className="text-5xl md:text-6xl font-bold font-display tracking-tight text-zinc-950 leading-[1.08]">
+                      {t.heroTitleLine1}
+                      <br />
+                      {t.heroTitleLine2}
+                    </h2>
+                    <p className="text-[17px] text-zinc-500 max-w-2xl leading-relaxed">
+                      {t.heroDesc}
+                    </p>
+                    <div className="pt-3 flex flex-wrap gap-3.5">
+                      <button
+                        onClick={() => setActiveTab("reading")}
+                        className="px-6 py-3 bg-zinc-950 hover:bg-zinc-800 text-white text-sm font-medium rounded-xl transition-colors cursor-pointer"
+                      >
+                        {t.btnOpenReading}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("calendar")}
+                        className="px-6 py-3 bg-white hover:bg-zinc-100 text-zinc-900 text-sm font-medium rounded-xl border border-zinc-200 transition-colors cursor-pointer"
+                      >
+                        {t.btnOpenCalendar}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("schema")}
+                        className="px-6 py-3 bg-white hover:bg-zinc-100 text-zinc-700 text-sm font-medium rounded-xl border border-zinc-200 transition-colors cursor-pointer"
+                      >
+                        {t.btnOpenSchema}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Core Metrics Grid */}
+                  {/* Clean Monochrome Metrics Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">已完成 New 項目</span>
-                        <p className="text-3xl font-extrabold font-mono text-blue-600">{stats?.totalCompletedNew || 0}</p>
-                        <span className="text-[9px] text-slate-400">100% 長期追蹤複習中</span>
-                      </div>
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                        <BookMarked size={24} />
-                      </div>
+                    <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                        {t.metricNew}
+                      </span>
+                      <p className="text-4xl font-semibold font-mono text-zinc-950">
+                        {stats?.totalCompletedNew || 0}
+                      </p>
+                      <span className="text-sm text-zinc-400 block">{t.metricNewSub}</span>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">已完成 Revision 次數</span>
-                        <p className="text-3xl font-extrabold font-mono text-emerald-600">{stats?.totalCompletedRevision || 0}</p>
-                        <span className="text-[9px] text-slate-400">間隔次數不斷放大中</span>
-                      </div>
-                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                        <CheckCircle2 size={24} />
-                      </div>
+                    <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                        {t.metricRev}
+                      </span>
+                      <p className="text-4xl font-semibold font-mono text-zinc-950">
+                        {stats?.totalCompletedRevision || 0}
+                      </p>
+                      <span className="text-sm text-zinc-400 block">{t.metricRevSub}</span>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">累計待補足積分赤字</span>
-                        <p className={`text-3xl font-extrabold font-mono ${stats && stats.deficitPoints > 0 ? "text-rose-500" : "text-slate-400"}`}>
-                          {stats?.deficitPoints || 0} pts
-                        </p>
-                        <span className="text-[9px] text-slate-400">落後目標的累計點數</span>
-                      </div>
-                      <div className="p-3 bg-rose-50 text-rose-500 rounded-xl">
-                        <AlertTriangle size={24} />
-                      </div>
+                    <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                        {t.metricDeficit}
+                      </span>
+                      <p className="text-4xl font-semibold font-mono text-zinc-950">
+                        {stats?.deficitPoints || 0} pts
+                      </p>
+                      <span className="text-sm text-zinc-400 block">{t.metricDeficitSub}</span>
                     </div>
                   </div>
 
@@ -1222,7 +996,7 @@ export default function App() {
                             <p>今日無排定學習或複習任務</p>
                             <button
                               onClick={() => setActiveTab("add_task")}
-                              className="text-blue-500 font-bold hover:underline"
+                              className="text-zinc-900 font-semibold hover:underline cursor-pointer"
                             >
                               + 新增今日任務
                             </button>
@@ -1236,28 +1010,28 @@ export default function App() {
 
               {/* --- VIEW 3: ADD TASK --- */}
               {activeTab === "add_task" && (
-                <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-slate-200 p-8 text-left shadow-sm space-y-6" id="view-add-task">
-                  <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-zinc-200 p-9 text-left space-y-7" id="view-add-task">
+                  <div className="flex items-center gap-4 border-b border-zinc-200 pb-5">
+                    <div className="p-3 bg-zinc-100 text-zinc-900 rounded-xl">
                       <PlusCircle size={22} />
                     </div>
                     <div>
-                      <h3 className="font-extrabold text-slate-800 text-sm font-display">登錄全新筆記與複習計畫</h3>
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Create New Study Trajectory</p>
+                      <h3 className="font-bold text-zinc-950 text-xl font-display">登錄全新筆記與複習計畫</h3>
+                      <p className="text-xs text-zinc-400 uppercase font-mono tracking-wider mt-0.5">Create New Study Trajectory</p>
                     </div>
                   </div>
 
-                  <form onSubmit={handleCreateTaskSubmit} className="space-y-5 text-xs">
+                  <form onSubmit={handleCreateTaskSubmit} className="space-y-6 text-sm">
                     {/* Title */}
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-500 uppercase tracking-wide">學習主題 / 筆記標題</label>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">學習主題 / 筆記標題</label>
                       <input
                         type="text"
                         required
                         placeholder="例如：英文單字 Core-Vocabulary L1"
                         value={newTaskTitle}
                         onChange={(e) => setNewTaskTitle(e.target.value)}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-medium"
+                        className="w-full px-4 py-3 border border-zinc-200 rounded-xl bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-[15px] font-medium"
                       />
                     </div>
 
@@ -1275,68 +1049,68 @@ export default function App() {
 
                     {/* Meta selections */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-500 uppercase tracking-wide">學科分類 / Category</label>
-                        <select
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Category</label>
+                        <CustomSelect
                           value={newTaskCategory}
-                          onChange={(e) => setNewTaskCategory(e.target.value)}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="English">🇬🇧 English</option>
-                          <option value="Math">📐 Math / 數學</option>
-                          <option value="Coding">💻 Coding / 資訊學科</option>
-                          <option value="Biology">🌿 Biology / 生物</option>
-                          <option value="History">📜 History / 歷史學科</option>
-                          <option value="Other">📁 Other / 其他項目</option>
-                        </select>
+                          onChange={setNewTaskCategory}
+                          options={[
+                            { value: "English", label: "English" },
+                            { value: "Math", label: "Math" },
+                            { value: "Coding", label: "Coding" },
+                            { value: "Biology", label: "Biology" },
+                            { value: "History", label: "History" },
+                            { value: "Other", label: "Other" },
+                          ]}
+                        />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-500 uppercase tracking-wide">學習類型 / Task Type</label>
-                        <select
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Task Type</label>
+                        <CustomSelect
                           value={newTaskType}
-                          onChange={(e) => setNewTaskType(e.target.value as any)}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:border-blue-500 focus:outline-none"
-                        >
-                          <option value="new">🆕 New (新學習 - 含多次自動複習)</option>
-                          <option value="practice">🎯 Practice (練習 - 僅單次學習紀錄)</option>
-                        </select>
+                          onChange={(val) => setNewTaskType(val as "new" | "practice")}
+                          options={[
+                            { value: "new", label: "New (Spaced Repetition)" },
+                            { value: "practice", label: "Practice (Single Session)" },
+                          ]}
+                        />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-500 uppercase tracking-wide">間隔記憶模式 / Pattern</label>
-                        <select
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pattern</label>
+                        <CustomSelect
                           value={newTaskPattern}
                           disabled={newTaskType === "practice"}
-                          onChange={(e) => setNewTaskPattern(e.target.value as any)}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
-                        >
-                          <option value="A">Pattern A (2的n次方天間隔)</option>
-                          <option value="B">Pattern B (3的n次方天間隔)</option>
-                          <option value="C">Pattern C (SM-2 自適應評分間隔)</option>
-                        </select>
+                          onChange={(val) => setNewTaskPattern(val as "A" | "B" | "C")}
+                          options={[
+                            { value: "A", label: "Pattern A · 2ⁿ days (1, 2, 4, 8…)" },
+                            { value: "B", label: "Pattern B · 3ⁿ days (1, 3, 9, 27…)" },
+                            { value: "C", label: "Pattern C · SM-2 Adaptive" },
+                          ]}
+                        />
                       </div>
                     </div>
 
                     {/* Date and Time selectors */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-                      <div className="space-y-1.5">
-                        <label className="block font-bold text-slate-500 uppercase tracking-wide">預定登錄學習日期</label>
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">預定登錄學習日期</label>
                         <input
                           type="date"
                           value={newTaskFirstDate}
                           onChange={(e) => setNewTaskFirstDate(e.target.value)}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                          className="w-full px-4 py-3 border border-zinc-200 rounded-xl bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-[15px]"
                         />
                       </div>
 
-                      <div className="space-y-1.5 flex flex-col justify-end">
-                        <label className="flex items-center space-x-2.5 pb-2 font-bold text-slate-500 uppercase cursor-pointer">
+                      <div className="space-y-2 flex flex-col justify-end">
+                        <label className="flex items-center gap-2.5 pb-2.5 text-sm font-medium text-zinc-700 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={newTaskIsAllDay}
                             onChange={(e) => setNewTaskIsAllDay(e.target.checked)}
-                            className="rounded text-blue-600 focus:ring-blue-500"
+                            className="w-4 h-4 accent-zinc-950 rounded"
                           />
                           <span>全天日程 (All Day)</span>
                         </label>
@@ -1347,14 +1121,14 @@ export default function App() {
                               type="time"
                               value={newTaskStartTime}
                               onChange={(e) => setNewTaskStartTime(e.target.value)}
-                              className="w-1/2 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                              className="w-1/2 px-3 py-2.5 border border-zinc-200 rounded-xl text-sm bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none"
                             />
-                            <span className="text-slate-400">至</span>
+                            <span className="text-zinc-400">至</span>
                             <input
                               type="time"
                               value={newTaskEndTime}
                               onChange={(e) => setNewTaskEndTime(e.target.value)}
-                              className="w-1/2 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                              className="w-1/2 px-3 py-2.5 border border-zinc-200 rounded-xl text-sm bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none"
                             />
                           </div>
                         )}
@@ -1362,18 +1136,18 @@ export default function App() {
                     </div>
 
                     {/* Submitting Buttons */}
-                    <div className="flex space-x-3 pt-6">
+                    <div className="flex gap-3.5 pt-4">
                       <button
                         type="button"
                         onClick={() => setActiveTab("calendar")}
-                        className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-all"
+                        className="w-1/2 py-3 bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200 font-medium text-sm rounded-xl transition-colors cursor-pointer"
                       >
                         取消
                       </button>
                       <button
                         type="submit"
                         disabled={isSubmittingTask}
-                        className="w-1/2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-600/10 flex items-center justify-center space-x-2"
+                        className="w-1/2 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-medium text-sm rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
                       >
                         {isSubmittingTask && <Loader2 size={14} className="animate-spin" />}
                         <span>儲存並啟動複習計畫</span>
@@ -1421,33 +1195,45 @@ export default function App() {
                   .filter(d => d.value > 0);
 
                 return (
-                  <div className="max-w-4xl mx-auto space-y-8" id="view-stats">
-                    {/* Stats Main Hero Grid */}
+                  <div className="max-w-5xl mx-auto space-y-8" id="view-stats">
+                    {/* Stats Main Hero Grid (Monochrome, Generous Scale) */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
-                      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">總學習筆記主題</span>
-                        <p className="text-3xl font-extrabold font-mono text-blue-600">{stats?.totalNotes || 0}</p>
-                        <span className="text-[9px] text-slate-400">主題 canonical ID 的總量</span>
+                      <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                        <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                          {lang === "zh-Hant" ? "總學習筆記主題" : "Total Notes"}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">{stats?.totalNotes || 0}</p>
+                        <span className="text-xs text-zinc-400 block">
+                          {lang === "zh-Hant" ? "已收錄筆記總數" : "Canonical notes tracked"}
+                        </span>
                       </div>
 
-                      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">已完成 New 項目</span>
-                        <p className="text-3xl font-extrabold font-mono text-emerald-600">{stats?.totalCompletedNew || 0}</p>
-                        <span className="text-[9px] text-slate-400">總計 1.0 積分項目次數</span>
+                      <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                        <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                          {t.metricNew}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">{stats?.totalCompletedNew || 0}</p>
+                        <span className="text-xs text-zinc-400 block">1.0 pt / item</span>
                       </div>
 
-                      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">已完成 Practice 項目</span>
-                        <p className="text-3xl font-extrabold font-mono text-purple-600">{stats?.totalCompletedPractice || 0}</p>
-                        <span className="text-[9px] text-slate-400">總計 0.5 積分項目次數</span>
+                      <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                        <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                          {lang === "zh-Hant" ? "已完成練習項目" : "Practice Sessions"}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">{stats?.totalCompletedPractice || 0}</p>
+                        <span className="text-xs text-zinc-400 block">0.5 pt / item</span>
                       </div>
 
-                      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-1">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">逾期未複習任務</span>
-                        <p className={`text-3xl font-extrabold font-mono ${stats && stats.overdueCount > 0 ? "text-rose-500" : "text-slate-400"}`}>
+                      <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
+                        <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
+                          {t.overdue}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">
                           {stats?.overdueCount || 0}
                         </p>
-                        <span className="text-[9px] text-slate-400">落後排程天數的任務</span>
+                        <span className="text-xs text-zinc-400 block">
+                          {lang === "zh-Hant" ? "待補進度任務" : "Pending past-due tasks"}
+                        </span>
                       </div>
                     </div>
 
@@ -1572,6 +1358,7 @@ export default function App() {
               {activeTab === "reading" && (
                 <EditorialReaderView
                   notes={notes}
+                  lang={lang}
                   onCopyQuizPrompt={(note) => {
                     const prompt = `請根據以下筆記內容，為我設計 3 題主動回憶測驗（包含 2 題簡答題與 1 題情境應用題），並在我作答後逐題給予回饋：\n\n# ${note.title}\n\n${note.content}`;
                     void navigator.clipboard?.writeText(prompt);
@@ -1581,7 +1368,7 @@ export default function App() {
 
               {/* --- VIEW: CUSTOMIZABLE SCHEMA SOURCE --- */}
               {activeTab === "schema" && (
-                <SchemaSourcePanel onImported={() => void fetchData()} />
+                <SchemaSourcePanel lang={lang} onImported={() => void fetchData()} />
               )}
 
               {/* --- VIEW 5: GOOGLE CALENDAR SYNC CONSOLE --- */}
@@ -1895,6 +1682,12 @@ export default function App() {
         </div>
       )}
 
+      <SettingsModal
+        open={settingsOpen}
+        lang={lang}
+        onChangeLang={handleChangeLang}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 }

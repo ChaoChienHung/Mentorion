@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, Database, Download, Eye, Loader2 } from "lucide-react";
+import { MENTORION_COPY, type MentorionLang } from "../i18n";
 
 interface PreviewDoc {
   source_doc_id: string;
@@ -45,10 +46,12 @@ function loadConfig(): SchemaConfig {
 }
 
 interface SchemaSourcePanelProps {
+  lang: MentorionLang;
   onImported: () => void;
 }
 
-export function SchemaSourcePanel({ onImported }: SchemaSourcePanelProps) {
+export function SchemaSourcePanel({ lang, onImported }: SchemaSourcePanelProps) {
+  const t = MENTORION_COPY[lang];
   const [config, setConfig] = useState<SchemaConfig>(loadConfig);
   const [previewDocs, setPreviewDocs] = useState<PreviewDoc[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,7 +112,7 @@ export function SchemaSourcePanel({ onImported }: SchemaSourcePanelProps) {
 
   return (
     <div
-      className="max-w-3xl mx-auto rounded-2xl p-8 space-y-6"
+      className="max-w-5xl mx-auto rounded-2xl p-10 space-y-7"
       style={{
         background: "var(--ed-bg-elevated)",
         border: "1px solid var(--ed-border-subtle)",
@@ -117,113 +120,88 @@ export function SchemaSourcePanel({ onImported }: SchemaSourcePanelProps) {
       }}
     >
       <div
-        className="flex items-start gap-3 pb-4"
+        className="flex items-start gap-4 pb-5"
         style={{ borderBottom: "1px solid var(--ed-border-subtle)" }}
       >
-        <div
-          className="p-2.5 rounded-xl"
-          style={{ background: "var(--ed-accent-soft)", color: "var(--ed-accent)" }}
-        >
-          <Database size={20} />
+        <div className="p-3 rounded-xl bg-zinc-100 text-zinc-900">
+          <Database size={22} />
         </div>
         <div>
-          <h2
-            className="text-xl font-bold"
-            style={{ fontFamily: "var(--font-serif)" }}
-          >
-            自訂 Schema 資料來源
+          <h2 className="text-2xl font-bold font-display text-zinc-950">
+            {t.schemaTitle}
           </h2>
-          <p className="text-xs mt-1" style={{ color: "var(--ed-text-secondary)" }}>
-            指向任何 Markdown 筆記資料夾（支援 Nexus-Vault 或其他知識庫），自訂 frontmatter 欄位對映即可自動匯入排程與出題。
+          <p className="text-sm mt-1.5 text-zinc-500 leading-relaxed">
+            {t.schemaDesc}
           </p>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <label className="block text-xs font-semibold mb-1.5">
-            筆記資料夾路徑 (Source Directory)
+          <label className="block text-sm font-semibold mb-2 text-zinc-800">
+            {t.schemaDirLabel}
           </label>
           <input
             type="text"
             value={config.source_dir}
             onChange={(e) => updateField("source_dir", e.target.value)}
-            placeholder="../Nexus-Vault 或 ~/Documents/notes"
-            className="w-full px-3.5 py-2.5 rounded-xl text-sm font-mono"
-            style={{
-              background: "var(--ed-bg-page)",
-              border: "1px solid var(--ed-border-subtle)",
-            }}
+            placeholder="../Nexus-Vault"
+            className="w-full px-4 py-3 rounded-xl text-[15px] font-mono bg-zinc-50 border border-zinc-200 focus:border-zinc-900 focus:outline-none"
           />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {(
             [
-              ["id_field", "ID 欄位"],
-              ["title_field", "標題欄位"],
-              ["summary_field", "摘要欄位"],
-              ["category_field", "分類欄位"],
-              ["review_field", "複習狀態欄位"],
-              ["filename_pattern", "檔名模式 (index.md / *.md)"],
+              ["id_field", t.schemaIdField],
+              ["title_field", t.schemaTitleField],
+              ["summary_field", t.schemaSummaryField],
+              ["category_field", t.schemaCategoryField],
+              ["review_field", t.schemaReviewField],
+              ["filename_pattern", t.schemaFilenameField],
             ] as const
           ).map(([key, label]) => (
             <div key={key}>
-              <label
-                className="block text-[11px] font-semibold mb-1"
-                style={{ color: "var(--ed-text-secondary)" }}
-              >
+              <label className="block text-xs font-semibold mb-1.5 text-zinc-500">
                 {label}
               </label>
               <input
                 type="text"
                 value={config[key]}
                 onChange={(e) => updateField(key, e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-xs font-mono"
-                style={{
-                  background: "var(--ed-bg-page)",
-                  border: "1px solid var(--ed-border-subtle)",
-                }}
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm font-mono bg-zinc-50 border border-zinc-200 focus:border-zinc-900 focus:outline-none"
               />
             </div>
           ))}
         </div>
 
-        <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+        <label className="inline-flex items-center gap-2.5 text-sm text-zinc-700 cursor-pointer">
           <input
             type="checkbox"
             checked={config.only_fresh}
             onChange={(e) => updateField("only_fresh", e.target.checked)}
+            className="w-4 h-4 accent-zinc-950"
           />
-          <span>只同步尚未複習（fresh）的筆記</span>
+          <span>{t.schemaOnlyFresh}</span>
         </label>
 
-        <div className="flex flex-wrap gap-3 pt-2">
+        <div className="flex flex-wrap gap-3.5 pt-2">
           <button
             onClick={() => void handlePreview()}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer"
-            style={{
-              background: "var(--ed-bg-surface)",
-              color: "var(--ed-text-primary)",
-              border: "1px solid var(--ed-border-subtle)",
-            }}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 transition-colors cursor-pointer"
           >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
-            <span>預覽符合筆記</span>
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Eye size={15} />}
+            <span>{t.schemaPreview}</span>
           </button>
 
           <button
             onClick={() => void handleImport()}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold cursor-pointer"
-            style={{
-              background: "var(--ed-text-primary)",
-              color: "var(--ed-bg-page)",
-            }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-zinc-950 hover:bg-zinc-800 text-white transition-colors cursor-pointer"
           >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            <span>匯入至 Mentorion 排程</span>
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+            <span>{t.schemaImport}</span>
           </button>
         </div>
 

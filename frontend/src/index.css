@@ -4,57 +4,62 @@
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang TC", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, "Songti TC", "Noto Serif TC", serif;
-  --font-display: "Charter", "Space Grotesk", "Inter", sans-serif;
+  --font-display: "Space Grotesk", "Inter", -apple-system, sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Shared Editorial Minimal tokens (aligned with Nexus) */
+/* Mentorion — Crisp Studio Minimal (independent visual identity, sibling to Nexus & Ludwigia) */
+html {
+  font-size: 17.5px;
+}
+
 :root {
-  --ed-bg-page: #f5eedc;
-  --ed-bg-sidebar: #ede4cf;
-  --ed-bg-surface: #e4d9c0;
-  --ed-bg-elevated: #faf4e6;
-  --ed-bg-hover: rgba(59, 42, 30, 0.06);
-  --ed-bg-active: rgba(59, 42, 30, 0.11);
-  --ed-border-subtle: rgba(59, 42, 30, 0.12);
-  --ed-border-strong: rgba(59, 42, 30, 0.24);
-  --ed-text-primary: #3b2a1e;
-  --ed-text-secondary: #6b5340;
-  --ed-text-muted: #947c68;
-  --ed-accent: #8f4b23;
-  --ed-accent-soft: rgba(143, 75, 35, 0.1);
-  --ed-doc-color: #3d6b52;
-  --ed-doc-soft: rgba(61, 107, 82, 0.1);
+  --ed-bg-page: #fafafa;
+  --ed-bg-sidebar: #0e0f11;
+  --ed-bg-surface: #f4f4f5;
+  --ed-bg-elevated: #ffffff;
+  --ed-bg-hover: rgba(17, 24, 39, 0.045);
+  --ed-bg-active: rgba(17, 24, 39, 0.08);
+  --ed-border-subtle: #e4e4e7;
+  --ed-border-strong: #d4d4d8;
+  --ed-text-primary: #111827;
+  --ed-text-secondary: #52525b;
+  --ed-text-muted: #71717a;
+  --ed-accent: #18181b;
+  --ed-accent-soft: #f4f4f5;
+  --ed-doc-color: #15803d;
+  --ed-doc-soft: rgba(21, 128, 61, 0.08);
 }
 
 .editorial-prose {
   font-family: var(--font-sans);
-  font-size: 16.5px;
-  line-height: 1.84;
+  font-size: 17px;
+  line-height: 1.85;
   color: var(--ed-text-primary);
 }
 
 .editorial-prose h1 {
-  font-family: var(--font-serif);
-  font-size: 32px;
+  font-family: var(--font-display);
+  font-size: 30px;
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   margin: 0 0 18px;
 }
 
 .editorial-prose h2 {
-  font-family: var(--font-serif);
-  font-size: 22px;
+  font-family: var(--font-display);
+  font-size: 21px;
   font-weight: 650;
+  letter-spacing: -0.015em;
   margin: 28px 0 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--ed-border-subtle);
 }
 
 .editorial-prose h3 {
-  font-size: 18px;
-  font-weight: 650;
+  font-size: 17px;
+  font-weight: 600;
   margin: 22px 0 8px;
 }
 
@@ -75,8 +80,8 @@
 .editorial-prose blockquote {
   margin: 16px 0;
   padding: 10px 16px;
-  border-left: 3px solid var(--ed-accent);
-  background: var(--ed-accent-soft);
+  border-left: 2px solid var(--ed-text-primary);
+  background: var(--ed-bg-surface);
   border-radius: 0 8px 8px 0;
   color: var(--ed-text-secondary);
 }
@@ -86,15 +91,16 @@
   padding: 14px 16px;
   border-radius: 10px;
   background: var(--ed-bg-surface);
+  border: 1px solid var(--ed-border-subtle);
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.6;
 }
 
 .editorial-prose code {
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: 0.88em;
   background: var(--ed-bg-surface);
   padding: 1px 5px;
   border-radius: 4px;

@@ -21,6 +21,10 @@ app = FastAPI(title="Mentorion API")
 def on_startup():
     # Create all tables in the database
     Base.metadata.create_all(bind=engine)
+    from .core.config import settings
+    from .core.runtime_registry import register_backend_runtime
+
+    register_backend_runtime(settings.HOST, settings.PORT)
 
 # ------------
 # Rate Limiter

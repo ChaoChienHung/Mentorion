@@ -6,7 +6,19 @@ from datetime import datetime, timedelta
 
 from ...schemas.note import Note, NoteRequest
 from ...schemas.error import ErrorResponse
+from ...schemas.quiz import (
+    QuestionSource,
+    QuizGenerateRequest,
+    QuizLoadRequest,
+    QuizQuestionItem,
+    QuizResponse,
+)
 from ...domain.schema_source import DocumentSchemaMapping, scan_markdown_source
+from ...domain.quiz_engine import (
+    generate_questions_via_function_calling,
+    load_inline_schema_questions,
+    load_sidecar_questions,
+)
 from pydantic import BaseModel
 from .dependencies import note_service, get_current_user_optional, get_current_user_required
 from ...db.dependency import get_db
@@ -808,5 +820,160 @@ def import_schema_sync(
         "updated": updated_count,
         "total": len(docs),
     }
+
+
+class MarkReviewedRequest(BaseModel):
+    source_doc_id: str
+    grade: int = 4
+    feedback: str = "Reviewed in Nexus"
+
+
+@router.post("/schema-sync/mark-reviewed")
+def mark_source_doc_reviewed(
+    payload: MarkReviewedRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional),
+):
+    """Record a review event in Mentorion when a linked note is marked reviewed in Nexus."""
+    user_id = current_user.id if current_user else 1
+    note = (
+        db.query(DBNote)
+        .filter(
+            DBNote.user_id == user_id,
+            DBNote.source_doc_id == payload.source_doc_id,
+        )
+        .first()
+    )
+    if not note:
+        return {"ok": True, "synced": False, "reason": "note_not_registered"}
+
+    now_iso = datetime.utcnow().isoformat()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    pending_task = (
+        db.query(DBTask)
+        .filter(DBTask.note_id == note.id, DBTask.is_completed == 0)
+        .order_by(DBTask.scheduled_date.asc())
+        .first()
+    )
+    if pending_task:
+        pending_task.is_completed = 1
+        pending_task.completed_at = now_iso
+        pending_task.user_rating = payload.grade
+
+    # Advance SM-2 counters conservatively
+    note.repetitions = (note.repetitions or 0) + 1
+    if note.repetitions == 1:
+        note.interval_days = 1
+    elif note.repetitions == 2:
+        note.interval_days = 6
+    else:
+        note.interval_days = max(1, round((note.interval_days or 6) * (note.ease_factor or 2.5)))
+
+    log = DBReviewLog(
+        note_id=note.id,
+        time=now_iso,
+        grade=payload.grade,
+        feedback=payload.feedback,
+    )
+    db.add(log)
+    db.add(
+        DBJournalEvent(
+            user_id=user_id,
+            type="review_done",
+            title=f"Reviewed: {note.title}",
+            remarks=payload.feedback,
+            event_date=today_str,
+            note_id=note.id,
+            created_at=now_iso,
+        )
+    )
+    db.commit()
+    return {
+        "ok": True,
+        "synced": True,
+        "note_id": note.id,
+        "interval_days": note.interval_days,
+        "repetitions": note.repetitions,
+    }
+
+
+# -------------------------------------------------------
+# Quiz Engine Routes (Sidecar + Inline Schema + LLM Tools)
+# -------------------------------------------------------
+
+@router.post("/quiz/load", response_model=QuizResponse)
+def load_quiz_questions(
+    payload: QuizLoadRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Loads quiz questions from up to three sources in priority order:
+    1. Sidecar `questions.json` alongside the Markdown note in `source_dir`
+    2. Inline `questions` embedded in the note schema
+    3. LLM Function Calling (`submit_quiz_questions`) when `generate_if_empty=True`
+    """
+    questions: list[QuizQuestionItem] = []
+    sources_used: list[QuestionSource] = []
+
+    title = payload.title or ""
+    content = payload.content or ""
+    source_doc_id = payload.source_doc_id
+
+    if payload.note_id is not None:
+        db_note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+        if db_note:
+            title = title or db_note.title
+            content = content or db_note.content
+            source_doc_id = source_doc_id or db_note.source_doc_id
+
+    if payload.source_dir and source_doc_id:
+        try:
+            sidecar_qs = load_sidecar_questions(payload.source_dir, source_doc_id)
+            if sidecar_qs:
+                questions.extend(sidecar_qs)
+                sources_used.append("sidecar")
+        except Exception:
+            pass
+
+    if payload.inline_questions:
+        inline_qs = load_inline_schema_questions(payload.inline_questions)
+        if inline_qs:
+            questions.extend(inline_qs)
+            sources_used.append("inline_schema")
+
+    if not questions and payload.generate_if_empty:
+        if not content.strip():
+            raise HTTPException(status_code=400, detail="Note content is required for LLM quiz generation.")
+        try:
+            llm_qs = generate_questions_via_function_calling(
+                title=title or "Study Note",
+                content=content,
+                count=payload.count,
+                question_types=payload.question_types,
+            )
+            questions.extend(llm_qs)
+            sources_used.append("llm")
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
+
+    return QuizResponse(questions=questions, sources_used=sources_used)
+
+
+@router.post("/quiz/generate", response_model=QuizResponse)
+def generate_quiz_questions(payload: QuizGenerateRequest):
+    """Explicitly invokes Gemini Function Calling (`submit_quiz_questions`) to generate schema-validated questions."""
+    if not payload.content.strip():
+        raise HTTPException(status_code=400, detail="Note content cannot be empty.")
+    try:
+        llm_qs = generate_questions_via_function_calling(
+            title=payload.title,
+            content=payload.content,
+            count=payload.count,
+            question_types=payload.question_types,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return QuizResponse(questions=llm_qs, sources_used=["llm"])
 
 
