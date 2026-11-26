@@ -50,6 +50,8 @@ export function RevisionCardModal({
 }: RevisionCardModalProps) {
   const zh = lang === "zh-Hant";
   const [mode, setMode] = useState<"note" | "setup" | "quiz">("note");
+  const [scheduleMode, setScheduleMode] = useState<"sm2" | "custom">("sm2");
+  const [customDays, setCustomDays] = useState<number>(7);
   const [ef, setEf] = useState<number>(task.ease_factor || note.ease_factor || 2.5);
   const [rating, setRating] = useState<number>(4);
   const [submitting, setSubmitting] = useState(false);
@@ -231,6 +233,138 @@ export function RevisionCardModal({
 
   const hasQuestions = allQuestions.length > 0;
 
+  const SM2_HINTS = zh
+    ? ["完全遺忘", "幾乎忘記", "模糊有印象", "吃力想起", "稍作思考想起", "輕鬆精熟"]
+    : ["Blackout", "Barely recalled", "Familiar gap", "Hard recall", "Good recall", "Mastered"];
+
+  const CUSTOM_INTERVALS = [
+    { days: 1, label: "+1d" },
+    { days: 3, label: "+3d" },
+    { days: 7, label: "+7d" },
+    { days: 21, label: "+21d" },
+    { days: 80, label: "+80d" },
+    { days: 240, label: "+240d" },
+  ];
+
+  const renderCompletionFooter = () => (
+    <div className="pt-4 border-t border-zinc-200 space-y-3">
+      {scheduleMode === "sm2" ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-zinc-900">
+              {zh
+                ? "根據本次複習狀況評分（SM-2 自動計算下次間隔）"
+                : "Rate this review session (SM-2 schedules next interval)"}
+            </span>
+            <span className="text-xs font-mono text-zinc-500">
+              {rating} / 5 · {SM2_HINTS[rating]}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-medium text-zinc-400 px-0.5">
+              <span>{zh ? "← 完全遺忘" : "← Blackout"}</span>
+              <span>{zh ? "完全精熟 →" : "Mastered →"}</span>
+            </div>
+            <div className="grid grid-cols-6 gap-2">
+              {[0, 1, 2, 3, 4, 5].map((score) => (
+                <button
+                  key={score}
+                  type="button"
+                  onClick={() => setRating(score)}
+                  title={SM2_HINTS[score]}
+                  className={`py-2 rounded-xl border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+                    rating === score
+                      ? "bg-zinc-950 text-white border-zinc-950"
+                      : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-500"
+                  }`}
+                >
+                  {score}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-zinc-900">
+              {zh ? "安排下一次複習時間（指定間隔）" : "Schedule next review (custom interval)"}
+            </span>
+            <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-600">
+              <span>+</span>
+              <input
+                type="number"
+                min={1}
+                max={730}
+                value={customDays}
+                onChange={(e) => setCustomDays(Math.max(1, Number(e.target.value) || 1))}
+                className="w-16 px-2 py-0.5 rounded-md border border-zinc-300 bg-white text-center font-mono text-xs text-zinc-950 focus:border-zinc-900 focus:outline-none"
+              />
+              <span>{zh ? "天" : "days"}</span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-medium text-zinc-400 px-0.5">
+              <span>{zh ? "← 短期強化" : "← Short-term"}</span>
+              <span>{zh ? "長期鞏固 →" : "Long-term →"}</span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {CUSTOM_INTERVALS.map((item) => (
+                <button
+                  key={item.days}
+                  type="button"
+                  onClick={() => setCustomDays(item.days)}
+                  className={`py-2 rounded-xl border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+                    customDays === item.days
+                      ? "bg-zinc-950 text-white border-zinc-950"
+                      : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-500"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end gap-2.5 pt-1">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
+        >
+          {zh ? "關閉" : "Close"}
+        </button>
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() =>
+            void (scheduleMode === "sm2"
+              ? handleCompleteWithSm2()
+              : handleQuickCompleteDays(customDays))
+          }
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
+        >
+          {submitting ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <CheckCircle2 size={14} />
+          )}
+          <span>
+            {scheduleMode === "sm2"
+              ? zh
+                ? "完成本次複習並更新下次排程"
+                : "Complete Review & Schedule Next"
+              : zh
+                ? `完成複習並於 +${customDays} 天後再次複習`
+                : `Complete & Review in +${customDays}d`}
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center p-4 md:p-8 bg-black/50 backdrop-blur-xs">
       <div className="relative bg-white text-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 max-w-3xl w-full my-auto overflow-hidden text-left">
@@ -287,7 +421,7 @@ export function RevisionCardModal({
               onChange={(e) => handleEfChange(Number(e.target.value))}
               className="w-24 accent-zinc-950 cursor-pointer"
             />
-            <div className="inline-flex items-center gap-1">
+            <div className="inline-flex items-center gap-1.5">
               {[
                 { label: zh ? "難" : "Hard", val: 1.7 },
                 { label: zh ? "標準" : "Normal", val: 2.5 },
@@ -297,7 +431,7 @@ export function RevisionCardModal({
                   key={preset.val}
                   type="button"
                   onClick={() => handleEfChange(preset.val)}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                     Math.abs(ef - preset.val) < 0.08
                       ? "bg-zinc-950 text-white border-zinc-950"
                       : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-500"
@@ -310,22 +444,31 @@ export function RevisionCardModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            {[1, 3, 7].map((days) => (
+            {/* Schedule Mode Switch: SM-2 vs Custom */}
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-200/75 border border-zinc-200">
               <button
-                key={days}
                 type="button"
-                disabled={submitting}
-                onClick={() => void handleQuickCompleteDays(days)}
-                className="px-2.5 py-1.5 bg-white hover:bg-zinc-950 hover:text-white text-zinc-700 rounded-lg border border-zinc-200 font-mono text-[11px] transition-colors cursor-pointer"
-                title={
-                  zh
-                    ? `標記此筆任務為已完成，並於 +${days} 天後安排下次複習`
-                    : `Mark completed & schedule next review in +${days}d`
-                }
+                onClick={() => setScheduleMode("sm2")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                  scheduleMode === "sm2"
+                    ? "bg-zinc-950 text-white"
+                    : "text-zinc-600 hover:text-zinc-950"
+                }`}
               >
-                +{days}d
+                SM-2
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setScheduleMode("custom")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                  scheduleMode === "custom"
+                    ? "bg-zinc-950 text-white"
+                    : "text-zinc-600 hover:text-zinc-950"
+                }`}
+              >
+                {zh ? "指定" : "Custom"}
+              </button>
+            </div>
 
             {/* Quiz Trigger Button (locked when 0 questions exist for this note) */}
             <button
@@ -390,57 +533,8 @@ export function RevisionCardModal({
               />
             </div>
 
-            {/* Direct SM-2 Review Rating Bar (works with or without questions) */}
-            <div className="pt-4 border-t border-zinc-200 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-zinc-900">
-                  {zh
-                    ? "根據本次複習狀況評分（更新 SM-2 並排程下一次複習）"
-                    : "Rate this review session (updates SM-2 & schedules next review)"}
-                </span>
-                <span className="text-xs font-mono text-zinc-500">{rating} / 5</span>
-              </div>
-              <div className="grid grid-cols-6 gap-2">
-                {[0, 1, 2, 3, 4, 5].map((score) => (
-                  <button
-                    key={score}
-                    type="button"
-                    onClick={() => setRating(score)}
-                    className={`py-2 rounded-xl border text-xs font-mono font-semibold transition-colors cursor-pointer ${
-                      rating === score
-                        ? "bg-zinc-950 text-white border-zinc-950"
-                        : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-500"
-                    }`}
-                  >
-                    {score}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-end gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
-                >
-                  {zh ? "關閉" : "Close"}
-                </button>
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void handleCompleteWithSm2()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
-                >
-                  {submitting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <CheckCircle2 size={14} />
-                  )}
-                  <span>
-                    {zh ? "完成本次複習並更新下次排程" : "Complete Review & Schedule Next"}
-                  </span>
-                </button>
-              </div>
-            </div>
+            {/* Direct Completion Bar (SM-2 Rating OR Custom Interval) */}
+            {renderCompletionFooter()}
           </div>
         )}
 
@@ -564,56 +658,7 @@ export function RevisionCardModal({
               />
             </div>
 
-            <div className="pt-4 border-t border-zinc-200 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-zinc-900">
-                  {zh
-                    ? "根據本次複習狀況評分（更新 SM-2 並排程下一次複習）"
-                    : "Rate this review session (updates SM-2 & schedules next review)"}
-                </span>
-                <span className="text-xs font-mono text-zinc-500">{rating} / 5</span>
-              </div>
-              <div className="grid grid-cols-6 gap-2">
-                {[0, 1, 2, 3, 4, 5].map((score) => (
-                  <button
-                    key={score}
-                    type="button"
-                    onClick={() => setRating(score)}
-                    className={`py-2 rounded-xl border text-xs font-mono font-semibold transition-colors cursor-pointer ${
-                      rating === score
-                        ? "bg-zinc-950 text-white border-zinc-950"
-                        : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-500"
-                    }`}
-                  >
-                    {score}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-end gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
-                >
-                  {zh ? "關閉" : "Close"}
-                </button>
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void handleCompleteWithSm2()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
-                >
-                  {submitting ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <CheckCircle2 size={14} />
-                  )}
-                  <span>
-                    {zh ? "完成本次複習並更新下次排程" : "Complete Review & Schedule Next"}
-                  </span>
-                </button>
-              </div>
-            </div>
+            {renderCompletionFooter()}
           </div>
         )}
 
