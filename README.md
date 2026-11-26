@@ -7,13 +7,14 @@ Mentorion 是一個個人學習輔助與間隔重複（Spaced Repetition）複�
 ## 📌 系統架構與功能
 
 - **Backend (FastAPI)**:
-  - 串接 **Gemini API** 進行多模態/網頁抓取並生成結構化筆記與 Quiz Q&A。
-  - 計算 **SM-2 間隔重複算法**，動態排程複習任務。
-  - 提供富統計接口 (`/api/stats`)，計算每日點數赤字（Deficit Points，目標為每日 5.0 分，完成 New 筆記得 1.0 分，Practice 得 0.5 分）、分類時間花費與逾期任務數。
+  - 串接 **Gemini API（含 Function Calling）** 生成結構化題目（`mcq` / `short_answer` / `true_false` / `open` / `essay`）與自動批改。
+  - 檔案驅動的 **Schema 讀取引擎**（`schemas/*.json`：`nexus.json`、`obsidian.json`、`plain-markdown.json`），對外部知識庫保持只讀。
+  - 計算 **SM-2 間隔重複算法**，動態排程複習任務，並提供 `/health` 與彈性 port（`MENTORION_PORT` / `PORT`）及 `~/.mentorion/runtime.json` 自動註冊。
+  - 提供統計接口 (`/api/stats`)，計算每日點數赤字（Deficit Points，目標為每日 5.0 分）、分類時間花費與逾期任務數。
 - **Frontend (React + Vite + TypeScript + Tailwind v4)**:
-  - 提供極致視覺美感（現代字型、暗色模式、精美圖表與動態微動畫）。
-  - 提供 **Planit 複習日曆** 視圖與**每日任務看板**。
-  - 支援筆記建立、Markdown 源碼預覽、複製與下載，以及 **Ludwigia 風格的 Summary Quiz 生成 Prompt** 複製。
+  - **黑白灰 Studio Minimal 設計**，免登入牆直接進入個人工作區，內建 **繁體中文 / English** 設定切換。
+  - 提供 **Library（階層筆記庫閱讀模式 + 互動測驗面板）**、**複習月曆**、**每日任務**、**統計數據**與 **Schema 資料來源**管理。
+  - 與 **Nexus** 採可組合架構：各自獨立完整，啟動時透過 `~/.mentorion/runtime.json` 自動讓 Nexus 探測與連動。
 - **Streamlit**: 
   - 提供快速原型的 Streamlit 管理界面，共用相同的後端 API 服務，避免行為分歧。
 
@@ -63,11 +64,14 @@ export GEMINI_API_KEY="您的_GEMINI_API_KEY"
 export GEMINI_MODEL="gemini-2.5-flash"
 ```
 
-#### 啟動後端伺服器：
+#### 啟動後端伺服器（支援彈性 Port）：
 ```bash
+# 預設 port 8000，或透過 MENTORION_PORT / --port 任意指定
+MENTORION_PORT=8000 ./venv/bin/python -m backend.app.main
+# 或
 ./venv/bin/uvicorn backend.app.main:app --reload --port 8000
 ```
-> 後端將會運行在 `http://localhost:8000`，並會自動在 `backend/` 下建立 `app.db` 資料表。
+> 後端啟動時會自動在 `backend/` 下建立 `app.db`，並將實際 URL 寫入 `~/.mentorion/runtime.json` 供前端與 Nexus 自動發現。
 
 ---
 

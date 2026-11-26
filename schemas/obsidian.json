@@ -1,0 +1,14 @@
+{
+  "name": "obsidian",
+  "label": "Obsidian Vault",
+  "description": "Standard Obsidian Markdown notes (*.md) using YAML frontmatter or H1 headings for titles and folder paths for categories.",
+  "filename_pattern": "*.md",
+  "id_field": "id",
+  "title_field": "title",
+  "summary_field": "description",
+  "category_field": "category",
+  "review_field": "status",
+  "fresh_values": ["fresh", "draft", "unread", ""],
+  "reviewed_values": ["reviewed", "done", "evergreen"],
+  "questions_sidecar": "{stem}.questions.json"
+}

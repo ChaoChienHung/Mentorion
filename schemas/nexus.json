@@ -1,0 +1,14 @@
+{
+  "name": "nexus",
+  "label": "Nexus Document Bundle",
+  "description": "Depth-agnostic Nexus wiki bundles (wiki/<Category>/<slug>/index.md) with YAML frontmatter and optional questions.json sidecar.",
+  "filename_pattern": "index.md",
+  "id_field": "id",
+  "title_field": "title",
+  "summary_field": "summary",
+  "category_field": "category",
+  "review_field": "review",
+  "fresh_values": ["fresh", "", "unread", "new"],
+  "reviewed_values": ["reviewed", "done"],
+  "questions_sidecar": "questions.json"
+}

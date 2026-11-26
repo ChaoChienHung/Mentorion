@@ -16,6 +16,11 @@
    - 任何 API request/response、資料表、配置項（env）的變更，都必須同步更新 docs/ 與 README。
 5. 最小耦合
    - Web 前端（React）與 Streamlit 都應透過後端 API 或共用抽象互動，避免兩套行為分歧。
+6. 本地優先與可組合邊界（Local-First & Composable Suite）
+   - **免強制登入**：個人本地端複習工具預設單人模式直接進入工作區，不設阻擋式登入頁。
+   - **外部知識庫只讀（Read-Only）**：Mentorion 透過 `schemas/*.json` 讀取外部 Markdown 資料夾（如 `Nexus-Vault`），**絕不**在外部知識庫中建立新筆記或寫入題庫檔案；所有排程、作答紀錄與集中題庫皆由 Mentorion SQLite 擁有。
+   - **集中題庫與 LLM 結構化出題／批改**：所有題目（含 `mcq` / `short_answer` / `true_false` / `short_essay` / `essay`）集中存放於 Mentorion SQLite `questions` 表（標註 `note_id` ownership，並支援去重與單檔匯出）；LLM 出題與申論題批改皆透過 Function Calling 嚴格符合題目 schema。
+   - **動態服務發現**：後端與前端啟動時自動將實際 port 寫入 `~/.mentorion/runtime.json`，供 Nexus 無痛探測與組合。
 
 ## 角色與職責
 
@@ -107,3 +112,5 @@
 - 協作規範：docs/collaboration.md
 - 複習模式設計：docs/review-mode.md
 - Review Journal / Calendar 設計：docs/review-journal.md
+- 自訂 Schema 指南：docs/custom-schema-guide.md
+- 內建 Schema 定義：schemas/*.json

@@ -823,16 +823,16 @@ export default function App() {
                     </div>
 
                     {/* Weekday labels */}
-                    <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-400">
+                    <div className="grid grid-cols-7 gap-2 text-center font-semibold text-sm text-zinc-500">
                       {["日", "一", "二", "三", "四", "五", "六"].map((day, idx) => (
-                        <div key={idx} className={idx === 0 || idx === 6 ? "text-rose-400" : ""}>
+                        <div key={idx} className={idx === 0 || idx === 6 ? "text-zinc-900" : ""}>
                           {day}
                         </div>
                       ))}
                     </div>
 
                     {/* Calendar Day cells */}
-                    <div className="grid grid-cols-7 gap-2">
+                    <div className="grid grid-cols-7 gap-2.5">
                       {monthDays.map(({ date, isCurrentMonth }, idx) => {
                         const dateStr = date.toISOString().split("T")[0];
                         const dateTasks = tasks.filter(t => t.scheduled_date === dateStr);
@@ -855,50 +855,46 @@ export default function App() {
                           <button
                             key={idx}
                             onClick={() => setSelectedDateStr(dateStr)}
-                            className={`min-h-[80px] p-2 rounded-2xl border flex flex-col justify-between text-left transition-all ${
+                            className={`min-h-[96px] p-2.5 rounded-2xl border flex flex-col justify-between text-left transition-all cursor-pointer ${
                               isSelected
-                                ? "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
-                                : "border-slate-100 hover:border-slate-200 hover:bg-slate-50"
-                            } ${isCurrentMonth ? "bg-white text-slate-700" : "bg-slate-50 text-slate-300"}`}
+                                ? "border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950"
+                                : "border-zinc-200/80 hover:border-zinc-400 hover:bg-zinc-50"
+                            } ${isCurrentMonth ? "bg-white text-zinc-900" : "bg-zinc-50/70 text-zinc-300"}`}
                           >
                             <div className="flex justify-between items-center">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full font-mono ${
+                              <span className={`text-sm font-semibold px-2 py-0.5 rounded-full font-mono ${
                                 isToday 
-                                  ? "bg-blue-600 text-white" 
+                                  ? "bg-zinc-950 text-white" 
                                   : isSelected 
-                                  ? "text-blue-600 font-extrabold" 
-                                  : "text-slate-600"
+                                  ? "text-zinc-950 font-bold" 
+                                  : "text-zinc-700"
                               }`}>
                                 {date.getDate()}
                               </span>
                               
                               {/* Goal achievement indicators */}
                               {hasTasks && (
-                                <span className={`w-2 h-2 rounded-full ${goalMet ? "bg-emerald-500" : "bg-amber-400"}`}></span>
+                                <span className={`w-2 h-2 rounded-full ${goalMet ? "bg-zinc-950" : "bg-zinc-400"}`}></span>
                               )}
                             </div>
 
                             {/* Cell task brief summary indicators */}
-                            <div className="mt-1 space-y-1 text-[8px] font-bold">
+                            <div className="mt-1.5 space-y-1 text-xs font-medium">
                               {dateTasks.slice(0, 2).map((t, tid) => (
                                 <div 
                                   key={tid} 
-                                  className={`px-1 py-0.5 rounded truncate border ${
+                                  className={`px-1.5 py-0.5 rounded truncate border ${
                                     t.is_completed
-                                      ? "bg-slate-100 text-slate-400 border-slate-200/50 line-through"
-                                      : t.type === "new"
-                                      ? "bg-blue-50 text-blue-700 border-blue-100/30"
-                                      : t.type === "practice"
-                                      ? "bg-purple-50 text-purple-700 border-purple-100/30"
-                                      : "bg-amber-50 text-amber-700 border-amber-100/30"
+                                      ? "bg-zinc-100 text-zinc-400 border-zinc-200 line-through"
+                                      : "bg-zinc-100 text-zinc-900 border-zinc-200"
                                   }`}
                                 >
                                   {t.note_title}
                                 </div>
                               ))}
                               {dateTasks.length > 2 && (
-                                <div className="text-[7px] text-slate-400 text-center font-bold">
-                                  + {dateTasks.length - 2} 個項目
+                                <div className="text-[11px] text-zinc-400 text-center font-medium">
+                                  + {dateTasks.length - 2}
                                 </div>
                               )}
                             </div>
@@ -910,62 +906,56 @@ export default function App() {
 
                   {/* Right Column: Daily Schedule Details & Complete checklist */}
                   <div className="space-y-6">
-                    <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <div className="bg-white rounded-2xl border border-zinc-200 p-7 space-y-5">
+                      <div className="flex justify-between items-center border-b border-zinc-200 pb-4">
                         <div>
-                          <h4 className="font-extrabold text-slate-800 text-xs">
+                          <h4 className="font-bold text-zinc-950 text-base">
                             {selectedDateStr} 排程任務
                           </h4>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-xs text-zinc-500">
                             該日共有 {selectedDateTasks.length} 個排定項目
                           </span>
                         </div>
                         
                         <button
                           onClick={handleClearCompleted}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold uppercase rounded-lg transition-all"
+                          className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
                         >
                           清除已完成
                         </button>
                       </div>
 
                       {/* Daily schedule items list */}
-                      <div className="space-y-3 max-h-[350px] overflow-y-auto">
+                      <div className="space-y-3 max-h-[420px] overflow-y-auto">
                         {selectedDateTasks.length > 0 ? (
                           selectedDateTasks.map((t) => (
                             <div 
                               key={t.id} 
-                              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                              className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
                                 t.is_completed 
-                                  ? "bg-slate-50 border-slate-100" 
-                                  : "bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs"
+                                  ? "bg-zinc-50 border-zinc-200/70" 
+                                  : "bg-white border-zinc-200 hover:border-zinc-400"
                               }`}
                             >
-                              <div className="flex items-start justify-between">
+                              <div className="flex items-start justify-between gap-2">
                                 <div 
                                   onClick={() => setActiveRevisionCardTask(t)}
-                                  className="space-y-1 flex-1 cursor-pointer"
+                                  className="space-y-1.5 flex-1 cursor-pointer"
                                 >
-                                  <div className="flex items-center space-x-1.5 flex-wrap">
-                                    <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase ${
-                                      t.type === "new"
-                                        ? "bg-blue-100 text-blue-700"
-                                        : t.type === "practice"
-                                        ? "bg-purple-100 text-purple-700"
-                                        : "bg-amber-100 text-amber-700"
-                                    }`}>
-                                      {t.type === "new" ? "New / 新學" : t.type === "practice" ? "Practice" : `Revision #${t.revision_number}`}
+                                  <div className="flex items-center space-x-2 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase bg-zinc-100 text-zinc-800">
+                                      {t.type === "new" ? "New" : t.type === "practice" ? "Practice" : `Revision #${t.revision_number}`}
                                     </span>
-                                    <span className="text-[9px] text-slate-400 font-semibold">
+                                    <span className="text-xs text-zinc-500 font-medium">
                                       {t.note_category}
                                     </span>
                                   </div>
-                                  <h5 className={`font-bold text-slate-800 text-xs truncate ${t.is_completed ? "line-through text-slate-400" : ""}`}>
+                                  <h5 className={`font-semibold text-zinc-950 text-sm truncate ${t.is_completed ? "line-through text-zinc-400" : ""}`}>
                                     {t.note_title}
                                   </h5>
-                                  <div className="flex items-center space-x-1 text-[9px] text-slate-400">
-                                    <Clock size={10} />
-                                    <span>{t.time_start ? `${t.time_start} - ${t.time_end}` : "全天日程 / All Day"}</span>
+                                  <div className="flex items-center space-x-1.5 text-xs text-zinc-400">
+                                    <Clock size={12} />
+                                    <span>{t.time_start ? `${t.time_start} - ${t.time_end}` : "All Day"}</span>
                                   </div>
                                 </div>
 

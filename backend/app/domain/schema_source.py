@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+SCHEMAS_DIR = Path(__file__).resolve().parents[3] / "schemas"
 
 
 @dataclass
@@ -24,6 +27,53 @@ class DocumentSchemaMapping:
     fresh_values: Tuple[str, ...] = ("fresh", "", "unread", "new")
     reviewed_values: Tuple[str, ...] = ("reviewed", "done")
     filename_pattern: str = "*.md"  # e.g. "index.md" for Nexus bundles, or "*.md" for flat vaults
+
+
+def list_available_schemas(schemas_dir: Path = SCHEMAS_DIR) -> List[Dict[str, Any]]:
+    """Lists all JSON schema definitions stored in `Mentorion/schemas/`."""
+    if not schemas_dir.is_dir():
+        return []
+    items: List[Dict[str, Any]] = []
+    for path in sorted(schemas_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            name = str(data.get("name") or path.stem)
+            items.append(
+                {
+                    "name": name,
+                    "label": str(data.get("label") or name),
+                    "description": str(data.get("description") or ""),
+                    "filename_pattern": str(data.get("filename_pattern") or "*.md"),
+                    "id_field": str(data.get("id_field") or "id"),
+                    "title_field": str(data.get("title_field") or "title"),
+                    "summary_field": str(data.get("summary_field") or "summary"),
+                    "category_field": str(data.get("category_field") or "category"),
+                    "review_field": str(data.get("review_field") or "review"),
+                    "questions_sidecar": str(data.get("questions_sidecar") or "questions.json"),
+                }
+            )
+        except Exception:
+            continue
+    return items
+
+
+def load_schema_by_name(name: str, schemas_dir: Path = SCHEMAS_DIR) -> DocumentSchemaMapping:
+    """Loads a named schema file from `Mentorion/schemas/<name>.json`."""
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]", "", name)
+    schema_path = schemas_dir / f"{safe_name}.json"
+    if not schema_path.is_file():
+        raise FileNotFoundError(f"Schema not found: {name} (expected {schema_path.name})")
+    data = json.loads(schema_path.read_text(encoding="utf-8"))
+    return DocumentSchemaMapping(
+        id_field=str(data.get("id_field") or "id"),
+        title_field=str(data.get("title_field") or "title"),
+        summary_field=str(data.get("summary_field") or "summary"),
+        category_field=str(data.get("category_field") or "category"),
+        review_field=str(data.get("review_field") or "review"),
+        fresh_values=tuple(data.get("fresh_values") or ("fresh", "", "unread", "new")),
+        reviewed_values=tuple(data.get("reviewed_values") or ("reviewed", "done")),
+        filename_pattern=str(data.get("filename_pattern") or "*.md"),
+    )
 
 
 @dataclass

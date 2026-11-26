@@ -13,7 +13,12 @@ from ...schemas.quiz import (
     QuizQuestionItem,
     QuizResponse,
 )
-from ...domain.schema_source import DocumentSchemaMapping, scan_markdown_source
+from ...domain.schema_source import (
+    DocumentSchemaMapping,
+    list_available_schemas,
+    load_schema_by_name,
+    scan_markdown_source,
+)
 from ...domain.quiz_engine import (
     generate_questions_via_function_calling,
     load_inline_schema_questions,
@@ -706,6 +711,7 @@ def get_stats(db: Session = Depends(get_db), current_user: DBUser = Depends(get_
 
 class SchemaMappingRequest(BaseModel):
     source_dir: str
+    schema_name: Optional[str] = None
     id_field: str = "id"
     title_field: str = "title"
     summary_field: str = "summary"
@@ -716,6 +722,8 @@ class SchemaMappingRequest(BaseModel):
 
 
 def _build_mapping(req: SchemaMappingRequest) -> DocumentSchemaMapping:
+    if req.schema_name and req.schema_name.strip():
+        return load_schema_by_name(req.schema_name.strip())
     return DocumentSchemaMapping(
         id_field=req.id_field.strip() or "id",
         title_field=req.title_field.strip() or "title",
@@ -724,6 +732,12 @@ def _build_mapping(req: SchemaMappingRequest) -> DocumentSchemaMapping:
         review_field=req.review_field.strip() or "review",
         filename_pattern=req.filename_pattern.strip() or "*.md",
     )
+
+
+@router.get("/schemas")
+def get_available_schemas():
+    """Returns all file-driven schemas registered under `Mentorion/schemas/`."""
+    return {"schemas": list_available_schemas()}
 
 
 @router.post("/schema-sync/preview")

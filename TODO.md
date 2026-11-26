@@ -72,17 +72,20 @@
 > - **Schema 驅動、不綁定 Nexus**：透過開放且**允許使用者自訂欄位對映**的 Markdown Document Schema 讀取任何相容筆記庫；內容 SSOT 留在外部 Markdown，排程與作答紀錄 SSOT 留在 Mentorion SQLite。
 > - **整合端放在 Nexus**：當同時使用 Nexus 與 Mentorion 時，由 **Nexus 作為主入口（Composition Hub）** 掛載 Mentorion API，完整保留 Knowledge Graph 與 Terminology，同時組合進 SM-2 排程、日曆與 Quiz 能力。
 
-- [ ] **Phase 1：Schema 驅動讀取與獨立 Reading Mode**
-  - [ ] 定義開放的 Document Source Schema 與可自訂欄位對映設定（預設對應 `id` / `title` / `summary` / `review` / 正文，支援使用者覆寫 frontmatter key 名稱）
-  - [ ] 在 Mentorion `notes` 資料表新增可選通用橋接欄位 `source_doc_id`（唯一索引），不綁定特定工具
-  - [ ] 新增同步端點／Adapter，掃描符合 schema 的 Markdown 資料夾（含 `Nexus-Vault/wiki/`），將新文件（優先 `review: fresh`）自動註冊進 Mentorion 並排入初次複習 `Task`
-  - [ ] 前端實作 **Editorial Minimal Reading Mode**（沿用 Nexus 色彩與排版 tokens，聚焦閱讀與測驗，不含 Terminology / Knowledge Graph）
-- [ ] **Phase 2：開放本地 API 供 Nexus 組合掛載 + 狀態回寫**
-  - [ ] 穩定 Mentorion 本地 API 契約（due 清單、單篇 SM-2 狀態查詢、Quiz 生成與評分、手動觸發同步），讓 Nexus 可透過 `MENTORION_API_URL` 無縫整合
-  - [ ] 複習打分完成（寫入 `ReviewLog`）時，透過可插拔回寫機制更新來源文件的複習狀態（例如呼叫 Nexus `PATCH /api/docs/:docId/review` 或依 schema mapping 更新 frontmatter 為 `reviewed`）
-  - [ ] 當來源文件重新標記為 `fresh` 時，下次同步可重新排入複習佇列
-- [ ] **Phase 3：選配 Graph-Aware 進階出題**
-  - [ ] 當偵測到來源知識庫具備 Ontology / Knowledge Graph 能力（如 Nexus `npm run query -- subgraph <concept_id>`）時，自動解鎖跨概念比較題與關聯題（無圖譜時優雅退化為單篇出題）
+- [x] **Phase 1：檔案驅動 Schema、黑白灰 Studio Minimal 改版與 Library**
+  - [x] 建立 `schemas/*.json`（`nexus.json`、`obsidian.json`、`plain-markdown.json`）與 `docs/custom-schema-guide.md`
+  - [x] 在 `notes` 新增通用橋接欄位 `source_doc_id`，並提供 `GET /api/schemas`、`POST /api/schema-sync/preview|import`
+  - [x] 前端升級為黑白灰 Studio Minimal（移除登入牆、新增繁中／英文設定、將閱讀模式升級為含階層資料夾樹與搜尋的 `Library`、放大月曆與表單字體）
+  - [x] 支援彈性 port（`MENTORION_PORT` / `VITE_PORT`）、`GET /health` 與 `~/.mentorion/runtime.json` 動態服務發現
+- [ ] **Phase 2：SQLite 資料模型補齊與集中式題庫（Mentorion Own SSOT）**
+  - [ ] 新增 `schema_sources` 資料表（方案 B：1 資料夾路徑 ↔ 1 `schemas/*.json`，支援多資料夾來源與最長路徑前綴優先）
+  - [ ] 在 `notes` 補齊 `source_id`、`file_path`、`last_reviewed_at`、`next_review_date`
+  - [ ] 新增集中式 `questions` 資料表（以 `note_id` 為 ownership、`category`、`type`、`prompt`、`payload_json`、`source`），外部知識庫保持只讀不寫入題庫，並支援單檔 `questions.json` 匯出
+  - [ ] LLM 生題去重：呼叫 `submit_quiz_questions` 前注入該 `note_id` 既有題目清單 + 寫入前相似度過濾
+  - [ ] 新增 `short_essay` / `essay` 題型與 `grade_essay_answer` Gemini Function Calling（讀原筆記與使用者作答 → 回傳 0–5 SM-2 分數、答對重點、糾正與建議，並寫入 `review_logs`）
+- [ ] **Phase 3：Library 與排程整合 + Graph-Aware 進階出題**
+  - [ ] 確認並實作「Library 外接筆記 → 手動或條件式進入複習排程（Pattern A/B/C）」流程（不污染外部知識庫）
+  - [ ] 當偵測到來源知識庫具備 Ontology / Knowledge Graph 能力（如 Nexus `npm run query -- subgraph <concept_id>`）時，自動解鎖跨概念比較題與關聯題
 
 ### 工程品質與維運
 

@@ -9,7 +9,7 @@ export const MENTORION_COPY = {
   "zh-Hant": {
     subtitle: "間隔重複與主動回憶",
     navOverview: "總覽",
-    navReading: "閱讀模式",
+    navReading: "筆記庫",
     navCalendar: "複習月曆",
     navNewTask: "新增任務",
     navStats: "統計數據",
@@ -29,7 +29,7 @@ export const MENTORION_COPY = {
     heroTitleLine2: "自動排程。",
     heroDesc:
       "從任何符合 Schema 的 Markdown 資料夾匯入筆記，無干擾閱讀，並交由 SM-2 演算法為你安排長期記憶複習。",
-    btnOpenReading: "進入閱讀模式",
+    btnOpenReading: "進入筆記庫",
     btnOpenCalendar: "複習月曆",
     btnOpenSchema: "Schema 資料來源",
     metricNew: "已完成新學習",
@@ -64,7 +64,7 @@ export const MENTORION_COPY = {
   en: {
     subtitle: "Spaced Repetition",
     navOverview: "Overview",
-    navReading: "Reading",
+    navReading: "Library",
     navCalendar: "Calendar",
     navNewTask: "New Task",
     navStats: "Statistics",
@@ -84,7 +84,7 @@ export const MENTORION_COPY = {
     heroTitleLine2: "scheduled automatically.",
     heroDesc:
       "Import Markdown notes from any schema-compatible folder, read without distraction, and let SM-2 schedule your long-term recall.",
-    btnOpenReading: "Open Reading Mode",
+    btnOpenReading: "Open Library",
     btnOpenCalendar: "Review Calendar",
     btnOpenSchema: "Schema Source",
     metricNew: "Completed New",

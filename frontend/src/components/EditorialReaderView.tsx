@@ -1,9 +1,107 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Check, Copy, Sparkles } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ChevronRight, Copy, Search, Sparkles } from "lucide-react";
 import type { Note } from "../types";
-import { CustomSelect } from "./CustomSelect";
 import { QuizPanel } from "./QuizPanel";
 import { MENTORION_COPY, type MentorionLang } from "../i18n";
+
+interface TreeFolder {
+  name: string;
+  path: string;
+  folders: TreeFolder[];
+  notes: Note[];
+}
+
+function buildCategoryTree(notes: Note[]): TreeFolder {
+  const root: TreeFolder = { name: "", path: "", folders: [], notes: [] };
+  for (const note of notes) {
+    const segments = (note.category || "General")
+      .split("/")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    let curr = root;
+    let pathAcc = "";
+    for (const seg of segments) {
+      pathAcc = pathAcc ? `${pathAcc}/${seg}` : seg;
+      let next = curr.folders.find((f) => f.name === seg);
+      if (!next) {
+        next = { name: seg, path: pathAcc, folders: [], notes: [] };
+        curr.folders.push(next);
+      }
+      curr = next;
+    }
+    curr.notes.push(note);
+  }
+  return root;
+}
+
+function LibraryTreeBranch({
+  folder,
+  depth,
+  activeId,
+  collapsed,
+  onToggle,
+  onSelect,
+}: {
+  folder: TreeFolder;
+  depth: number;
+  activeId: number | null;
+  collapsed: Record<string, boolean>;
+  onToggle: (path: string) => void;
+  onSelect: (id: number) => void;
+}) {
+  return (
+    <>
+      {folder.folders.map((sub) => {
+        const isClosed = !!collapsed[sub.path];
+        return (
+          <div key={sub.path}>
+            <button
+              type="button"
+              onClick={() => onToggle(sub.path)}
+              style={{ paddingLeft: 8 + depth * 12 }}
+              className="w-full flex items-center gap-1.5 py-2 pr-2 rounded-lg text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer"
+            >
+              {isClosed ? (
+                <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+              ) : (
+                <ChevronDown size={14} className="text-zinc-400 shrink-0" />
+              )}
+              <span className="truncate">{sub.name}</span>
+            </button>
+            {!isClosed && (
+              <LibraryTreeBranch
+                folder={sub}
+                depth={depth + 1}
+                activeId={activeId}
+                collapsed={collapsed}
+                onToggle={onToggle}
+                onSelect={onSelect}
+              />
+            )}
+          </div>
+        );
+      })}
+      {folder.notes.map((note) => {
+        const isActive = note.id === activeId;
+        return (
+          <button
+            key={note.id}
+            type="button"
+            onClick={() => onSelect(note.id)}
+            style={{ paddingLeft: 20 + depth * 12 }}
+            className={`w-full text-left py-2 pr-3 rounded-lg transition-colors cursor-pointer ${
+              isActive
+                ? "bg-zinc-950 text-white"
+                : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950"
+            }`}
+          >
+            <div className="text-sm font-medium truncate">{note.title}</div>
+          </button>
+        );
+      })}
+    </>
+  );
+}
 
 interface EditorialReaderViewProps {
   notes: Note[];
@@ -106,21 +204,22 @@ export function EditorialReaderView({
   const t = MENTORION_COPY[lang];
   const [selectedId, setSelectedId] = useState<number | null>(notes[0]?.id ?? null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [quizOpen, setQuizOpen] = useState(false);
 
-  const categories = useMemo(
-    () => Array.from(new Set(notes.map((n) => n.category))).sort(),
-    [notes],
-  );
+  const visibleNotes = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return notes;
+    return notes.filter(
+      (n) =>
+        n.title.toLowerCase().includes(q) ||
+        n.category.toLowerCase().includes(q) ||
+        (n.content || "").toLowerCase().includes(q),
+    );
+  }, [notes, searchQuery]);
 
-  const visibleNotes = useMemo(
-    () =>
-      categoryFilter === "all"
-        ? notes
-        : notes.filter((n) => n.category === categoryFilter),
-    [notes, categoryFilter],
-  );
+  const categoryTree = useMemo(() => buildCategoryTree(visibleNotes), [visibleNotes]);
 
   const activeNote =
     visibleNotes.find((n) => n.id === selectedId) ?? visibleNotes[0] ?? null;
@@ -155,7 +254,7 @@ export function EditorialReaderView({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 items-start">
-      {/* Left Note List (Focused on Reading & Quiz — no Terminology or KG) */}
+      {/* Left Library Category Tree + Search */}
       <div
         className="rounded-2xl p-4 space-y-3"
         style={{
@@ -168,46 +267,32 @@ export function EditorialReaderView({
             className="text-xs font-semibold uppercase tracking-wider block"
             style={{ color: "var(--ed-text-muted)" }}
           >
-            Notes ({visibleNotes.length})
+            {t.notesList(visibleNotes.length)}
           </span>
-          {categories.length > 1 && (
-            <CustomSelect
-              compact
-              value={categoryFilter}
-              onChange={setCategoryFilter}
-              options={[
-                { value: "all", label: "All Categories" },
-                ...categories.map((cat) => ({ value: cat, label: cat })),
-              ]}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={lang === "zh-Hant" ? "搜尋筆記或分類..." : "Filter library..."}
+              className="w-full pl-8 pr-3 py-2 rounded-xl text-xs bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-zinc-900 focus:outline-none"
             />
-          )}
+          </div>
         </div>
 
-        <div className="space-y-1 max-h-[68vh] overflow-y-auto pr-1">
-          {visibleNotes.map((note) => {
-            const isActive = activeNote?.id === note.id;
-            return (
-              <button
-                key={note.id}
-                onClick={() => setSelectedId(note.id)}
-                className="w-full text-left px-3 py-2.5 rounded-lg transition-colors"
-                style={{
-                  background: isActive ? "var(--ed-bg-active)" : "transparent",
-                  color: isActive ? "var(--ed-text-primary)" : "var(--ed-text-secondary)",
-                }}
-              >
-                <div className="text-sm font-medium truncate">{note.title}</div>
-                <div
-                  className="text-[11px] flex items-center gap-1.5 mt-0.5"
-                  style={{ color: "var(--ed-text-muted)" }}
-                >
-                  <span className="truncate">{note.category}</span>
-                  <span>·</span>
-                  <span>SM-2: {note.interval_days}d</span>
-                </div>
-              </button>
-            );
-          })}
+        <div className="space-y-0.5 max-h-[68vh] overflow-y-auto pr-1">
+          <LibraryTreeBranch
+            folder={categoryTree}
+            depth={0}
+            activeId={activeNote?.id ?? null}
+            collapsed={collapsed}
+            onToggle={(p) => setCollapsed((prev) => ({ ...prev, [p]: !prev[p] }))}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setQuizOpen(false);
+            }}
+          />
         </div>
       </div>
 

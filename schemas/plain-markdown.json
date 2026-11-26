@@ -1,0 +1,14 @@
+{
+  "name": "plain-markdown",
+  "label": "Plain Markdown Folder",
+  "description": "Any folder of plain .md files without frontmatter; infers ID from filename, title from first # H1 heading, and category from parent folder.",
+  "filename_pattern": "*.md",
+  "id_field": "id",
+  "title_field": "title",
+  "summary_field": "summary",
+  "category_field": "category",
+  "review_field": "review",
+  "fresh_values": ["fresh", ""],
+  "reviewed_values": ["reviewed", "done"],
+  "questions_sidecar": "{stem}.questions.json"
+}
