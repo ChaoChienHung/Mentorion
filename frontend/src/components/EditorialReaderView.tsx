@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Note, Task } from "../types";
 import { QuizPanel } from "./QuizPanel";
+import { ManualQuestionComposer } from "./ManualQuestionComposer";
 import { MENTORION_COPY, type MentorionLang } from "../i18n";
 
 interface EditorialReaderViewProps {
@@ -228,6 +229,7 @@ export function EditorialReaderView({
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [quizOpen, setQuizOpen] = useState(false);
+  const [addQuestionOpen, setAddQuestionOpen] = useState(false);
   const [creatingNote, setCreatingNote] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftCategory, setDraftCategory] = useState("General");
@@ -679,6 +681,18 @@ export function EditorialReaderView({
 
           <button
             type="button"
+            onClick={() => {
+              setAddQuestionOpen((v) => !v);
+              setDrawerOpen(false);
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-950 hover:text-white text-zinc-950 text-xs font-medium cursor-pointer transition-colors"
+          >
+            <Plus size={14} />
+            <span>{lang === "zh-Hant" ? "新增題目" : "Add Question"}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleCopyPrompt(activeNote)}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-medium cursor-pointer"
           >
@@ -739,6 +753,17 @@ export function EditorialReaderView({
               `<p style="color:var(--ed-text-muted)">此筆記尚無內文。</p>`,
           }}
         />
+
+        {addQuestionOpen && (
+          <ManualQuestionComposer
+            note={activeNote}
+            lang={lang}
+            onCreated={() => {
+              onNoteCreated();
+            }}
+            onClose={() => setAddQuestionOpen(false)}
+          />
+        )}
 
         {quizOpen && <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />}
       </article>

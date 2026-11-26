@@ -4,7 +4,15 @@ from typing import Annotated, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_validator
 
 QuestionSource = Literal["sidecar", "inline_schema", "llm", "bank", "manual"]
-QuestionType = Literal["mcq", "short_answer", "true_false", "open", "short_essay", "essay"]
+QuestionType = Literal[
+    "mcq",
+    "short_answer",
+    "true_false",
+    "open",
+    "short_essay",
+    "essay",
+    "fill_in_blank",
+]
 BloomLevel = Literal["recall", "understand", "apply", "analyze"]
 
 
@@ -64,6 +72,11 @@ class EssayQuestion(BaseQuizQuestion):
     rubric: List[str] = Field(default_factory=list)
 
 
+class FillInBlankQuestion(BaseQuizQuestion):
+    type: Literal["fill_in_blank"] = "fill_in_blank"
+    blanks: List[str] = Field(..., min_length=1)
+
+
 QuizQuestionItem = Annotated[
     Union[
         MCQQuestion,
@@ -72,6 +85,7 @@ QuizQuestionItem = Annotated[
         OpenQuestion,
         ShortEssayQuestion,
         EssayQuestion,
+        FillInBlankQuestion,
     ],
     Field(discriminator="type"),
 ]

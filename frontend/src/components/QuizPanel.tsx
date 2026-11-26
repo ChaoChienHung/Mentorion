@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, Send, Sparkles, X } from "lucide-react";
+import { Check, Loader2, Plus, Send, Sparkles, X } from "lucide-react";
 import type { Note } from "../types";
+import { ManualQuestionComposer } from "./ManualQuestionComposer";
 
 export interface QuizQuestion {
   id?: string;
-  type: "mcq" | "short_answer" | "true_false" | "open" | "short_essay" | "essay";
+  type:
+    | "mcq"
+    | "short_answer"
+    | "true_false"
+    | "open"
+    | "short_essay"
+    | "essay"
+    | "fill_in_blank";
   bloom_level?: "recall" | "understand" | "apply" | "analyze" | null;
   prompt: string;
   options?: string[];
   answer?: string | boolean;
+  blanks?: string[];
   rubric?: string[];
   reference_points?: string[];
   explanation?: string;
@@ -57,6 +66,8 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
   const [essayDrafts, setEssayDrafts] = useState<Record<number, string>>({});
+  const [fibDrafts, setFibDrafts] = useState<Record<number, string[]>>({});
+  const [composerOpen, setComposerOpen] = useState(false);
   const [essayGrades, setEssayGrades] = useState<Record<number, EssayGrade>>({});
   const [gradingIdx, setGradingIdx] = useState<number | null>(null);
   const [socraticByIdx, setSocraticByIdx] = useState<Record<number, SocraticState>>({});
@@ -229,6 +240,14 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setComposerOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium border border-zinc-300 bg-white hover:border-zinc-900 text-zinc-900 transition-colors cursor-pointer"
+          >
+            <Plus size={13} />
+            <span>Add Question</span>
+          </button>
+          <button
+            type="button"
             disabled={loading}
             onClick={() => void loadQuestions(true)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-950 hover:bg-zinc-800 text-white transition-colors cursor-pointer"
@@ -246,6 +265,14 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
           </button>
         </div>
       </div>
+
+      {composerOpen && (
+        <ManualQuestionComposer
+          note={note}
+          onCreated={() => void loadQuestions(false)}
+          onClose={() => setComposerOpen(false)}
+        />
+      )}
 
       {error && (
         <div className="px-4 py-3 rounded-xl border border-zinc-300 bg-zinc-100 text-xs text-zinc-700">
@@ -318,6 +345,57 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                         </button>
                       );
                     })}
+                  </div>
+                )}
+
+                {q.type === "fill_in_blank" && q.blanks && q.blanks.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {q.blanks.map((expected, bIdx) => {
+                        const val = (fibDrafts[idx] || [])[bIdx] || "";
+                        const isCorrect =
+                          isRevealed &&
+                          val.trim().toLowerCase() === expected.trim().toLowerCase();
+                        return (
+                          <div key={bIdx} className="space-y-1">
+                            <label className="text-[11px] font-mono text-zinc-400 block">
+                              Blank #{bIdx + 1}
+                            </label>
+                            <input
+                              type="text"
+                              value={val}
+                              onChange={(e) => {
+                                const nextArr = [...(fibDrafts[idx] || [])];
+                                nextArr[bIdx] = e.target.value;
+                                setFibDrafts((prev) => ({ ...prev, [idx]: nextArr }));
+                              }}
+                              placeholder={`Fill blank #${bIdx + 1}...`}
+                              className={`w-full px-3.5 py-2 rounded-xl border text-sm focus:outline-none ${
+                                isRevealed
+                                  ? isCorrect
+                                    ? "bg-zinc-950 text-white border-zinc-950"
+                                    : "bg-zinc-100 text-zinc-700 border-zinc-400"
+                                  : "bg-white border-zinc-200 focus:border-zinc-900 text-zinc-900"
+                              }`}
+                            />
+                            {isRevealed && !isCorrect && (
+                              <div className="text-xs font-mono text-zinc-600">
+                                → <strong className="text-zinc-950">{expected}</strong>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {!isRevealed && (
+                      <button
+                        type="button"
+                        onClick={() => setRevealed((prev) => ({ ...prev, [idx]: true }))}
+                        className="px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium cursor-pointer"
+                      >
+                        Check Blanks
+                      </button>
+                    )}
                   </div>
                 )}
 

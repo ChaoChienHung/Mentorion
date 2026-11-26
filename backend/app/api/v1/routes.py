@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
+from typing import Any, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime, timedelta
@@ -32,7 +32,7 @@ from ...domain.quiz_engine import (
     load_inline_schema_questions,
     load_sidecar_questions,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from .dependencies import note_service, get_current_user_optional, get_current_user_required
 from ...db.dependency import get_db
 from ...db.models import (
@@ -1419,6 +1419,67 @@ def update_note_ease_factor(
     note.ease_factor = round(float(payload.ease_factor), 2)
     db.commit()
     return {"ok": True, "note_id": note.id, "ease_factor": note.ease_factor}
+
+
+class ManualQuestionRequest(BaseModel):
+    note_id: int
+    type: str
+    prompt: str
+    options: Optional[List[str]] = None
+    answer: Optional[Any] = None
+    blanks: Optional[List[str]] = None
+    rubric: Optional[List[str]] = None
+    reference_points: Optional[List[str]] = None
+    explanation: Optional[str] = None
+    bloom_level: Optional[str] = None
+
+
+@router.post("/questions/manual", status_code=201)
+def create_manual_question(
+    payload: ManualQuestionRequest,
+    db: Session = Depends(get_db),
+):
+    """Validates and appends a user-authored question (mcq, fill_in_blank, essay, etc.) to data/questions.json."""
+    from ...domain.quiz_engine import validate_questions
+
+    note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    raw_item: dict = {
+        "type": payload.type,
+        "prompt": payload.prompt.strip(),
+        "source": "manual",
+    }
+    if payload.options is not None:
+        raw_item["options"] = [o.strip() for o in payload.options if o.strip()]
+    if payload.answer is not None:
+        raw_item["answer"] = payload.answer
+    if payload.blanks is not None:
+        raw_item["blanks"] = [b.strip() for b in payload.blanks if b.strip()]
+    if payload.rubric is not None:
+        raw_item["rubric"] = [r.strip() for r in payload.rubric if r.strip()]
+    if payload.reference_points is not None:
+        raw_item["reference_points"] = [r.strip() for r in payload.reference_points if r.strip()]
+    if payload.explanation and payload.explanation.strip():
+        raw_item["explanation"] = payload.explanation.strip()
+    if payload.bloom_level in ("recall", "understand", "apply", "analyze"):
+        raw_item["bloom_level"] = payload.bloom_level
+
+    try:
+        validated = validate_questions([raw_item], "manual")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid question payload: {exc}")
+
+    added, skipped = append_questions_for_note(db, note, validated)
+    if skipped > 0 and not added:
+        raise HTTPException(status_code=409, detail="A very similar question already exists for this note.")
+
+    return {
+        "ok": True,
+        "question": added[0].model_dump() if added else validated[0].model_dump(),
+        "total_for_note": len(note.question_ids or []),
+    }
 
 
 class PickPathRequest(BaseModel):

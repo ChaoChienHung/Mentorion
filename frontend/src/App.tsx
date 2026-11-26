@@ -466,12 +466,17 @@ export default function App() {
     if (!confirm(msg)) return;
     try {
       const res = await authFetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      if (res.ok) {
-        setActiveRevisionCardTask(null);
-        await fetchData();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.detail || `Failed to delete task (${res.status})`);
+        return;
       }
+      setActiveRevisionCardTask(null);
+      setRevisionModalMode("note");
+      await fetchData();
     } catch (err) {
       console.error("Error deleting single task:", err);
+      alert(err instanceof Error ? err.message : String(err));
     }
   };
 
