@@ -425,11 +425,13 @@ def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db)
         note.ease_factor = ease_factor
         note.repetitions = repetitions
         note.interval_days = interval_days
+        note.last_reviewed_at = now_str
         
         anchor_date = actual_date if anchor_option == "A" else task.scheduled_date
         next_review_date = add_days(anchor_date, interval_days)
+        note.next_review_date = next_review_date
         
-        # Schedule next Revision Task
+        # Schedule single next Revision Task
         next_task = DBTask(
             note_id=note.id,
             type="revision",
@@ -974,27 +976,6 @@ def schedule_task_from_library_note(
         time_end=payload.time_end,
     )
     db.add(initial_task)
-    created_tasks.append(initial_task)
-
-    if payload.type == "new":
-        if payload.pattern == "A":
-            offsets = [1, 2, 4, 8, 16, 32]
-        elif payload.pattern == "B":
-            offsets = [1, 3, 9, 27]
-        else:
-            offsets = [1]  # Pattern C (SM-2) starts with first recall +1 day
-
-        for idx, days in enumerate(offsets, start=1):
-            db.add(
-                DBTask(
-                    note_id=note.id,
-                    type="revision",
-                    scheduled_date=add_days(payload.first_date, days),
-                    revision_number=idx,
-                    time_start=payload.time_start,
-                    time_end=payload.time_end,
-                )
-            )
 
     db.add(
         DBJournalEvent(
@@ -1008,7 +989,13 @@ def schedule_task_from_library_note(
         )
     )
     db.commit()
-    return {"ok": True, "note_id": note.id, "scheduled_date": payload.first_date}
+    db.refresh(initial_task)
+    return {
+        "ok": True,
+        "note_id": note.id,
+        "task_id": initial_task.id,
+        "scheduled_date": payload.first_date,
+    }
 
 
 class MarkReviewedRequest(BaseModel):

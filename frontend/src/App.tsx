@@ -95,6 +95,9 @@ export default function App() {
 
   // Modals / Detail Card Popups state
   const [activeRevisionCardTask, setActiveRevisionCardTask] = useState<Task | null>(null);
+  const [revisionModalMode, setRevisionModalMode] = useState<"note" | "quiz">("note");
+  const [revisionRating, setRevisionRating] = useState<number>(4);
+  const [submittingRevision, setSubmittingRevision] = useState<boolean>(false);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [completingRating, setCompletingRating] = useState<number>(5);
   const [anchorOption, setAnchorOption] = useState<"A" | "B">("A");
@@ -425,6 +428,32 @@ export default function App() {
       }
     } catch (err) {
       console.error("Error updating ease factor:", err);
+    }
+  };
+
+  // Complete the active revision task from inside the Revision Card quiz flow (updates SM-2 & schedules single next review)
+  const handleCompleteFromRevisionCard = async () => {
+    if (!activeRevisionCardTask || submittingRevision) return;
+    setSubmittingRevision(true);
+    try {
+      const res = await authFetch(`/api/tasks/${activeRevisionCardTask.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: revisionRating,
+          anchorOption,
+          actualDate: new Date().toISOString().split("T")[0],
+        }),
+      });
+      if (res.ok) {
+        setActiveRevisionCardTask(null);
+        setRevisionModalMode("note");
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Error completing review from card:", err);
+    } finally {
+      setSubmittingRevision(false);
     }
   };
 
@@ -1821,13 +1850,112 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Direct Active Recall Quiz Body */}
-              <div className="px-6 pb-6 max-h-[68vh] overflow-y-auto">
-                <QuizPanel
-                  note={matchedNote}
-                  onClose={() => setActiveRevisionCardTask(null)}
-                />
-              </div>
+              {/* Body: Two-stage flow (Note Preview -> Active Recall Quiz + SM-2 Completion) */}
+              {revisionModalMode === "note" ? (
+                <div className="px-6 py-6 space-y-5">
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 max-h-[48vh] overflow-y-auto text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap font-sans">
+                    {matchedNote.content || (lang === "zh-Hant" ? "此筆記尚無內文。" : "No content yet.")}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <span className="text-xs text-zinc-400">
+                      {lang === "zh-Hant"
+                        ? "準備好了嗎？進入主動回憶解題並更新下次複習排程。"
+                        : "Ready? Start active recall to test yourself and schedule the next review."}
+                    </span>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveRevisionCardTask(null);
+                          setRevisionModalMode("note");
+                        }}
+                        className="px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
+                      >
+                        {lang === "zh-Hant" ? "關閉" : "Close"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRevisionModalMode("quiz")}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium cursor-pointer"
+                      >
+                        <Sparkles size={14} />
+                        <span>{lang === "zh-Hant" ? "進入複習解題" : "Start Active Recall"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-6 pb-6 space-y-5">
+                  <div className="pt-4 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setRevisionModalMode("note")}
+                      className="text-xs font-medium text-zinc-500 hover:text-zinc-950 cursor-pointer"
+                    >
+                      ← {lang === "zh-Hant" ? "返回筆記內容" : "Back to Note"}
+                    </button>
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                      ACTIVE RECALL SESSION
+                    </span>
+                  </div>
+
+                  <div className="max-h-[48vh] overflow-y-auto pr-1">
+                    <QuizPanel
+                      note={matchedNote}
+                      onClose={() => setRevisionModalMode("note")}
+                    />
+                  </div>
+
+                  {/* Finish & Update SM-2 Review Status + Schedule Next Single Task */}
+                  <div className="pt-4 border-t border-zinc-200 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-zinc-900">
+                        {lang === "zh-Hant"
+                          ? "根據本次作答狀況評分（更新 SM-2 並排程下一次複習）"
+                          : "Rate mastery to update SM-2 & schedule next review"}
+                      </span>
+                      <span className="text-xs font-mono text-zinc-500">
+                        {revisionRating} / 5
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-6 gap-2">
+                      {[0, 1, 2, 3, 4, 5].map((score) => (
+                        <button
+                          key={score}
+                          type="button"
+                          onClick={() => setRevisionRating(score)}
+                          className={`py-2 rounded-xl border text-xs font-mono font-semibold transition-colors cursor-pointer ${
+                            revisionRating === score
+                              ? "bg-zinc-950 text-white border-zinc-950"
+                              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-500"
+                          }`}
+                        >
+                          {score}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        disabled={submittingRevision}
+                        onClick={() => void handleCompleteFromRevisionCard()}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
+                      >
+                        {submittingRevision ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={14} />
+                        )}
+                        <span>
+                          {lang === "zh-Hant"
+                            ? "完成本次複習並更新下次排程"
+                            : "Complete Review & Schedule Next"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
