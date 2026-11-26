@@ -24,7 +24,7 @@ export function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl overflow-hidden"
+        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white shadow-2xl overflow-visible"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">

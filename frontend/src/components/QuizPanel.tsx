@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, Sparkles, X } from "lucide-react";
+import { Check, Loader2, Send, Sparkles, X } from "lucide-react";
 import type { Note } from "../types";
 
 export interface QuizQuestion {
   id?: string;
-  type: "mcq" | "short_answer" | "true_false" | "open";
+  type: "mcq" | "short_answer" | "true_false" | "open" | "short_essay" | "essay";
   prompt: string;
   options?: string[];
   answer?: string | boolean;
   rubric?: string[];
   reference_points?: string[];
   explanation?: string;
-  source: "sidecar" | "inline_schema" | "llm";
+  source: "sidecar" | "inline_schema" | "llm" | "bank" | "manual";
+}
+
+interface EssayGrade {
+  score: number;
+  correct_points: string[];
+  corrections: string[];
+  suggestions: string[];
+  summary_feedback: string;
 }
 
 interface QuizPanelProps {
@@ -36,6 +44,9 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [essayDrafts, setEssayDrafts] = useState<Record<number, string>>({});
+  const [essayGrades, setEssayGrades] = useState<Record<number, EssayGrade>>({});
+  const [gradingIdx, setGradingIdx] = useState<number | null>(null);
   const [loadedOnce, setLoadedOnce] = useState(false);
 
   const loadQuestions = useCallback(
@@ -46,10 +57,11 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
         const endpoint = forceLlmOnly ? "/api/quiz/generate" : "/api/quiz/load";
         const body = forceLlmOnly
           ? {
+              note_id: note.id,
               title: note.title,
               content: note.content,
               count: 3,
-              question_types: ["mcq", "short_answer", "true_false"],
+              question_types: ["mcq", "short_answer", "short_essay"],
             }
           : {
               note_id: note.id,
@@ -58,7 +70,7 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
               source_dir: getSavedSourceDir(),
               generate_if_empty: true,
               count: 3,
-              question_types: ["mcq", "short_answer", "true_false"],
+              question_types: ["mcq", "short_answer", "short_essay"],
             };
 
         const res = await fetch(endpoint, {
@@ -81,10 +93,38 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
     [note.content, note.id, note.title],
   );
 
-  // Automatically check all 3 sources (questions.json + inline schema + LLM fallback) on open
   useEffect(() => {
     void loadQuestions(false);
   }, [loadQuestions]);
+
+  const handleGradeEssay = async (idx: number, q: QuizQuestion) => {
+    const answerText = (essayDrafts[idx] || "").trim();
+    if (!answerText) return;
+    setGradingIdx(idx);
+    setError(null);
+    try {
+      const res = await fetch("/api/quiz/grade-essay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note_id: note.id,
+          title: note.title,
+          content: note.content,
+          prompt: q.prompt,
+          user_answer: answerText,
+          reference_points: q.reference_points || q.rubric || [],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to grade essay");
+      setEssayGrades((prev) => ({ ...prev, [idx]: data as EssayGrade }));
+      setRevealed((prev) => ({ ...prev, [idx]: true }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGradingIdx(null);
+    }
+  };
 
   return (
     <div className="mt-8 pt-7 border-t border-zinc-200 space-y-5">
@@ -94,7 +134,7 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
             Active Recall Quiz
           </h3>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Loads from questions.json / schema first, or generates via LLM Function Calling.
+            Centralized question bank + deduplicated LLM Function Calling + Essay grading.
           </p>
         </div>
 
@@ -102,19 +142,11 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
           <button
             type="button"
             disabled={loading}
-            onClick={() => void loadQuestions(false)}
-            className="px-3.5 py-2 rounded-lg text-xs font-medium bg-white border border-zinc-200 hover:border-zinc-400 text-zinc-800 transition-colors cursor-pointer"
-          >
-            Load Static Questions
-          </button>
-          <button
-            type="button"
-            disabled={loading}
             onClick={() => void loadQuestions(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-zinc-950 hover:bg-zinc-800 text-white transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-950 hover:bg-zinc-800 text-white transition-colors cursor-pointer"
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            <span>Generate with LLM</span>
+            <span>Generate New Questions (LLM)</span>
           </button>
           <button
             type="button"
@@ -135,8 +167,7 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
 
       {loadedOnce && questions.length === 0 && !error && !loading && (
         <div className="px-5 py-6 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-500">
-          No static <code>questions.json</code> or inline schema questions found for this note. Click{" "}
-          <strong className="text-zinc-900">Generate with LLM</strong> to create schema-validated questions.
+          No questions saved yet. Click <strong className="text-zinc-900">Generate New Questions (LLM)</strong>.
         </div>
       )}
 
@@ -145,6 +176,9 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
           {questions.map((q, idx) => {
             const chosen = selectedAnswers[idx];
             const isRevealed = !!revealed[idx];
+            const isEssay = q.type === "short_essay" || q.type === "essay";
+            const grade = essayGrades[idx];
+
             return (
               <div
                 key={q.id || idx}
@@ -217,6 +251,92 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                         </button>
                       );
                     })}
+                  </div>
+                )}
+
+                {isEssay && (
+                  <div className="space-y-3">
+                    <textarea
+                      rows={q.type === "essay" ? 5 : 3}
+                      value={essayDrafts[idx] || ""}
+                      onChange={(e) =>
+                        setEssayDrafts((prev) => ({ ...prev, [idx]: e.target.value }))
+                      }
+                      placeholder="Write your explanation here for LLM grading & feedback..."
+                      className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-white focus:border-zinc-900 focus:outline-none text-sm leading-relaxed"
+                    />
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        disabled={gradingIdx === idx || !(essayDrafts[idx] || "").trim()}
+                        onClick={() => void handleGradeEssay(idx, q)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
+                      >
+                        {gradingIdx === idx ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Send size={13} />
+                        )}
+                        <span>Grade with LLM</span>
+                      </button>
+                      {!isRevealed && (
+                        <button
+                          type="button"
+                          onClick={() => setRevealed((prev) => ({ ...prev, [idx]: true }))}
+                          className="px-3.5 py-2 rounded-xl border border-zinc-200 bg-white hover:border-zinc-400 text-xs font-medium text-zinc-700 cursor-pointer"
+                        >
+                          Show Reference Points
+                        </button>
+                      )}
+                    </div>
+
+                    {grade && (
+                      <div className="rounded-xl border border-zinc-300 bg-white p-4 space-y-3 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-zinc-950">LLM Evaluation</span>
+                          <span className="px-2.5 py-1 rounded-full bg-zinc-950 text-white font-mono text-xs font-semibold">
+                            Score: {grade.score} / 5
+                          </span>
+                        </div>
+                        <p className="text-zinc-700 leading-relaxed">{grade.summary_feedback}</p>
+                        {grade.correct_points.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                              Correct Points
+                            </div>
+                            <ul className="list-disc pl-5 space-y-0.5 text-zinc-700">
+                              {grade.correct_points.map((pt, i) => (
+                                <li key={i}>{pt}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {grade.corrections.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                              Corrections & Gaps
+                            </div>
+                            <ul className="list-disc pl-5 space-y-0.5 text-zinc-700">
+                              {grade.corrections.map((pt, i) => (
+                                <li key={i}>{pt}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {grade.suggestions.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                              Suggestions
+                            </div>
+                            <ul className="list-disc pl-5 space-y-0.5 text-zinc-600">
+                              {grade.suggestions.map((pt, i) => (
+                                <li key={i}>{pt}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

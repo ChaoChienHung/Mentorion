@@ -3,6 +3,8 @@
   "label": "Nexus Document Bundle",
   "description": "Depth-agnostic Nexus wiki bundles (wiki/<Category>/<slug>/index.md) with YAML frontmatter and optional questions.json sidecar.",
   "filename_pattern": "index.md",
+  "require_frontmatter": true,
+  "required_fields": ["id", "title"],
   "id_field": "id",
   "title_field": "title",
   "summary_field": "summary",
@@ -10,5 +12,9 @@
   "review_field": "review",
   "fresh_values": ["fresh", "", "unread", "new"],
   "reviewed_values": ["reviewed", "done"],
-  "questions_sidecar": "questions.json"
+  "questions_sidecar": "questions.json",
+  "markdown": {
+    "latex": true,
+    "wikilink_style": "nexus"
+  }
 }

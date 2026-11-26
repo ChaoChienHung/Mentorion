@@ -12,6 +12,11 @@ export interface Note {
   repetitions: number;
   completed_tasks?: number;
   pending_tasks?: number;
+  source_id?: string | null;
+  file_path?: string | null;
+  question_ids?: string[];
+  last_reviewed_at?: string | null;
+  next_review_date?: string | null;
 }
 
 export interface Task {

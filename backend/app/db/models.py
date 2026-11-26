@@ -19,12 +19,28 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(String, nullable=False)
 
+class SchemaSource(Base):
+    __tablename__ = "schema_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    source_dir = Column(String, nullable=False, unique=True)
+    schema_name = Column(String, nullable=False, default="nexus")
+    default_pattern = Column(String, nullable=False, default="C")
+    only_fresh = Column(Boolean, nullable=False, default=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+
+
 class Note(Base):
     __tablename__ = "notes"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1")
+    source_id = Column(Integer, ForeignKey("schema_sources.id", ondelete="SET NULL"), nullable=True)
     source_doc_id = Column(String, nullable=True, index=True)
+    file_path = Column(String, nullable=True)
+    question_ids = Column(JSON, nullable=False, default=list)
     title = Column(String, nullable=False, index=True)
     content = Column(String, nullable=False, default="")
     category = Column(String, nullable=False, default="Other")
@@ -32,6 +48,8 @@ class Note(Base):
     pattern = Column(String, nullable=False, default="C")
     created_at = Column(String, nullable=False)
     first_date = Column(String, nullable=False)
+    last_reviewed_at = Column(String, nullable=True)
+    next_review_date = Column(String, nullable=True)
     ease_factor = Column(Float, nullable=False, default=2.5)
     interval_days = Column(Integer, nullable=False, default=0)
     repetitions = Column(Integer, nullable=False, default=0)

@@ -97,7 +97,12 @@ export default function App() {
   const [completingRating, setCompletingRating] = useState<number>(5);
   const [anchorOption, setAnchorOption] = useState<"A" | "B">("A");
 
-  // Form State for creating a task
+  // Form State for scheduling a task from an existing Library note
+  const [selectedLibraryNoteId, setSelectedLibraryNoteId] = useState<string>("");
+  const [selectedNoteQuestionCount, setSelectedNoteQuestionCount] = useState<number | null>(null);
+  const [checkingQuestions, setCheckingQuestions] = useState(false);
+  const [generatingForTask, setGeneratingForTask] = useState(false);
+  const [taskQuestionMsg, setTaskQuestionMsg] = useState<string | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskContent, setNewTaskContent] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState("Other");
@@ -117,6 +122,36 @@ export default function App() {
     "「主動召回」：點擊行事曆事件，檢視「複習資訊卡」即可迅速查閱該單元的學習足跡、難易度乘數(EF)與歷史紀錄！",
     "「軌跡移轉」：臨時有狀況？使用 Trajectory Shift 即可將該主題後續的所有複習日程整體向後平移！"
   ];
+
+  // Check existing questions in SQLite + centralized questions.json whenever selected Library note changes in New Task
+  useEffect(() => {
+    if (activeTab !== "add_task" || notes.length === 0) return;
+    const targetId = Number(selectedLibraryNoteId || notes[0]?.id);
+    if (!targetId) return;
+    let cancelled = false;
+    setCheckingQuestions(true);
+    setTaskQuestionMsg(null);
+    authFetch("/api/quiz/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note_id: targetId, generate_if_empty: false }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) {
+          setSelectedNoteQuestionCount((data.questions || []).length);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedNoteQuestionCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingQuestions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, selectedLibraryNoteId, notes]);
 
   // Cycle mentor tips
   useEffect(() => {
@@ -472,10 +507,19 @@ export default function App() {
             onClick={() => setActiveTab("cover")}
             className="text-left group cursor-pointer"
           >
-            <h1 className="text-2xl font-bold text-white tracking-tight font-display group-hover:opacity-80 transition-opacity">
-              Mentorion
-            </h1>
-            <span className="text-xs text-zinc-400 tracking-wide block mt-1">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/favicon.svg"
+                alt=""
+                width={26}
+                height={26}
+                className="rounded-md ring-1 ring-white/20 shrink-0"
+              />
+              <h1 className="text-2xl font-bold text-white tracking-tight font-display group-hover:opacity-80 transition-opacity">
+                Mentorion
+              </h1>
+            </div>
+            <span className="text-xs text-zinc-400 tracking-wide block mt-1.5">
               {t.subtitle}
             </span>
           </button>
@@ -998,7 +1042,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* --- VIEW 3: ADD TASK --- */}
+              {/* --- VIEW 3: ADD TASK (Library Notes + Question Ownership Check) --- */}
               {activeTab === "add_task" && (
                 <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-zinc-200 p-9 text-left space-y-7" id="view-add-task">
                   <div className="flex items-center gap-4 border-b border-zinc-200 pb-5">
@@ -1006,144 +1050,262 @@ export default function App() {
                       <PlusCircle size={22} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-zinc-950 text-xl font-display">登錄全新筆記與複習計畫</h3>
-                      <p className="text-xs text-zinc-400 uppercase font-mono tracking-wider mt-0.5">Create New Study Trajectory</p>
+                      <h3 className="font-bold text-zinc-950 text-xl font-display">
+                        {lang === "zh-Hant" ? "從筆記庫排定複習計畫" : "Schedule Review from Library"}
+                      </h3>
+                      <p className="text-xs text-zinc-400 uppercase font-mono tracking-wider mt-0.5">
+                        Schedule Study Trajectory
+                      </p>
                     </div>
                   </div>
 
-                  <form onSubmit={handleCreateTaskSubmit} className="space-y-6 text-sm">
-                    {/* Title */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">學習主題 / 筆記標題</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="例如：英文單字 Core-Vocabulary L1"
-                        value={newTaskTitle}
-                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                        className="w-full px-4 py-3 border border-zinc-200 rounded-xl bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-[15px] font-medium"
-                      />
-                    </div>
-
-                    {/* Content */}
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-500 uppercase tracking-wide">學習筆記內容</label>
-                      <textarea
-                        rows={4}
-                        placeholder="在此貼上筆記，供複習卡片資訊卡隨時參閱..."
-                        value={newTaskContent}
-                        onChange={(e) => setNewTaskContent(e.target.value)}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl resize-none focus:border-blue-500 focus:outline-none text-sm"
-                      />
-                    </div>
-
-                    {/* Meta selections */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Category</label>
-                        <CustomSelect
-                          value={newTaskCategory}
-                          onChange={setNewTaskCategory}
-                          options={[
-                            { value: "English", label: "English" },
-                            { value: "Math", label: "Math" },
-                            { value: "Coding", label: "Coding" },
-                            { value: "Biology", label: "Biology" },
-                            { value: "History", label: "History" },
-                            { value: "Other", label: "Other" },
-                          ]}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Task Type</label>
-                        <CustomSelect
-                          value={newTaskType}
-                          onChange={(val) => setNewTaskType(val as "new" | "practice")}
-                          options={[
-                            { value: "new", label: "New (Spaced Repetition)" },
-                            { value: "practice", label: "Practice (Single Session)" },
-                          ]}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pattern</label>
-                        <CustomSelect
-                          value={newTaskPattern}
-                          disabled={newTaskType === "practice"}
-                          onChange={(val) => setNewTaskPattern(val as "A" | "B" | "C")}
-                          options={[
-                            { value: "A", label: "Pattern A · 2ⁿ days (1, 2, 4, 8…)" },
-                            { value: "B", label: "Pattern B · 3ⁿ days (1, 3, 9, 27…)" },
-                            { value: "C", label: "Pattern C · SM-2 Adaptive" },
-                          ]}
-                        />
+                  {notes.length === 0 ? (
+                    <div className="py-10 text-center space-y-4">
+                      <p className="text-sm text-zinc-500">
+                        {lang === "zh-Hant"
+                          ? "筆記庫中尚未有筆記。請先從「匯入筆記」匯入，或在「筆記庫」中建立筆記。"
+                          : "Your Library is empty. Import notes or create one in Library first."}
+                      </p>
+                      <div className="flex justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("schema")}
+                          className="px-5 py-2.5 rounded-xl bg-zinc-950 text-white text-sm font-medium cursor-pointer"
+                        >
+                          {t.navSchema}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("reading")}
+                          className="px-5 py-2.5 rounded-xl border border-zinc-200 bg-white text-zinc-800 text-sm font-medium cursor-pointer"
+                        >
+                          {t.navReading}
+                        </button>
                       </div>
                     </div>
+                  ) : (() => {
+                    const targetNote =
+                      notes.find((n) => String(n.id) === selectedLibraryNoteId) ?? notes[0];
 
-                    {/* Date and Time selectors */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">預定登錄學習日期</label>
-                        <input
-                          type="date"
-                          value={newTaskFirstDate}
-                          onChange={(e) => setNewTaskFirstDate(e.target.value)}
-                          className="w-full px-4 py-3 border border-zinc-200 rounded-xl bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-[15px]"
-                        />
-                      </div>
+                    const handleGenerateQuestionsForNote = async () => {
+                      if (!targetNote) return;
+                      setGeneratingForTask(true);
+                      setTaskQuestionMsg(null);
+                      try {
+                        const res = await authFetch("/api/quiz/generate", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            note_id: targetNote.id,
+                            title: targetNote.title,
+                            content: targetNote.content,
+                            count: 3,
+                            question_types: ["mcq", "short_answer", "short_essay"],
+                          }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.detail || "Failed to generate questions");
+                        const count = (data.questions || []).length;
+                        setSelectedNoteQuestionCount((prev) => (prev ?? 0) + count);
+                        setTaskQuestionMsg(
+                          lang === "zh-Hant"
+                            ? `已透過 LLM 新增 ${count} 題至集中題庫`
+                            : `Generated ${count} new question(s) into question bank`,
+                        );
+                      } catch (err) {
+                        setTaskQuestionMsg(err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setGeneratingForTask(false);
+                      }
+                    };
 
-                      <div className="space-y-2 flex flex-col justify-end">
-                        <label className="flex items-center gap-2.5 pb-2.5 text-sm font-medium text-zinc-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={newTaskIsAllDay}
-                            onChange={(e) => setNewTaskIsAllDay(e.target.checked)}
-                            className="w-4 h-4 accent-zinc-950 rounded"
+                    return (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!targetNote) return;
+                          setIsSubmittingTask(true);
+                          try {
+                            const res = await authFetch("/api/tasks/from-note", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                note_id: targetNote.id,
+                                type: newTaskType,
+                                pattern: newTaskPattern,
+                                first_date: newTaskFirstDate,
+                                time_start: newTaskIsAllDay ? null : newTaskStartTime,
+                                time_end: newTaskIsAllDay ? null : newTaskEndTime,
+                              }),
+                            });
+                            if (res.ok) {
+                              await fetchData();
+                              setActiveTab("calendar");
+                              setSelectedDateStr(newTaskFirstDate);
+                            }
+                          } finally {
+                            setIsSubmittingTask(false);
+                          }
+                        }}
+                        className="space-y-6 text-sm"
+                      >
+                        {/* Library Note Selector */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                            {lang === "zh-Hant" ? "選擇筆記庫中的筆記" : "Select Note from Library"}
+                          </label>
+                          <CustomSelect
+                            value={String(targetNote.id)}
+                            onChange={setSelectedLibraryNoteId}
+                            options={notes.map((n) => ({
+                              value: String(n.id),
+                              label: `${n.title} · ${n.category}`,
+                            }))}
                           />
-                          <span>全天日程 (All Day)</span>
-                        </label>
+                        </div>
 
-                        {!newTaskIsAllDay && (
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="time"
-                              value={newTaskStartTime}
-                              onChange={(e) => setNewTaskStartTime(e.target.value)}
-                              className="w-1/2 px-3 py-2.5 border border-zinc-200 rounded-xl text-sm bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none"
-                            />
-                            <span className="text-zinc-400">至</span>
-                            <input
-                              type="time"
-                              value={newTaskEndTime}
-                              onChange={(e) => setNewTaskEndTime(e.target.value)}
-                              className="w-1/2 px-3 py-2.5 border border-zinc-200 rounded-xl text-sm bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none"
+                        {/* Question Bank Ownership Check */}
+                        <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                              {lang === "zh-Hant" ? "題庫狀態（SQLite + questions.json）" : "Question Bank Status"}
+                            </div>
+                            <div className="text-sm font-medium text-zinc-900">
+                              {checkingQuestions
+                                ? lang === "zh-Hant"
+                                  ? "檢查題庫中..."
+                                  : "Checking question bank..."
+                                : (selectedNoteQuestionCount ?? 0) > 0
+                                  ? lang === "zh-Hant"
+                                    ? `此筆記已有 ${selectedNoteQuestionCount} 題可供複習`
+                                    : `${selectedNoteQuestionCount} question(s) ready for review`
+                                  : lang === "zh-Hant"
+                                    ? "此筆記尚無對應題目，可直接由 LLM 生成"
+                                    : "No questions owned by this note yet — generate now"}
+                            </div>
+                            {taskQuestionMsg && (
+                              <div className="text-xs text-zinc-600">{taskQuestionMsg}</div>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={generatingForTask}
+                            onClick={() => void handleGenerateQuestionsForNote()}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium cursor-pointer shrink-0"
+                          >
+                            {generatingForTask ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <Sparkles size={13} />
+                            )}
+                            <span>
+                              {(selectedNoteQuestionCount ?? 0) > 0
+                                ? lang === "zh-Hant"
+                                  ? "再生成新題目 (LLM)"
+                                  : "Generate More (LLM)"
+                                : lang === "zh-Hant"
+                                  ? "立即建立題目 (LLM)"
+                                  : "Create Questions (LLM)"}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Task Type & Pattern */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Task Type</label>
+                            <CustomSelect
+                              value={newTaskType}
+                              onChange={(val) => setNewTaskType(val as "new" | "practice")}
+                              options={[
+                                { value: "new", label: "New (Spaced Repetition)" },
+                                { value: "practice", label: "Practice (Single Session)" },
+                              ]}
                             />
                           </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* Submitting Buttons */}
-                    <div className="flex gap-3.5 pt-4">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("calendar")}
-                        className="w-1/2 py-3 bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200 font-medium text-sm rounded-xl transition-colors cursor-pointer"
-                      >
-                        取消
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSubmittingTask}
-                        className="w-1/2 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-medium text-sm rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        {isSubmittingTask && <Loader2 size={14} className="animate-spin" />}
-                        <span>儲存並啟動複習計畫</span>
-                      </button>
-                    </div>
-                  </form>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pattern</label>
+                            <CustomSelect
+                              value={newTaskPattern}
+                              disabled={newTaskType === "practice"}
+                              onChange={(val) => setNewTaskPattern(val as "A" | "B" | "C")}
+                              options={[
+                                { value: "A", label: "Pattern A · 2ⁿ days (1, 2, 4, 8…)" },
+                                { value: "B", label: "Pattern B · 3ⁿ days (1, 3, 9, 27…)" },
+                                { value: "C", label: "Pattern C · SM-2 Adaptive" },
+                              ]}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Date and Time selectors */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                              {lang === "zh-Hant" ? "開始複習日期" : "Start Date"}
+                            </label>
+                            <input
+                              type="date"
+                              value={newTaskFirstDate}
+                              onChange={(e) => setNewTaskFirstDate(e.target.value)}
+                              className="w-full px-4 py-3 border border-zinc-200 rounded-xl bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-[15px]"
+                            />
+                          </div>
+
+                          <div className="space-y-2 flex flex-col justify-end">
+                            <label className="flex items-center gap-2.5 pb-2.5 text-sm font-medium text-zinc-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={newTaskIsAllDay}
+                                onChange={(e) => setNewTaskIsAllDay(e.target.checked)}
+                                className="w-4 h-4 accent-zinc-950 rounded"
+                              />
+                              <span>{lang === "zh-Hant" ? "全天日程" : "All Day"}</span>
+                            </label>
+
+                            {!newTaskIsAllDay && (
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="time"
+                                  value={newTaskStartTime}
+                                  onChange={(e) => setNewTaskStartTime(e.target.value)}
+                                  className="w-1/2 px-3 py-2.5 border border-zinc-200 rounded-xl text-sm bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none"
+                                />
+                                <span className="text-zinc-400">–</span>
+                                <input
+                                  type="time"
+                                  value={newTaskEndTime}
+                                  onChange={(e) => setNewTaskEndTime(e.target.value)}
+                                  className="w-1/2 px-3 py-2.5 border border-zinc-200 rounded-xl text-sm bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Submitting Buttons */}
+                        <div className="flex gap-3.5 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("calendar")}
+                            className="w-1/2 py-3 bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200 font-medium text-sm rounded-xl transition-colors cursor-pointer"
+                          >
+                            {lang === "zh-Hant" ? "取消" : "Cancel"}
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSubmittingTask}
+                            className="w-1/2 py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-medium text-sm rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            {isSubmittingTask && <Loader2 size={14} className="animate-spin" />}
+                            <span>{lang === "zh-Hant" ? "啟動複習計畫" : "Schedule Review"}</span>
+                          </button>
+                        </div>
+                      </form>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1344,11 +1506,13 @@ export default function App() {
                 );
               })()}
 
-              {/* --- VIEW: EDITORIAL MINIMAL READING MODE --- */}
+              {/* --- VIEW: LIBRARY (INDEX + FULL-WIDTH READING + HOVER DRAWER) --- */}
               {activeTab === "reading" && (
                 <EditorialReaderView
                   notes={notes}
+                  tasks={tasks}
                   lang={lang}
+                  onNoteCreated={() => void fetchData()}
                   onCopyQuizPrompt={(note) => {
                     const prompt = `請根據以下筆記內容，為我設計 3 題主動回憶測驗（包含 2 題簡答題與 1 題情境應用題），並在我作答後逐題給予回饋：\n\n# ${note.title}\n\n${note.content}`;
                     void navigator.clipboard?.writeText(prompt);

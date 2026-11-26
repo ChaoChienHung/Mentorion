@@ -1,112 +1,29 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Check, ChevronDown, ChevronRight, Copy, Search, Sparkles } from "lucide-react";
-import type { Note } from "../types";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+import {
+  ArrowLeft,
+  BookOpen,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Copy,
+  Menu,
+  Plus,
+  Search,
+  Sparkles,
+} from "lucide-react";
+import type { Note, Task } from "../types";
 import { QuizPanel } from "./QuizPanel";
 import { MENTORION_COPY, type MentorionLang } from "../i18n";
 
-interface TreeFolder {
-  name: string;
-  path: string;
-  folders: TreeFolder[];
-  notes: Note[];
-}
-
-function buildCategoryTree(notes: Note[]): TreeFolder {
-  const root: TreeFolder = { name: "", path: "", folders: [], notes: [] };
-  for (const note of notes) {
-    const segments = (note.category || "General")
-      .split("/")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    let curr = root;
-    let pathAcc = "";
-    for (const seg of segments) {
-      pathAcc = pathAcc ? `${pathAcc}/${seg}` : seg;
-      let next = curr.folders.find((f) => f.name === seg);
-      if (!next) {
-        next = { name: seg, path: pathAcc, folders: [], notes: [] };
-        curr.folders.push(next);
-      }
-      curr = next;
-    }
-    curr.notes.push(note);
-  }
-  return root;
-}
-
-function LibraryTreeBranch({
-  folder,
-  depth,
-  activeId,
-  collapsed,
-  onToggle,
-  onSelect,
-}: {
-  folder: TreeFolder;
-  depth: number;
-  activeId: number | null;
-  collapsed: Record<string, boolean>;
-  onToggle: (path: string) => void;
-  onSelect: (id: number) => void;
-}) {
-  return (
-    <>
-      {folder.folders.map((sub) => {
-        const isClosed = !!collapsed[sub.path];
-        return (
-          <div key={sub.path}>
-            <button
-              type="button"
-              onClick={() => onToggle(sub.path)}
-              style={{ paddingLeft: 8 + depth * 12 }}
-              className="w-full flex items-center gap-1.5 py-2 pr-2 rounded-lg text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer"
-            >
-              {isClosed ? (
-                <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-              ) : (
-                <ChevronDown size={14} className="text-zinc-400 shrink-0" />
-              )}
-              <span className="truncate">{sub.name}</span>
-            </button>
-            {!isClosed && (
-              <LibraryTreeBranch
-                folder={sub}
-                depth={depth + 1}
-                activeId={activeId}
-                collapsed={collapsed}
-                onToggle={onToggle}
-                onSelect={onSelect}
-              />
-            )}
-          </div>
-        );
-      })}
-      {folder.notes.map((note) => {
-        const isActive = note.id === activeId;
-        return (
-          <button
-            key={note.id}
-            type="button"
-            onClick={() => onSelect(note.id)}
-            style={{ paddingLeft: 20 + depth * 12 }}
-            className={`w-full text-left py-2 pr-3 rounded-lg transition-colors cursor-pointer ${
-              isActive
-                ? "bg-zinc-950 text-white"
-                : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950"
-            }`}
-          >
-            <div className="text-sm font-medium truncate">{note.title}</div>
-          </button>
-        );
-      })}
-    </>
-  );
-}
-
 interface EditorialReaderViewProps {
   notes: Note[];
+  tasks: Task[];
   lang: MentorionLang;
   onCopyQuizPrompt: (note: Note) => void;
+  onNoteCreated: () => void;
 }
 
 function escapeHtml(text: string): string {
@@ -117,12 +34,53 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function formatWikiLink(rawInner: string): string {
+  // Supports Nexus [[concept.foo_bar]] / [[doc.foo_bar]] and Obsidian [[Target|Alias]]
+  if (rawInner.includes("|")) {
+    const alias = rawInner.split("|")[1].trim();
+    return `<span class="inline-block px-1.5 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-800 text-[0.9em] font-medium">${escapeHtml(alias)}</span>`;
+  }
+  const cleaned = rawInner
+    .replace(/^(concept|doc)\./, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return `<span class="inline-block px-1.5 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-800 text-[0.9em] font-medium">${escapeHtml(cleaned)}</span>`;
+}
+
 function renderInline(text: string): string {
-  return escapeHtml(text)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
+  // Protect inline code & inline LaTeX before escaping/formatting
+  const placeholders: string[] = [];
+
+  let working = text.replace(/`([^`]+)`/g, (_m, code: string) => {
+    const idx = placeholders.push(`<code>${escapeHtml(code)}</code>`) - 1;
+    return `@@PH_${idx}@@`;
+  });
+
+  working = working.replace(/(?<!\\)\$([^\n$]+?)(?<!\\)\$/g, (full, expr: string) => {
+    if (!expr.trim()) return full;
+    const rendered = katex.renderToString(expr.trim(), {
+      displayMode: false,
+      throwOnError: false,
+    });
+    const idx = placeholders.push(rendered) - 1;
+    return `@@PH_${idx}@@`;
+  });
+
+  working = working.replace(/\[\[([^\]]+)\]\]/g, (_m, inner: string) => {
+    const idx = placeholders.push(formatWikiLink(inner)) - 1;
+    return `@@PH_${idx}@@`;
+  });
+
+  let html = escapeHtml(working)
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer" style="color:var(--ed-accent);text-decoration:underline">$1</a>');
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer" class="underline text-zinc-900">$1</a>',
+    );
+
+  html = html.replace(/@@PH_(\d+)@@/g, (_m, i) => placeholders[Number(i)] ?? "");
+  return html;
 }
 
 function renderSimpleMarkdown(md: string): string {
@@ -130,6 +88,8 @@ function renderSimpleMarkdown(md: string): string {
   const out: string[] = [];
   let inCode = false;
   let codeLines: string[] = [];
+  let inMath = false;
+  let mathLines: string[] = [];
   let inList = false;
 
   const closeList = () => {
@@ -140,7 +100,9 @@ function renderSimpleMarkdown(md: string): string {
   };
 
   for (const line of lines) {
-    if (line.trim().startsWith("```")) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("```")) {
       closeList();
       if (inCode) {
         out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
@@ -156,7 +118,33 @@ function renderSimpleMarkdown(md: string): string {
       continue;
     }
 
-    const trimmed = line.trim();
+    // Multi-line or single-line display math $$...$$
+    if (trimmed.startsWith("$$") && trimmed.endsWith("$$") && trimmed.length > 4) {
+      closeList();
+      const expr = trimmed.slice(2, -2).trim();
+      out.push(
+        `<div class="my-4 overflow-x-auto">${katex.renderToString(expr, { displayMode: true, throwOnError: false })}</div>`,
+      );
+      continue;
+    }
+    if (trimmed === "$$") {
+      closeList();
+      if (inMath) {
+        out.push(
+          `<div class="my-4 overflow-x-auto">${katex.renderToString(mathLines.join("\n"), { displayMode: true, throwOnError: false })}</div>`,
+        );
+        mathLines = [];
+        inMath = false;
+      } else {
+        inMath = true;
+      }
+      continue;
+    }
+    if (inMath) {
+      mathLines.push(line);
+      continue;
+    }
+
     if (!trimmed) {
       closeList();
       continue;
@@ -193,36 +181,101 @@ function renderSimpleMarkdown(md: string): string {
   if (inCode && codeLines.length > 0) {
     out.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
   }
+  if (inMath && mathLines.length > 0) {
+    out.push(
+      `<div class="my-4 overflow-x-auto">${katex.renderToString(mathLines.join("\n"), { displayMode: true, throwOnError: false })}</div>`,
+    );
+  }
   return out.join("\n");
 }
 
 export function EditorialReaderView({
   notes,
+  tasks,
   lang,
   onCopyQuizPrompt,
+  onNoteCreated,
 }: EditorialReaderViewProps) {
   const t = MENTORION_COPY[lang];
-  const [selectedId, setSelectedId] = useState<number | null>(notes[0]?.id ?? null);
+  // Default to null -> Library Index view (never auto-jumps into the first article)
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<"review_date" | "alphabetical">("review_date");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [quizOpen, setQuizOpen] = useState(false);
+  const [creatingNote, setCreatingNote] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftCategory, setDraftCategory] = useState("General");
+  const [draftContent, setDraftContent] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
-  const visibleNotes = useMemo(() => {
+  // Map each note_id to its earliest pending review task date (fallback to note.next_review_date)
+  const nextReviewDateByNote = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const tk of tasks) {
+      if (tk.is_completed) continue;
+      const existing = map.get(tk.note_id);
+      if (!existing || tk.scheduled_date < existing) {
+        map.set(tk.note_id, tk.scheduled_date);
+      }
+    }
+    for (const n of notes) {
+      if (!map.has(n.id) && n.next_review_date) {
+        map.set(n.id, n.next_review_date);
+      }
+    }
+    return map;
+  }, [tasks, notes]);
+
+  const sortedNotes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return notes;
-    return notes.filter(
-      (n) =>
-        n.title.toLowerCase().includes(q) ||
-        n.category.toLowerCase().includes(q) ||
-        (n.content || "").toLowerCase().includes(q),
-    );
-  }, [notes, searchQuery]);
+    const filtered = !q
+      ? [...notes]
+      : notes.filter(
+          (n) =>
+            n.title.toLowerCase().includes(q) ||
+            n.category.toLowerCase().includes(q) ||
+            (n.content || "").toLowerCase().includes(q),
+        );
 
-  const categoryTree = useMemo(() => buildCategoryTree(visibleNotes), [visibleNotes]);
+    if (sortBy === "alphabetical") {
+      return filtered.sort((a, b) => a.title.localeCompare(b.title));
+    }
 
+    // Default: review_date (earliest scheduled review first; unscheduled last, then alphabetical)
+    return filtered.sort((a, b) => {
+      const da = nextReviewDateByNote.get(a.id);
+      const db = nextReviewDateByNote.get(b.id);
+      if (da && db) {
+        const cmp = da.localeCompare(db);
+        return cmp !== 0 ? cmp : a.title.localeCompare(b.title);
+      }
+      if (da) return -1;
+      if (db) return 1;
+      return a.title.localeCompare(b.title);
+    });
+  }, [notes, searchQuery, sortBy, nextReviewDateByNote]);
+
+  // Priority pending review tasks sorted by scheduled_date (earliest/overdue first)
+  const priorityTasks = useMemo(() => {
+    const noteIds = new Set(notes.map((n) => n.id));
+    return tasks
+      .filter((tk) => !tk.is_completed && noteIds.has(tk.note_id))
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
+      .slice(0, 6);
+  }, [tasks, notes]);
+
+  const activeIndex = sortedNotes.findIndex((n) => n.id === selectedId);
   const activeNote =
-    visibleNotes.find((n) => n.id === selectedId) ?? visibleNotes[0] ?? null;
+    activeIndex >= 0
+      ? sortedNotes[activeIndex]
+      : notes.find((n) => n.id === selectedId) ?? null;
+  const prevNote = activeIndex > 0 ? sortedNotes[activeIndex - 1] : null;
+  const nextNote =
+    activeIndex >= 0 && activeIndex < sortedNotes.length - 1
+      ? sortedNotes[activeIndex + 1]
+      : null;
 
   const renderedHtml = useMemo(
     () => (activeNote ? renderSimpleMarkdown(activeNote.content || "") : ""),
@@ -235,144 +288,405 @@ export function EditorialReaderView({
     window.setTimeout(() => setCopiedId((curr) => (curr === note.id ? null : curr)), 2000);
   };
 
-  if (notes.length === 0) {
+  const handleCreateLibraryNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draftTitle.trim()) return;
+    setSavingNote(true);
+    try {
+      const res = await fetch("/api/library/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: draftTitle.trim(),
+          category: draftCategory.trim() || "General",
+          content: draftContent,
+        }),
+      });
+      if (res.ok) {
+        const created = (await res.json()) as { id: number };
+        setDraftTitle("");
+        setDraftContent("");
+        setCreatingNote(false);
+        setSelectedId(created.id);
+        onNoteCreated();
+      }
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // --- NEW NOTE COMPOSER ---
+  if (creatingNote) {
     return (
-      <div
-        className="max-w-4xl mx-auto rounded-2xl px-10 py-16 text-center"
-        style={{
-          background: "var(--ed-bg-elevated)",
-          border: "1px solid var(--ed-border-subtle)",
-          color: "var(--ed-text-secondary)",
-        }}
+      <form
+        onSubmit={handleCreateLibraryNote}
+        className="max-w-4xl mx-auto rounded-2xl px-8 py-9 md:px-12 md:py-11 space-y-5 bg-white border border-zinc-200"
       >
-        <BookOpen size={36} className="mx-auto mb-4 opacity-50" />
-        <p className="text-xl font-semibold mb-2 text-zinc-950">{t.readingEmptyTitle}</p>
-        <p className="text-base text-zinc-500">{t.readingEmptyDesc}</p>
-      </div>
+        <h2 className="text-2xl font-bold font-display text-zinc-950">
+          {lang === "zh-Hant" ? "新增筆記至筆記庫" : "Create Library Note"}
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+              {lang === "zh-Hant" ? "標題" : "Title"}
+            </label>
+            <input
+              type="text"
+              required
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              placeholder={lang === "zh-Hant" ? "例如：Transformer Attention" : "e.g. Transformer Attention"}
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+              {lang === "zh-Hant" ? "分類路徑" : "Category Path"}
+            </label>
+            <input
+              type="text"
+              value={draftCategory}
+              onChange={(e) => setDraftCategory(e.target.value)}
+              placeholder="AI / Deep Learning"
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+            Markdown (LaTeX $...$ / $$...$$ supported)
+          </label>
+          <textarea
+            rows={10}
+            value={draftContent}
+            onChange={(e) => setDraftContent(e.target.value)}
+            placeholder="# Heading..."
+            className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-sm font-mono leading-relaxed"
+          />
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setCreatingNote(false)}
+            className="px-5 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 text-sm font-medium cursor-pointer"
+          >
+            {lang === "zh-Hant" ? "取消" : "Cancel"}
+          </button>
+          <button
+            type="submit"
+            disabled={savingNote}
+            className="px-6 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-sm font-medium cursor-pointer"
+          >
+            {lang === "zh-Hant" ? "儲存至筆記庫" : "Save to Library"}
+          </button>
+        </div>
+      </form>
     );
   }
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 items-start">
-      {/* Left Library Category Tree + Search */}
-      <div
-        className="rounded-2xl p-4 space-y-3"
-        style={{
-          background: "var(--ed-bg-elevated)",
-          border: "1px solid var(--ed-border-subtle)",
-        }}
-      >
-        <div className="space-y-2.5">
-          <span
-            className="text-xs font-semibold uppercase tracking-wider block"
-            style={{ color: "var(--ed-text-muted)" }}
+  // --- LIBRARY INDEX PAGE (Default when no article is selected) ---
+  if (!activeNote) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-8">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
+          <div>
+            <div className="text-xs font-mono uppercase tracking-[0.2em] text-zinc-400">
+              MENTORION · LIBRARY INDEX
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold font-display text-zinc-950 mt-2">
+              {t.navReading}
+            </h1>
+            <p className="text-sm text-zinc-500 mt-1.5">
+              {lang === "zh-Hant"
+                ? `共收錄 ${notes.length} 篇筆記，點擊任一篇進入全寬無干擾閱讀模式。`
+                : `${notes.length} notes indexed. Select any note for full-width distraction-free reading.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCreatingNote(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-sm font-medium cursor-pointer"
           >
-            {t.notesList(visibleNotes.length)}
-          </span>
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Plus size={16} />
+            <span>{lang === "zh-Hant" ? "新增筆記" : "New Note"}</span>
+          </button>
+        </div>
+
+        {/* Search filter + Simple Sort Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={lang === "zh-Hant" ? "搜尋筆記或分類..." : "Filter library..."}
-              className="w-full pl-8 pr-3 py-2 rounded-xl text-xs bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-zinc-900 focus:outline-none"
+              placeholder={lang === "zh-Hant" ? "篩選標題或分類..." : "Filter by title or category..."}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-white border border-zinc-200 focus:border-zinc-900 focus:outline-none"
             />
+          </div>
+
+          <div className="inline-flex items-center p-1 rounded-xl bg-zinc-100 border border-zinc-200">
+            <button
+              type="button"
+              onClick={() => setSortBy("review_date")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                sortBy === "review_date"
+                  ? "bg-zinc-950 text-white"
+                  : "text-zinc-600 hover:text-zinc-950"
+              }`}
+            >
+              {lang === "zh-Hant" ? "依複習日期" : "Review Date"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortBy("alphabetical")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                sortBy === "alphabetical"
+                  ? "bg-zinc-950 text-white"
+                  : "text-zinc-600 hover:text-zinc-950"
+              }`}
+            >
+              {lang === "zh-Hant" ? "依字母順序" : "Alphabetical"}
+            </button>
           </div>
         </div>
 
-        <div className="space-y-0.5 max-h-[68vh] overflow-y-auto pr-1">
-          <LibraryTreeBranch
-            folder={categoryTree}
-            depth={0}
-            activeId={activeNote?.id ?? null}
-            collapsed={collapsed}
-            onToggle={(p) => setCollapsed((prev) => ({ ...prev, [p]: !prev[p] }))}
-            onSelect={(id) => {
-              setSelectedId(id);
-              setQuizOpen(false);
-            }}
-          />
+        {notes.length === 0 ? (
+          <div className="rounded-2xl border border-zinc-200 bg-white px-10 py-16 text-center space-y-3">
+            <BookOpen size={36} className="mx-auto text-zinc-400" />
+            <p className="text-xl font-semibold text-zinc-950">{t.readingEmptyTitle}</p>
+            <p className="text-sm text-zinc-500">{t.readingEmptyDesc}</p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-zinc-200 bg-white divide-y divide-zinc-100 overflow-hidden">
+            {sortedNotes.map((note) => {
+              const reviewDate = nextReviewDateByNote.get(note.id);
+              return (
+                <button
+                  key={note.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(note.id);
+                    setQuizOpen(false);
+                  }}
+                  className="w-full text-left px-6 py-4 hover:bg-zinc-50 transition-colors cursor-pointer flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-base font-semibold text-zinc-950 truncate">
+                      {note.title}
+                    </div>
+                    <div className="text-xs font-mono text-zinc-400 flex flex-wrap items-center gap-2">
+                      <span>{note.category || "General"}</span>
+                      <span>·</span>
+                      <span>SM-2 · {note.interval_days}d</span>
+                      <span>·</span>
+                      <span>Reps {note.repetitions}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {reviewDate ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-950 text-white text-xs font-mono">
+                        <Clock size={12} />
+                        <span>{reviewDate}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full border border-zinc-200 text-zinc-400 text-xs font-mono">
+                        {lang === "zh-Hant" ? "未排程" : "Unscheduled"}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- FULL-WIDTH ARTICLE VIEW + LEFT HOVER UTILITY DRAWER ---
+  return (
+    <div className="relative min-h-[82vh]">
+      {/* Subtle Left-Edge Hover Trigger Zone */}
+      <div
+        onMouseEnter={() => setDrawerOpen(true)}
+        className="fixed left-0 md:left-72 top-0 bottom-0 w-7 z-30 flex items-center justify-start group cursor-pointer"
+        title={lang === "zh-Hant" ? "移入開啟複習工具列" : "Hover to open review dock"}
+      >
+        <div className="ml-1.5 px-1 py-4 rounded-r-lg bg-zinc-900/10 group-hover:bg-zinc-900 group-hover:text-white text-zinc-500 transition-all">
+          <Menu size={14} />
         </div>
       </div>
 
-      {/* Right Editorial Minimal Reading Column */}
-      {activeNote && (
-        <article
-          className="rounded-2xl px-8 py-9 md:px-12 md:py-11"
-          style={{
-            background: "var(--ed-bg-elevated)",
-            border: "1px solid var(--ed-border-subtle)",
-          }}
-        >
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 pb-5 mb-7"
-            style={{ borderBottom: "1px solid var(--ed-border-subtle)" }}
+      {/* Left Hover Overlay Drawer (Priority Review Tasks + Prev/Next + Utilities) */}
+      <div
+        onMouseLeave={() => setDrawerOpen(false)}
+        className={`fixed left-0 md:left-72 top-0 bottom-0 w-80 z-40 bg-white/95 backdrop-blur-md border-r border-zinc-200 shadow-2xl p-6 flex flex-col justify-between transition-transform duration-200 ease-out ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+        }`}
+      >
+        <div className="space-y-6 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedId(null);
+              setDrawerOpen(false);
+            }}
+            className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-zinc-950 cursor-pointer"
           >
-            <div>
-              <div
-                className="text-xs font-medium mb-1.5 flex items-center gap-2"
-                style={{ color: "var(--ed-text-muted)" }}
-              >
-                <span>{activeNote.category}</span>
-                <span>·</span>
-                <span>Ease {activeNote.ease_factor.toFixed(2)}</span>
-                <span>·</span>
-                <span>Interval {activeNote.interval_days}d</span>
-                <span>·</span>
-                <span>Reps {activeNote.repetitions}</span>
+            <ArrowLeft size={14} />
+            <span>{lang === "zh-Hant" ? "返回筆記庫目錄" : "Back to Library Index"}</span>
+          </button>
+
+          {/* Priority Review Tasks Queue */}
+          <div className="space-y-2.5">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+              {lang === "zh-Hant" ? "優先複習任務" : "Priority Review Queue"}
+            </div>
+            {priorityTasks.length === 0 ? (
+              <p className="text-xs text-zinc-400">
+                {lang === "zh-Hant" ? "目前沒有待辦複習任務。" : "No pending review tasks."}
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {priorityTasks.map((tk) => (
+                  <button
+                    key={tk.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(tk.note_id);
+                      setQuizOpen(false);
+                      setDrawerOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors cursor-pointer ${
+                      tk.note_id === activeNote.id
+                        ? "bg-zinc-950 text-white border-zinc-950"
+                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border-zinc-200"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold truncate">{tk.note_title}</div>
+                    <div
+                      className={`text-[11px] font-mono flex items-center gap-1 mt-0.5 ${
+                        tk.note_id === activeNote.id ? "text-zinc-300" : "text-zinc-400"
+                      }`}
+                    >
+                      <Clock size={10} />
+                      <span>{tk.scheduled_date}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <h1
-                className="text-2xl md:text-3xl font-bold tracking-tight"
-                style={{
-                  fontFamily: "var(--font-serif)",
-                  color: "var(--ed-text-primary)",
-                }}
-              >
-                {activeNote.title}
-              </h1>
-            </div>
+            )}
+          </div>
+        </div>
 
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setQuizOpen((v) => !v)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13.5px] font-medium transition-colors cursor-pointer bg-zinc-950 hover:bg-zinc-800 text-white"
-              >
-                <Sparkles size={15} />
-                <span>{quizOpen ? "Hide Quiz" : "Start Quiz"}</span>
-              </button>
-
-              <button
-                onClick={() => handleCopyPrompt(activeNote)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13.5px] font-medium transition-colors cursor-pointer bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-200"
-              >
-                {copiedId === activeNote.id ? (
-                  <>
-                    <Check size={15} />
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={13} />
-                    <span>Copy Prompt</span>
-                  </>
-                )}
-              </button>
-            </div>
+        {/* Bottom Utilities: Prev/Next + Quick Quiz + Copy Prompt */}
+        <div className="pt-5 border-t border-zinc-200 space-y-3">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+            {lang === "zh-Hant" ? "工具與導覽" : "Utilities"}
           </div>
 
-          <div
-            className="editorial-prose max-w-[700px]"
-            dangerouslySetInnerHTML={{
-              __html:
-                renderedHtml ||
-                `<p style="color:var(--ed-text-muted)">此筆記尚無內文。</p>`,
-            }}
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={!prevNote}
+              onClick={() => {
+                if (prevNote) {
+                  setSelectedId(prevNote.id);
+                  setQuizOpen(false);
+                }
+              }}
+              className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-35 text-xs font-medium text-zinc-800 cursor-pointer"
+            >
+              <ChevronLeft size={14} />
+              <span>{lang === "zh-Hant" ? "上一篇" : "Prev"}</span>
+            </button>
+            <button
+              type="button"
+              disabled={!nextNote}
+              onClick={() => {
+                if (nextNote) {
+                  setSelectedId(nextNote.id);
+                  setQuizOpen(false);
+                }
+              }}
+              className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-35 text-xs font-medium text-zinc-800 cursor-pointer"
+            >
+              <span>{lang === "zh-Hant" ? "下一篇" : "Next"}</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
 
-          {quizOpen && <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />}
-        </article>
-      )}
+          <button
+            type="button"
+            onClick={() => {
+              setQuizOpen((v) => !v);
+              setDrawerOpen(false);
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium cursor-pointer"
+          >
+            <Sparkles size={14} />
+            <span>{quizOpen ? t.hideQuiz : t.startQuiz}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleCopyPrompt(activeNote)}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-medium cursor-pointer"
+          >
+            {copiedId === activeNote.id ? (
+              <>
+                <Check size={14} />
+                <span>{t.copied}</span>
+              </>
+            ) : (
+              <>
+                <Copy size={13} />
+                <span>{t.copyPrompt}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Full-Width Distraction-Free Article Surface */}
+      <article className="max-w-4xl mx-auto rounded-2xl px-8 py-10 md:px-14 md:py-12 bg-white border border-zinc-200">
+        <div className="flex items-center justify-between gap-3 pb-6 mb-8 border-b border-zinc-200">
+          <div>
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-900 mb-3 cursor-pointer"
+            >
+              <ArrowLeft size={13} />
+              <span>{t.navReading}</span>
+              <span>/</span>
+              <span>{activeNote.category}</span>
+            </button>
+            <h1 className="text-3xl md:text-4xl font-bold font-display tracking-tight text-zinc-950">
+              {activeNote.title}
+            </h1>
+            <div className="text-xs font-mono text-zinc-400 flex items-center gap-2 mt-2">
+              <span>Ease {activeNote.ease_factor.toFixed(2)}</span>
+              <span>·</span>
+              <span>Interval {activeNote.interval_days}d</span>
+              <span>·</span>
+              <span>Reps {activeNote.repetitions}</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="editorial-prose max-w-none"
+          dangerouslySetInnerHTML={{
+            __html:
+              renderedHtml ||
+              `<p style="color:var(--ed-text-muted)">此筆記尚無內文。</p>`,
+          }}
+        />
+
+        {quizOpen && <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />}
+      </article>
     </div>
   );
 }

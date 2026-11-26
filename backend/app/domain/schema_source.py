@@ -27,6 +27,14 @@ class DocumentSchemaMapping:
     fresh_values: Tuple[str, ...] = ("fresh", "", "unread", "new")
     reviewed_values: Tuple[str, ...] = ("reviewed", "done")
     filename_pattern: str = "*.md"  # e.g. "index.md" for Nexus bundles, or "*.md" for flat vaults
+    require_frontmatter: bool = False
+    required_fields: Tuple[str, ...] = ()
+
+
+@dataclass
+class FailedSourceDocument:
+    path: str
+    reason: str
 
 
 def list_available_schemas(schemas_dir: Path = SCHEMAS_DIR) -> List[Dict[str, Any]]:
@@ -73,6 +81,8 @@ def load_schema_by_name(name: str, schemas_dir: Path = SCHEMAS_DIR) -> DocumentS
         fresh_values=tuple(data.get("fresh_values") or ("fresh", "", "unread", "new")),
         reviewed_values=tuple(data.get("reviewed_values") or ("reviewed", "done")),
         filename_pattern=str(data.get("filename_pattern") or "*.md"),
+        require_frontmatter=bool(data.get("require_frontmatter", False)),
+        required_fields=tuple(data.get("required_fields") or ()),
     )
 
 
@@ -85,6 +95,7 @@ class ParsedSourceDocument:
     review_status: str  # "fresh" | "reviewed"
     body: str
     rel_path: str
+    abs_path: str = ""
     frontmatter: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -138,33 +149,74 @@ def parse_simple_yaml_frontmatter(raw: str) -> Tuple[Dict[str, Any], str]:
     return data, body
 
 
-def scan_markdown_source(
-    source_dir: str,
+def scan_markdown_source_with_report(
+    source_path: str,
     mapping: Optional[DocumentSchemaMapping] = None,
     only_fresh: bool = False,
-) -> List[ParsedSourceDocument]:
+) -> Tuple[List[ParsedSourceDocument], List[FailedSourceDocument]]:
     """
-    Recursively scans a local Markdown directory using the given schema mapping.
-    Works with Nexus Document Bundles (wiki/<Category>/<slug>/index.md) as well
-    as arbitrary flat or nested Markdown folders.
+    Scans either a single Markdown file OR a directory recursively using `mapping`.
+    Validates strict schema requirements (`require_frontmatter`, `required_fields`)
+    and returns `(valid_docs, failed_docs)` so callers can report exact failed paths.
     """
     cfg = mapping or DocumentSchemaMapping()
-    root = Path(os.path.expanduser(source_dir)).resolve()
-    if not root.exists() or not root.is_dir():
-        raise FileNotFoundError(f"Source directory not found: {source_dir}")
+    target = Path(os.path.expanduser(source_path)).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"Source path not found: {source_path}")
 
-    # Prefer `wiki/` subfolder automatically if user points at a Nexus vault root
-    scan_root = root / "wiki" if (root / "wiki").is_dir() else root
+    if target.is_file():
+        scan_root = target.parent
+        candidate_paths = [target]
+    else:
+        scan_root = target / "wiki" if (target / "wiki").is_dir() else target
+        candidate_paths = sorted(scan_root.rglob(cfg.filename_pattern))
 
     docs: List[ParsedSourceDocument] = []
-    for md_path in sorted(scan_root.rglob(cfg.filename_pattern)):
-        if any(part.startswith(".") for part in md_path.relative_to(scan_root).parts):
+    failed: List[FailedSourceDocument] = []
+
+    for md_path in candidate_paths:
+        rel_display = (
+            md_path.name
+            if target.is_file()
+            else md_path.relative_to(scan_root).as_posix()
+        )
+        if not target.is_file() and any(
+            part.startswith(".") for part in md_path.relative_to(scan_root).parts
+        ):
             continue
 
-        raw = md_path.read_text(encoding="utf-8")
+        try:
+            raw = md_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            failed.append(FailedSourceDocument(path=rel_display, reason=f"Read error: {exc}"))
+            continue
+
+        has_frontmatter = bool(FRONTMATTER_RE.match(raw))
         fm, body = parse_simple_yaml_frontmatter(raw)
-        rel_path = md_path.relative_to(scan_root).as_posix()
-        rel_parts = md_path.relative_to(scan_root).parts
+
+        # Strict schema validation
+        if cfg.require_frontmatter and not has_frontmatter:
+            failed.append(
+                FailedSourceDocument(
+                    path=rel_display,
+                    reason="Missing required YAML frontmatter (--- ... ---)",
+                )
+            )
+            continue
+
+        missing_fields = [
+            f for f in cfg.required_fields if not str(fm.get(f, "")).strip()
+        ]
+        if missing_fields:
+            failed.append(
+                FailedSourceDocument(
+                    path=rel_display,
+                    reason=f"Missing required schema field(s): {', '.join(missing_fields)}",
+                )
+            )
+            continue
+
+        rel_parts = (md_path.name,) if target.is_file() else md_path.relative_to(scan_root).parts
 
         # Resolve stable source_doc_id
         raw_id = fm.get(cfg.id_field)
@@ -220,9 +272,19 @@ def scan_markdown_source(
                 category=category,
                 review_status=review_status,
                 body=body,
-                rel_path=rel_path,
+                rel_path=rel_display,
+                abs_path=str(md_path),
                 frontmatter=fm,
             )
         )
 
+    return docs, failed
+
+
+def scan_markdown_source(
+    source_dir: str,
+    mapping: Optional[DocumentSchemaMapping] = None,
+    only_fresh: bool = False,
+) -> List[ParsedSourceDocument]:
+    docs, _ = scan_markdown_source_with_report(source_dir, mapping=mapping, only_fresh=only_fresh)
     return docs

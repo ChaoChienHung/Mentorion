@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from ...schemas.note import Note, NoteRequest
 from ...schemas.error import ErrorResponse
 from ...schemas.quiz import (
+    EssayGradeRequest,
+    EssayGradeResponse,
     QuestionSource,
     QuizGenerateRequest,
     QuizLoadRequest,
@@ -18,16 +20,29 @@ from ...domain.schema_source import (
     list_available_schemas,
     load_schema_by_name,
     scan_markdown_source,
+    scan_markdown_source_with_report,
+)
+from ...domain.question_bank import (
+    append_questions_for_note,
+    get_questions_for_note,
 )
 from ...domain.quiz_engine import (
     generate_questions_via_function_calling,
+    grade_essay_via_function_calling,
     load_inline_schema_questions,
     load_sidecar_questions,
 )
 from pydantic import BaseModel
 from .dependencies import note_service, get_current_user_optional, get_current_user_required
 from ...db.dependency import get_db
-from ...db.models import Note as DBNote, Task as DBTask, ReviewLog as DBReviewLog, JournalEvent as DBJournalEvent, User as DBUser
+from ...db.models import (
+    Note as DBNote,
+    Task as DBTask,
+    ReviewLog as DBReviewLog,
+    JournalEvent as DBJournalEvent,
+    User as DBUser,
+    SchemaSource as DBSchemaSource,
+)
 from ...schemas.user import UserCreate, UserUpdate, UserResponse, Token
 from ...core.security import verify_password, get_password_hash, create_access_token
 from fastapi.security import OAuth2PasswordRequestForm
@@ -719,6 +734,7 @@ class SchemaMappingRequest(BaseModel):
     review_field: str = "review"
     filename_pattern: str = "*.md"
     only_fresh: bool = True
+    create_tasks: bool = False
 
 
 def _build_mapping(req: SchemaMappingRequest) -> DocumentSchemaMapping:
@@ -742,9 +758,9 @@ def get_available_schemas():
 
 @router.post("/schema-sync/preview")
 def preview_schema_sync(payload: SchemaMappingRequest):
-    """Preview documents discovered from a local Markdown folder using a custom schema mapping."""
+    """Preview valid & schema-failed documents from a file or folder using the selected schema."""
     try:
-        docs = scan_markdown_source(
+        docs, failed = scan_markdown_source_with_report(
             payload.source_dir,
             mapping=_build_mapping(payload),
             only_fresh=payload.only_fresh,
@@ -754,6 +770,7 @@ def preview_schema_sync(payload: SchemaMappingRequest):
 
     return {
         "count": len(docs),
+        "failed_count": len(failed),
         "documents": [
             {
                 "source_doc_id": d.source_doc_id,
@@ -765,6 +782,7 @@ def preview_schema_sync(payload: SchemaMappingRequest):
             }
             for d in docs
         ],
+        "failed": [{"path": f.path, "reason": f.reason} for f in failed],
     }
 
 
@@ -774,9 +792,9 @@ def import_schema_sync(
     db: Session = Depends(get_db),
     current_user: Optional[DBUser] = Depends(get_current_user_optional),
 ):
-    """Import or refresh notes from a schema-compatible Markdown folder into Mentorion."""
+    """Import valid notes into Mentorion's Library (without auto-creating tasks unless create_tasks=True)."""
     try:
-        docs = scan_markdown_source(
+        docs, failed = scan_markdown_source_with_report(
             payload.source_dir,
             mapping=_build_mapping(payload),
             only_fresh=payload.only_fresh,
@@ -803,11 +821,14 @@ def import_schema_sync(
             existing.title = doc.title
             existing.content = doc.body
             existing.category = doc.category
+            existing.file_path = doc.abs_path or doc.rel_path
             updated_count += 1
         else:
             note = DBNote(
                 user_id=user_id,
                 source_doc_id=doc.source_doc_id,
+                file_path=doc.abs_path or doc.rel_path,
+                question_ids=[],
                 title=doc.title,
                 content=doc.body,
                 category=doc.category,
@@ -818,13 +839,14 @@ def import_schema_sync(
             )
             db.add(note)
             db.flush()
-            task = DBTask(
-                note_id=note.id,
-                type="new",
-                scheduled_date=today_str,
-                revision_number=0,
-            )
-            db.add(task)
+            if payload.create_tasks:
+                task = DBTask(
+                    note_id=note.id,
+                    type="new",
+                    scheduled_date=today_str,
+                    revision_number=0,
+                )
+                db.add(task)
             created_count += 1
 
     db.commit()
@@ -833,7 +855,116 @@ def import_schema_sync(
         "created": created_count,
         "updated": updated_count,
         "total": len(docs),
+        "failed_count": len(failed),
+        "failed": [{"path": f.path, "reason": f.reason} for f in failed],
     }
+
+
+class LibraryNoteCreate(BaseModel):
+    title: str
+    content: str = ""
+    category: str = "General"
+
+
+@router.post("/library/notes", status_code=201)
+def create_library_note(
+    payload: LibraryNoteCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional),
+):
+    """Creates a standalone note inside Mentorion's Library without creating a review task yet."""
+    user_id = current_user.id if current_user else 1
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    now_iso = datetime.utcnow().isoformat()
+    note = DBNote(
+        user_id=user_id,
+        question_ids=[],
+        title=payload.title.strip(),
+        content=payload.content,
+        category=payload.category.strip() or "General",
+        type="new",
+        pattern="C",
+        created_at=now_iso,
+        first_date=today_str,
+    )
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return {"id": note.id, "title": note.title, "category": note.category}
+
+
+class ScheduleFromLibraryRequest(BaseModel):
+    note_id: int
+    type: str = "new"
+    pattern: str = "C"
+    first_date: str
+    time_start: Optional[str] = None
+    time_end: Optional[str] = None
+
+
+@router.post("/tasks/from-note", status_code=201)
+def schedule_task_from_library_note(
+    payload: ScheduleFromLibraryRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[DBUser] = Depends(get_current_user_optional),
+):
+    """Creates a review schedule/task linked to an existing Library note."""
+    user_id = current_user.id if current_user else 1
+    note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Library note not found")
+
+    note.type = payload.type
+    note.pattern = payload.pattern
+    note.first_date = payload.first_date
+    note.next_review_date = payload.first_date
+
+    # Schedule initial task + fixed-interval tasks for Pattern A (2^n) / Pattern B (3^n)
+    created_tasks = []
+    initial_task = DBTask(
+        note_id=note.id,
+        type=payload.type,
+        scheduled_date=payload.first_date,
+        revision_number=0,
+        time_start=payload.time_start,
+        time_end=payload.time_end,
+    )
+    db.add(initial_task)
+    created_tasks.append(initial_task)
+
+    if payload.type == "new":
+        if payload.pattern == "A":
+            offsets = [1, 2, 4, 8, 16, 32]
+        elif payload.pattern == "B":
+            offsets = [1, 3, 9, 27]
+        else:
+            offsets = [1]  # Pattern C (SM-2) starts with first recall +1 day
+
+        for idx, days in enumerate(offsets, start=1):
+            db.add(
+                DBTask(
+                    note_id=note.id,
+                    type="revision",
+                    scheduled_date=add_days(payload.first_date, days),
+                    revision_number=idx,
+                    time_start=payload.time_start,
+                    time_end=payload.time_end,
+                )
+            )
+
+    db.add(
+        DBJournalEvent(
+            user_id=user_id,
+            type="note_created",
+            title=f"Scheduled: {note.title}",
+            remarks=f"Pattern {payload.pattern}",
+            event_date=payload.first_date,
+            note_id=note.id,
+            created_at=datetime.utcnow().isoformat(),
+        )
+    )
+    db.commit()
+    return {"ok": True, "note_id": note.id, "scheduled_date": payload.first_date}
 
 
 class MarkReviewedRequest(BaseModel):
@@ -912,9 +1043,9 @@ def mark_source_doc_reviewed(
     }
 
 
-# -------------------------------------------------------
-# Quiz Engine Routes (Sidecar + Inline Schema + LLM Tools)
-# -------------------------------------------------------
+# ------------------------------------------------------------------
+# Quiz Engine Routes (Centralized Bank + Sidecar + LLM Tools + Essay)
+# ------------------------------------------------------------------
 
 @router.post("/quiz/load", response_model=QuizResponse)
 def load_quiz_questions(
@@ -922,10 +1053,9 @@ def load_quiz_questions(
     db: Session = Depends(get_db),
 ):
     """
-    Loads quiz questions from up to three sources in priority order:
-    1. Sidecar `questions.json` alongside the Markdown note in `source_dir`
-    2. Inline `questions` embedded in the note schema
-    3. LLM Function Calling (`submit_quiz_questions`) when `generate_if_empty=True`
+    Loads quiz questions across Mentorion's centralized question bank (`questions.json`
+    indexed bidirectionally with `notes.question_ids`), optional read-only sidecars,
+    inline schema questions, and LLM Function Calling (`submit_quiz_questions`) with dedup.
     """
     questions: list[QuizQuestionItem] = []
     sources_used: list[QuestionSource] = []
@@ -933,6 +1063,7 @@ def load_quiz_questions(
     title = payload.title or ""
     content = payload.content or ""
     source_doc_id = payload.source_doc_id
+    db_note: Optional[DBNote] = None
 
     if payload.note_id is not None:
         db_note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
@@ -941,11 +1072,20 @@ def load_quiz_questions(
             content = content or db_note.content
             source_doc_id = source_doc_id or db_note.source_doc_id
 
+            bank_qs = get_questions_for_note(db, db_note)
+            if bank_qs:
+                questions.extend(bank_qs)
+                sources_used.append("bank")
+
     if payload.source_dir and source_doc_id:
         try:
             sidecar_qs = load_sidecar_questions(payload.source_dir, source_doc_id)
             if sidecar_qs:
-                questions.extend(sidecar_qs)
+                if db_note:
+                    added, _ = append_questions_for_note(db, db_note, sidecar_qs)
+                    questions.extend(added)
+                else:
+                    questions.extend(sidecar_qs)
                 sources_used.append("sidecar")
         except Exception:
             pass
@@ -953,7 +1093,11 @@ def load_quiz_questions(
     if payload.inline_questions:
         inline_qs = load_inline_schema_questions(payload.inline_questions)
         if inline_qs:
-            questions.extend(inline_qs)
+            if db_note:
+                added, _ = append_questions_for_note(db, db_note, inline_qs)
+                questions.extend(added)
+            else:
+                questions.extend(inline_qs)
             sources_used.append("inline_schema")
 
     if not questions and payload.generate_if_empty:
@@ -965,8 +1109,13 @@ def load_quiz_questions(
                 content=content,
                 count=payload.count,
                 question_types=payload.question_types,
+                existing_prompts=[q.prompt for q in questions],
             )
-            questions.extend(llm_qs)
+            if db_note:
+                added, _ = append_questions_for_note(db, db_note, llm_qs)
+                questions.extend(added)
+            else:
+                questions.extend(llm_qs)
             sources_used.append("llm")
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc))
@@ -975,19 +1124,257 @@ def load_quiz_questions(
 
 
 @router.post("/quiz/generate", response_model=QuizResponse)
-def generate_quiz_questions(payload: QuizGenerateRequest):
-    """Explicitly invokes Gemini Function Calling (`submit_quiz_questions`) to generate schema-validated questions."""
+def generate_quiz_questions(
+    payload: QuizGenerateRequest,
+    db: Session = Depends(get_db),
+):
+    """Invokes Gemini Function Calling (`submit_quiz_questions`) with dedup & persists to centralized question bank."""
     if not payload.content.strip():
         raise HTTPException(status_code=400, detail="Note content cannot be empty.")
+
+    db_note: Optional[DBNote] = None
+    existing_prompts: list[str] = []
+    if payload.note_id is not None:
+        db_note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+        if db_note:
+            existing_prompts = [q.prompt for q in get_questions_for_note(db, db_note)]
+
     try:
         llm_qs = generate_questions_via_function_calling(
             title=payload.title,
             content=payload.content,
             count=payload.count,
             question_types=payload.question_types,
+            existing_prompts=existing_prompts,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+
+    if db_note:
+        added, _ = append_questions_for_note(db, db_note, llm_qs)
+        all_for_note = get_questions_for_note(db, db_note)
+        return QuizResponse(questions=added or all_for_note, sources_used=["llm"])
+
     return QuizResponse(questions=llm_qs, sources_used=["llm"])
+
+
+@router.post("/quiz/grade-essay", response_model=EssayGradeResponse)
+def grade_essay_question(
+    payload: EssayGradeRequest,
+    db: Session = Depends(get_db),
+):
+    """Grades a short_essay / essay answer via Gemini Function Calling and records SM-2 review log."""
+    try:
+        grade_res = grade_essay_via_function_calling(
+            title=payload.title,
+            content=payload.content,
+            prompt=payload.prompt,
+            user_answer=payload.user_answer,
+            reference_points=payload.reference_points,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    if payload.note_id is not None:
+        note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+        if note:
+            now_iso = datetime.utcnow().isoformat()
+            note.last_reviewed_at = now_iso
+            db.add(
+                DBReviewLog(
+                    note_id=note.id,
+                    time=now_iso,
+                    grade=grade_res.score,
+                    feedback=grade_res.summary_feedback,
+                )
+            )
+            db.commit()
+
+    return grade_res
+
+
+class SchemaSourceCreate(BaseModel):
+    name: str
+    source_dir: str
+    schema_name: str = "nexus"
+    default_pattern: str = "C"
+    only_fresh: bool = True
+
+
+@router.get("/schema-sources")
+def list_schema_sources(db: Session = Depends(get_db)):
+    rows = db.query(DBSchemaSource).order_by(DBSchemaSource.id.asc()).all()
+    return {
+        "sources": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "source_dir": r.source_dir,
+                "schema_name": r.schema_name,
+                "default_pattern": r.default_pattern,
+                "only_fresh": r.only_fresh,
+                "enabled": r.enabled,
+                "created_at": r.created_at,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/schema-sources", status_code=201)
+def create_schema_source(payload: SchemaSourceCreate, db: Session = Depends(get_db)):
+    existing = db.query(DBSchemaSource).filter(DBSchemaSource.source_dir == payload.source_dir).first()
+    if existing:
+        existing.name = payload.name
+        existing.schema_name = payload.schema_name
+        existing.default_pattern = payload.default_pattern
+        existing.only_fresh = payload.only_fresh
+        db.commit()
+        db.refresh(existing)
+        return {"id": existing.id, "updated": True}
+
+    row = DBSchemaSource(
+        name=payload.name,
+        source_dir=payload.source_dir,
+        schema_name=payload.schema_name,
+        default_pattern=payload.default_pattern,
+        only_fresh=payload.only_fresh,
+        enabled=True,
+        created_at=datetime.utcnow().isoformat(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "updated": False}
+
+
+@router.delete("/schema-sources/{source_id}")
+def delete_schema_source(source_id: int, db: Session = Depends(get_db)):
+    row = db.query(DBSchemaSource).filter(DBSchemaSource.id == source_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Schema source not found")
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/integrity/check")
+def check_path_integrity(db: Session = Depends(get_db)):
+    """Checks whether SQLite note file_paths and schema_sources paths/schemas still exist on disk."""
+    from pathlib import Path
+    import os
+    from ...domain.schema_source import SCHEMAS_DIR
+
+    missing_notes = []
+    for note in db.query(DBNote).all():
+        if note.file_path:
+            p = Path(os.path.expanduser(note.file_path))
+            if not p.is_file():
+                missing_notes.append(
+                    {
+                        "note_id": note.id,
+                        "title": note.title,
+                        "source_doc_id": note.source_doc_id,
+                        "file_path": note.file_path,
+                    }
+                )
+
+    missing_sources = []
+    for src in db.query(DBSchemaSource).all():
+        src_path = Path(os.path.expanduser(src.source_dir))
+        schema_path = SCHEMAS_DIR / f"{src.schema_name}.json"
+        reasons = []
+        if not src_path.exists():
+            reasons.append(f"Source path missing: {src.source_dir}")
+        if not schema_path.is_file():
+            reasons.append(f"Schema file missing: schemas/{src.schema_name}.json")
+        if reasons:
+            missing_sources.append(
+                {
+                    "source_id": src.id,
+                    "name": src.name,
+                    "source_dir": src.source_dir,
+                    "schema_name": src.schema_name,
+                    "reason": "; ".join(reasons),
+                }
+            )
+
+    return {
+        "ok": len(missing_notes) == 0 and len(missing_sources) == 0,
+        "missing_notes": missing_notes,
+        "missing_sources": missing_sources,
+    }
+
+
+class UpdateNotePathRequest(BaseModel):
+    file_path: str
+
+
+@router.patch("/library/notes/{note_id}/path")
+def update_library_note_path(
+    note_id: int,
+    payload: UpdateNotePathRequest,
+    db: Session = Depends(get_db),
+):
+    """Updates the file_path of a moved note and refreshes its content if the new path exists."""
+    from pathlib import Path
+    import os
+    from ...domain.schema_source import parse_simple_yaml_frontmatter
+
+    note = db.query(DBNote).filter(DBNote.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    new_path = Path(os.path.expanduser(payload.file_path)).resolve()
+    if not new_path.is_file():
+        raise HTTPException(status_code=400, detail=f"File not found: {payload.file_path}")
+
+    _, body = parse_simple_yaml_frontmatter(new_path.read_text(encoding="utf-8"))
+    note.file_path = str(new_path)
+    note.content = body
+    db.commit()
+    return {"ok": True, "note_id": note.id, "file_path": note.file_path}
+
+
+@router.delete("/library/notes/{note_id}")
+def delete_library_note(note_id: int, db: Session = Depends(get_db)):
+    """Deletes a stale note (and its cascaded tasks) from Mentorion SQLite."""
+    note = db.query(DBNote).filter(DBNote.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    db.delete(note)
+    db.commit()
+    return {"ok": True}
+
+
+class PickPathRequest(BaseModel):
+    mode: str = "folder"  # "folder" | "file"
+
+
+@router.post("/fs/pick")
+def pick_local_global_path(payload: PickPathRequest):
+    """Opens a native macOS Finder picker to return an exact global file or folder path."""
+    import subprocess
+    import sys
+
+    if sys.platform != "darwin":
+        raise HTTPException(
+            status_code=501,
+            detail="Native path picker is currently supported on macOS only; please enter the global path manually.",
+        )
+
+    script = (
+        'POSIX path of (choose folder with prompt "Select Notes Folder")'
+        if payload.mode == "folder"
+        else 'POSIX path of (choose file with prompt "Select Markdown Note")'
+    )
+    proc = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return {"cancelled": True, "path": None}
+    selected = proc.stdout.strip().rstrip("/")
+    return {"cancelled": False, "path": selected}
 
 

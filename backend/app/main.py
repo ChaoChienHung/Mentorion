@@ -17,10 +17,42 @@ from .db.session import engine
 
 app = FastAPI(title="Mentorion API")
 
+def _ensure_sqlite_columns():
+    """Lightweight non-destructive migration adding missing columns to existing SQLite tables."""
+    from sqlalchemy import text
+
+    expected_tables = {
+        "notes": {
+            "user_id": "INTEGER NOT NULL DEFAULT 1",
+            "source_id": "INTEGER",
+            "source_doc_id": "VARCHAR",
+            "file_path": "VARCHAR",
+            "question_ids": "JSON DEFAULT '[]'",
+            "last_reviewed_at": "VARCHAR",
+            "next_review_date": "VARCHAR",
+        },
+        "journal_events": {
+            "user_id": "INTEGER NOT NULL DEFAULT 1",
+        },
+    }
+    with engine.begin() as conn:
+        for table_name, cols in expected_tables.items():
+            existing = {
+                row[1]
+                for row in conn.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+            }
+            if not existing:
+                continue
+            for col, col_type in cols.items():
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type}"))
+
+
 @app.on_event("startup")
 def on_startup():
-    # Create all tables in the database
+    # Create all tables in the database and migrate missing columns safely
     Base.metadata.create_all(bind=engine)
+    _ensure_sqlite_columns()
     from .core.config import settings
     from .core.runtime_registry import register_backend_runtime
 

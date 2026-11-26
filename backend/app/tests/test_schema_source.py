@@ -3,8 +3,10 @@ from pathlib import Path
 
 from backend.app.domain.schema_source import (
     DocumentSchemaMapping,
+    load_schema_by_name,
     parse_simple_yaml_frontmatter,
     scan_markdown_source,
+    scan_markdown_source_with_report,
 )
 
 
@@ -78,3 +80,38 @@ def test_scan_markdown_source_with_custom_user_schema_mapping():
         assert docs[0].title == "Custom Note"
         assert docs[0].category == "Systems"
         assert docs[0].review_status == "reviewed"
+
+
+def test_single_file_import_and_strict_schema_failure_reporting():
+    nexus_schema = load_schema_by_name("nexus")
+    with tempfile.TemporaryDirectory() as tmp:
+        vault = Path(tmp)
+        valid_dir = vault / "wiki" / "AI" / "valid-note"
+        valid_dir.mkdir(parents=True)
+        valid_file = valid_dir / "index.md"
+        valid_file.write_text(
+            "---\nid: doc.valid\ntitle: Valid Note\nreview: fresh\n---\n\n# Valid\n",
+            encoding="utf-8",
+        )
+
+        bad_dir = vault / "wiki" / "AI" / "broken-note"
+        bad_dir.mkdir(parents=True)
+        (bad_dir / "index.md").write_text(
+            "# Missing frontmatter completely\nJust text.\n",
+            encoding="utf-8",
+        )
+
+        # Folder scan separates valid vs failed with exact path + reason
+        docs, failed = scan_markdown_source_with_report(str(vault), mapping=nexus_schema)
+        assert [d.source_doc_id for d in docs] == ["doc.valid"]
+        assert len(failed) == 1
+        assert "broken-note/index.md" in failed[0].path
+        assert "frontmatter" in failed[0].reason.lower()
+
+        # Single file path import also works
+        single_docs, single_failed = scan_markdown_source_with_report(
+            str(valid_file), mapping=nexus_schema
+        )
+        assert len(single_docs) == 1
+        assert single_docs[0].source_doc_id == "doc.valid"
+        assert single_failed == []
