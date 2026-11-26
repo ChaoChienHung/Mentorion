@@ -3,6 +3,8 @@ import {
   CheckCircle2,
   Loader2,
   Lock,
+  Minus,
+  Plus,
   Sparkles,
   Trash2,
   X,
@@ -290,16 +292,34 @@ export function RevisionCardModal({
             <span className="text-xs font-semibold text-zinc-900">
               {zh ? "安排下一次複習時間（指定間隔）" : "Schedule next review (custom interval)"}
             </span>
-            <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-600">
+            <div className="inline-flex items-center gap-1.5 text-xs font-mono text-zinc-600">
               <span>+</span>
-              <input
-                type="number"
-                min={1}
-                max={730}
-                value={customDays}
-                onChange={(e) => setCustomDays(Math.max(1, Number(e.target.value) || 1))}
-                className="w-16 px-2 py-0.5 rounded-md border border-zinc-300 bg-white text-center font-mono text-xs text-zinc-950 focus:border-zinc-900 focus:outline-none"
-              />
+              <div className="inline-flex items-center rounded-lg border border-zinc-200 bg-white overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setCustomDays((d) => Math.max(1, d - 1))}
+                  className="px-2 py-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 transition-colors cursor-pointer"
+                  aria-label="Decrease days"
+                >
+                  <Minus size={12} />
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={730}
+                  value={customDays}
+                  onChange={(e) => setCustomDays(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-12 py-1 bg-transparent text-center font-mono text-xs font-semibold text-zinc-950 focus:outline-none border-x border-zinc-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCustomDays((d) => Math.min(730, d + 1))}
+                  className="px-2 py-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 transition-colors cursor-pointer"
+                  aria-label="Increase days"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
               <span>{zh ? "天" : "days"}</span>
             </div>
           </div>
