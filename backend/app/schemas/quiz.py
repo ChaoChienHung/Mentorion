@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 QuestionSource = Literal["sidecar", "inline_schema", "llm", "bank", "manual"]
 QuestionType = Literal["mcq", "short_answer", "true_false", "open", "short_essay", "essay"]
+BloomLevel = Literal["recall", "understand", "apply", "analyze"]
 
 
 class BaseQuizQuestion(BaseModel):
@@ -12,6 +13,7 @@ class BaseQuizQuestion(BaseModel):
     owner_note_id: Optional[int] = None
     source_doc_id: Optional[str] = None
     category: Optional[str] = None
+    bloom_level: Optional[BloomLevel] = None
     prompt: str = Field(..., min_length=1)
     explanation: Optional[str] = None
     source: QuestionSource = "llm"

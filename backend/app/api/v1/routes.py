@@ -872,16 +872,54 @@ def create_library_note(
     db: Session = Depends(get_db),
     current_user: Optional[DBUser] = Depends(get_current_user_optional),
 ):
-    """Creates a standalone note inside Mentorion's Library without creating a review task yet."""
+    """
+    Creates a standalone flat Markdown note inside Mentorion's `library/` directory
+    and indexes it in SQLite (without creating a review task yet).
+    """
+    import re
+    from pathlib import Path
+    from ...core.config import settings
+
     user_id = current_user.id if current_user else 1
     today_str = datetime.now().strftime("%Y-%m-%d")
     now_iso = datetime.utcnow().isoformat()
+    clean_title = payload.title.strip()
+    clean_category = payload.category.strip() or "General"
+
+    # Persist flat Markdown file under Mentorion/library/<slug>.md
+    lib_dir = Path(settings.LIBRARY_DIR)
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    base_slug = re.sub(r"[^\w\u4e00-\u9fff-]+", "-", clean_title.lower()).strip("-") or "untitled"
+    slug = base_slug
+    md_path = lib_dir / f"{slug}.md"
+    suffix = 2
+    while md_path.exists():
+        slug = f"{base_slug}-{suffix}"
+        md_path = lib_dir / f"{slug}.md"
+        suffix += 1
+
+    doc_id = f"note.{slug.replace('-', '_')}"
+    fm_lines = [
+        "---",
+        f"id: {doc_id}",
+        f'title: "{clean_title.replace(chr(34), chr(39))}"',
+        f'category: "{clean_category.replace(chr(34), chr(39))}"',
+        f"created: {today_str}",
+        f"updated: {today_str}",
+        "---",
+        "",
+        payload.content or "",
+    ]
+    md_path.write_text("\n".join(fm_lines).rstrip() + "\n", encoding="utf-8")
+
     note = DBNote(
         user_id=user_id,
+        source_doc_id=doc_id,
+        file_path=str(md_path.resolve()),
         question_ids=[],
-        title=payload.title.strip(),
+        title=clean_title,
         content=payload.content,
-        category=payload.category.strip() or "General",
+        category=clean_category,
         type="new",
         pattern="C",
         created_at=now_iso,
@@ -890,7 +928,13 @@ def create_library_note(
     db.add(note)
     db.commit()
     db.refresh(note)
-    return {"id": note.id, "title": note.title, "category": note.category}
+    return {
+        "id": note.id,
+        "title": note.title,
+        "category": note.category,
+        "file_path": note.file_path,
+        "source_doc_id": note.source_doc_id,
+    }
 
 
 class ScheduleFromLibraryRequest(BaseModel):
@@ -1376,5 +1420,246 @@ def pick_local_global_path(payload: PickPathRequest):
         return {"cancelled": True, "path": None}
     selected = proc.stdout.strip().rstrip("/")
     return {"cancelled": False, "path": selected}
+
+
+# -------------------------------------------
+# LLM Function Calling Study Coach Routes
+# -------------------------------------------
+
+from ...schemas.coach import (
+    ApplyCramTasksRequest,
+    QuestionAuditRequest,
+    QuestionAuditResponse,
+    RemediateRequest,
+    RemediateResponse,
+    RescheduleApplyRequest,
+    ReschedulePlanRequest,
+    ReschedulePlanResponse,
+    SocraticRequest,
+    SocraticResponse,
+    WeeklyDiagnosisResponse,
+)
+from ...domain.study_coach import (
+    audit_question_bank_via_fc,
+    diagnose_study_health_via_fc,
+    generate_remediation_via_fc,
+    plan_reschedule_via_fc,
+    socratic_probe_via_fc,
+)
+from ...domain.question_bank import update_and_dedup_note_questions
+
+
+@router.post("/coach/reschedule/plan", response_model=ReschedulePlanResponse)
+def coach_plan_reschedule(
+    payload: ReschedulePlanRequest,
+    db: Session = Depends(get_db),
+):
+    """Dry-run natural-language rescheduling via Gemini Function Calling."""
+    pending = (
+        db.query(DBTask, DBNote)
+        .join(DBNote, DBTask.note_id == DBNote.id)
+        .filter(DBTask.is_completed == 0, DBTask.is_archived == 0)
+        .order_by(DBTask.scheduled_date.asc())
+        .all()
+    )
+    task_dicts = [
+        {
+            "id": t.id,
+            "scheduled_date": t.scheduled_date,
+            "note_title": n.title,
+            "ease_factor": n.ease_factor,
+            "type": t.type,
+        }
+        for t, n in pending
+    ]
+    if not task_dicts:
+        return ReschedulePlanResponse(summary="No pending tasks to reschedule.", moves=[])
+    try:
+        return plan_reschedule_via_fc(instruction=payload.instruction, pending_tasks=task_dicts)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/coach/reschedule/apply")
+def coach_apply_reschedule(
+    payload: RescheduleApplyRequest,
+    db: Session = Depends(get_db),
+):
+    """Applies user-approved rescheduling moves to SQLite."""
+    updated = 0
+    for move in payload.moves:
+        task = db.query(DBTask).filter(DBTask.id == move.task_id).first()
+        if not task:
+            continue
+        task.scheduled_date = move.new_date
+        note = db.query(DBNote).filter(DBNote.id == task.note_id).first()
+        if note:
+            note.next_review_date = move.new_date
+        updated += 1
+    db.commit()
+    return {"ok": True, "updated": updated}
+
+
+@router.post("/coach/remediate", response_model=RemediateResponse)
+def coach_remediate_weak_spot(
+    payload: RemediateRequest,
+    db: Session = Depends(get_db),
+):
+    """Generates targeted weak-spot remediation questions and appends them to data/questions.json."""
+    note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    existing_prompts = [q.prompt for q in get_questions_for_note(db, note)]
+    try:
+        target_gap, qs = generate_remediation_via_fc(
+            title=note.title,
+            content=note.content or "",
+            missed_prompt=payload.missed_prompt,
+            user_answer=payload.user_answer,
+            gap_notes=payload.gap_notes,
+            existing_prompts=existing_prompts,
+            count=payload.count,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    added, skipped = append_questions_for_note(db, note, qs)
+    return RemediateResponse(
+        target_gap=target_gap,
+        added_questions=added,
+        skipped_duplicates=skipped,
+    )
+
+
+@router.post("/coach/audit-questions", response_model=QuestionAuditResponse)
+def coach_audit_questions(
+    payload: QuestionAuditRequest,
+    db: Session = Depends(get_db),
+):
+    """Tags a note's questions with Bloom's taxonomy levels and drops semantic duplicates."""
+    note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    qs = get_questions_for_note(db, note)
+    if not qs:
+        return QuestionAuditResponse(
+            note_id=note.id,
+            bloom_tags={},
+            dropped_duplicate_ids=[],
+            summary="No questions owned by this note yet.",
+        )
+    try:
+        bloom_tags, drop_ids, summary = audit_question_bank_via_fc(note.title, qs)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    dropped: list[str] = drop_ids
+    if payload.apply_changes:
+        _, dropped = update_and_dedup_note_questions(db, note, bloom_tags, drop_ids)
+    return QuestionAuditResponse(
+        note_id=note.id,
+        bloom_tags=bloom_tags,
+        dropped_duplicate_ids=dropped,
+        summary=summary,
+    )
+
+
+@router.post("/coach/socratic", response_model=SocraticResponse)
+def coach_socratic_probe(
+    payload: SocraticRequest,
+    db: Session = Depends(get_db),
+):
+    """Runs one Socratic oral-exam round: either returns a hint + follow-up or commits an SM-2 score."""
+    try:
+        res = socratic_probe_via_fc(
+            title=payload.title,
+            content=payload.content,
+            question_prompt=payload.prompt,
+            user_answer=payload.user_answer,
+            reference_points=payload.reference_points,
+            round_number=payload.round_number,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    if res.action == "commit" and payload.note_id is not None and res.sm2_rating is not None:
+        note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+        if note:
+            now_iso = datetime.utcnow().isoformat()
+            note.last_reviewed_at = now_iso
+            db.add(
+                DBReviewLog(
+                    note_id=note.id,
+                    time=now_iso,
+                    grade=res.sm2_rating,
+                    feedback=res.summary,
+                )
+            )
+            db.commit()
+    return res
+
+
+@router.post("/coach/weekly-diagnosis", response_model=WeeklyDiagnosisResponse)
+def coach_weekly_diagnosis(db: Session = Depends(get_db)):
+    """Diagnoses study health, leech notes, and proposes remedial review tasks."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    notes = db.query(DBNote).all()
+    if not notes:
+        return WeeklyDiagnosisResponse(
+            headline="Library is empty",
+            diagnosis="Import or create notes first to run a study health diagnosis.",
+            leech_notes=[],
+            proposed_tasks=[],
+        )
+    overdue_count = (
+        db.query(DBTask)
+        .filter(DBTask.is_completed == 0, DBTask.is_archived == 0, DBTask.scheduled_date < today_str)
+        .count()
+    )
+    notes_summary = [
+        {
+            "id": n.id,
+            "title": n.title,
+            "category": n.category,
+            "ease_factor": float(n.ease_factor or 2.5),
+            "repetitions": int(n.repetitions or 0),
+            "interval_days": int(n.interval_days or 0),
+        }
+        for n in notes
+    ]
+    try:
+        return diagnose_study_health_via_fc(
+            notes_summary=notes_summary,
+            overdue_count=overdue_count,
+            deficit_points=float(overdue_count),
+            today_str=today_str,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/coach/weekly-diagnosis/apply")
+def coach_apply_cram_tasks(
+    payload: ApplyCramTasksRequest,
+    db: Session = Depends(get_db),
+):
+    """Creates proposed remedial review tasks in SQLite after user confirmation."""
+    created = 0
+    for item in payload.tasks:
+        note = db.query(DBNote).filter(DBNote.id == item.note_id).first()
+        if not note:
+            continue
+        db.add(
+            DBTask(
+                note_id=note.id,
+                type="revision",
+                scheduled_date=item.scheduled_date,
+                revision_number=int(note.repetitions or 0) + 1,
+            )
+        )
+        note.next_review_date = item.scheduled_date
+        created += 1
+    db.commit()
+    return {"ok": True, "created": created}
+
 
 

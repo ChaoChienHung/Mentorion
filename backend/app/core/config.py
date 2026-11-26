@@ -12,6 +12,7 @@ class Settings:
     LOGGER_FOLDER: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
     LOG_TARGET: str = os.getenv("MENTORION_LOG_TARGET", "file")
     DATABASE: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+    LIBRARY_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "library")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "mentorion-secret-key-change-in-production")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30

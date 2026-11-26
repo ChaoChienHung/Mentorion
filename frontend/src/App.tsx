@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import { authApi } from "./api/auth";
 import { EditorialReaderView } from "./components/EditorialReaderView";
 import { SchemaSourcePanel } from "./components/SchemaSourcePanel";
+import { CoachPanel } from "./components/CoachPanel";
 import { CustomSelect } from "./components/CustomSelect";
 import { SettingsModal } from "./components/SettingsModal";
 import { MENTORION_COPY, type MentorionLang } from "./i18n";
@@ -60,7 +61,7 @@ export default function App() {
   };
 
   // Sidebar tab state & language setting
-  const [activeTab, setActiveTab] = useState<"cover" | "reading" | "calendar" | "add_task" | "stats" | "schema" | "sync">("cover");
+  const [activeTab, setActiveTab] = useState<"cover" | "reading" | "calendar" | "add_task" | "stats" | "schema" | "coach" | "sync">("cover");
   const [lang, setLang] = useState<MentorionLang>(() =>
     localStorage.getItem("mentorion-lang") === "en" ? "en" : "zh-Hant",
   );
@@ -615,6 +616,18 @@ export default function App() {
           >
             <Database size={18} strokeWidth={1.75} />
             <span>{t.navSchema}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("coach")}
+            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
+              activeTab === "coach"
+                ? "bg-white text-zinc-950"
+                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
+            }`}
+          >
+            <Sparkles size={18} strokeWidth={1.75} />
+            <span>{lang === "zh-Hant" ? "AI 教練" : "AI Coach"}</span>
           </button>
 
           <div className="pt-4 border-t border-zinc-800/80 my-4" />
@@ -1523,6 +1536,10 @@ export default function App() {
               {/* --- VIEW: CUSTOMIZABLE SCHEMA SOURCE --- */}
               {activeTab === "schema" && (
                 <SchemaSourcePanel lang={lang} onImported={() => void fetchData()} />
+              )}
+
+              {activeTab === "coach" && (
+                <CoachPanel notes={notes} lang={lang} onRefreshData={fetchData} />
               )}
 
               {/* --- VIEW 5: GOOGLE CALENDAR SYNC CONSOLE --- */}

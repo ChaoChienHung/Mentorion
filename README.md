@@ -35,6 +35,8 @@ Mentorion/
 │   ├── src/                    # React 核心組件 (包含 App.tsx 儀表板)
 │   ├── vite.config.ts          # Vite 設定檔 (配置有 API Proxy 轉發至 8000 埠)
 │   └── tsconfig.json           # TypeScript 編譯器配置
+├── library/                    # Mentorion 原生扁平筆記目錄 (<slug>.md)
+├── schemas/                    # 檔案驅動 Schema 定義 (nexus / obsidian / plain-markdown)
 ├── Streamlit/                  # Streamlit 原型界面
 ├── docs/                       # 項目詳細設計文檔與 Doc Map
 ├── AGENTS.md                   # 角色分工與協作流程規範

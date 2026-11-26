@@ -67,12 +67,19 @@ Mentorion **不依賴自由文本 JSON 解析**，而是強制模型呼叫宣告
 
 - **實作位置**：`backend/app/domain/quiz_engine.py` → `grade_essay_via_function_calling(...)`
 - **對應 API**：`POST /api/quiz/grade-essay`
-- **回傳結構**（`EssayGradeResponse`）：
-  - `score`（`0`–`5`）：對應 SM-2 評分尺度
-  - `strengths`（`string[]`）：作答正確與亮點
-  - `missing_points`（`string[]`）：遺漏或需補強的關鍵概念
-  - `feedback`（`string`）：具體改進建議
-  - `suggested_sm2_rating`（`0`–`5`）：建議直接帶入 SM-2 複習排程的評分
+- **回傳結構**（`EssayGradeResponse`）：`score`（0–5）、`correct_points`、`corrections`、`suggestions`、`summary_feedback`。
+
+### 3.3 五大 Study Coach Function Calling 工具（`backend/app/domain/study_coach.py`）
+
+所有工具皆只讀寫 Mentorion 自己的 SQLite 與 `data/questions.json`，絕不修改外部 Markdown Vault：
+
+| 工具名稱 | 對應 API | 用途 |
+| :--- | :--- | :--- |
+| `propose_reschedule` | `POST /api/coach/reschedule/plan` → `/apply` | 自然語言排程重排（先 dry-run 預覽，使用者確認後套用） |
+| `submit_quiz_questions`（補題模式） | `POST /api/coach/remediate` | 針對答錯或低分題自動生成鷹架／反例補題並去重入庫 |
+| `submit_question_audit` | `POST /api/coach/audit-questions` | 以 Bloom 認知層次（`recall`/`understand`/`apply`/`analyze`）標記題庫並移除重複題 |
+| `ask_followup_hint` / `commit_review_rating` | `POST /api/coach/socratic` | 蘇格拉底式多輪口試追問，答出關鍵點或第 3 輪後自動結算 SM-2 評分 |
+| `submit_weekly_diagnosis` | `POST /api/coach/weekly-diagnosis` → `/apply` | 學習健康週報、頑固筆記（低 Ease Factor）診斷與一鍵補強排程 |
 
 ---
 

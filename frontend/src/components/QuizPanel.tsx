@@ -5,6 +5,7 @@ import type { Note } from "../types";
 export interface QuizQuestion {
   id?: string;
   type: "mcq" | "short_answer" | "true_false" | "open" | "short_essay" | "essay";
+  bloom_level?: "recall" | "understand" | "apply" | "analyze" | null;
   prompt: string;
   options?: string[];
   answer?: string | boolean;
@@ -12,6 +13,17 @@ export interface QuizQuestion {
   reference_points?: string[];
   explanation?: string;
   source: "sidecar" | "inline_schema" | "llm" | "bank" | "manual";
+}
+
+interface SocraticState {
+  round: number;
+  action: "hint" | "commit";
+  hint?: string | null;
+  followup_question?: string | null;
+  missing_points: string[];
+  sm2_rating?: number | null;
+  summary: string;
+  strengths: string[];
 }
 
 interface EssayGrade {
@@ -47,6 +59,9 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
   const [essayDrafts, setEssayDrafts] = useState<Record<number, string>>({});
   const [essayGrades, setEssayGrades] = useState<Record<number, EssayGrade>>({});
   const [gradingIdx, setGradingIdx] = useState<number | null>(null);
+  const [socraticByIdx, setSocraticByIdx] = useState<Record<number, SocraticState>>({});
+  const [socraticLoadingIdx, setSocraticLoadingIdx] = useState<number | null>(null);
+  const [remediatingIdx, setRemediatingIdx] = useState<number | null>(null);
   const [loadedOnce, setLoadedOnce] = useState(false);
 
   const loadQuestions = useCallback(
@@ -126,6 +141,79 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
     }
   };
 
+  const handleSocraticProbe = async (idx: number, q: QuizQuestion) => {
+    const answerText = (essayDrafts[idx] || "").trim();
+    if (!answerText) return;
+    setSocraticLoadingIdx(idx);
+    setError(null);
+    const nextRound = (socraticByIdx[idx]?.round || 0) + 1;
+    try {
+      const res = await fetch("/api/coach/socratic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note_id: note.id,
+          title: note.title,
+          content: note.content,
+          prompt: q.prompt,
+          user_answer: answerText,
+          reference_points: q.reference_points || q.rubric || [],
+          round_number: Math.min(3, nextRound),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to run Socratic probe");
+      setSocraticByIdx((prev) => ({
+        ...prev,
+        [idx]: {
+          round: nextRound,
+          action: data.action,
+          hint: data.hint,
+          followup_question: data.followup_question,
+          missing_points: data.missing_points || [],
+          sm2_rating: data.sm2_rating,
+          summary: data.summary || "",
+          strengths: data.strengths || [],
+        },
+      }));
+      if (data.action === "commit") {
+        setRevealed((prev) => ({ ...prev, [idx]: true }));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSocraticLoadingIdx(null);
+    }
+  };
+
+  const handleRemediate = async (idx: number, q: QuizQuestion, userAnswer: string, gapNotes = "") => {
+    setRemediatingIdx(idx);
+    setError(null);
+    try {
+      const res = await fetch("/api/coach/remediate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note_id: note.id,
+          missed_prompt: q.prompt,
+          user_answer: userAnswer,
+          gap_notes: gapNotes,
+          count: 2,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to generate remediation questions");
+      const added = (data.added_questions || []) as QuizQuestion[];
+      if (added.length > 0) {
+        setQuestions((prev) => [...prev, ...added]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRemediatingIdx(null);
+    }
+  };
+
   return (
     <div className="mt-8 pt-7 border-t border-zinc-200 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -188,9 +276,16 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                   <span>
                     Q{idx + 1} · {q.type.replace("_", " ")}
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-zinc-200/70 text-zinc-600">
-                    {q.source}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {q.bloom_level && (
+                      <span className="px-2 py-0.5 rounded border border-zinc-300 bg-white text-zinc-700">
+                        {q.bloom_level}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded bg-zinc-200/70 text-zinc-600">
+                      {q.source}
+                    </span>
+                  </div>
                 </div>
 
                 <p className="text-[15.5px] font-medium text-zinc-950 leading-relaxed">
@@ -265,7 +360,7 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                       placeholder="Write your explanation here for LLM grading & feedback..."
                       className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-white focus:border-zinc-900 focus:outline-none text-sm leading-relaxed"
                     />
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <button
                         type="button"
                         disabled={gradingIdx === idx || !(essayDrafts[idx] || "").trim()}
@@ -279,6 +374,19 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                         )}
                         <span>Grade with LLM</span>
                       </button>
+                      <button
+                        type="button"
+                        disabled={socraticLoadingIdx === idx || !(essayDrafts[idx] || "").trim()}
+                        onClick={() => void handleSocraticProbe(idx, q)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-300 bg-white hover:border-zinc-900 disabled:opacity-40 text-zinc-800 text-xs font-medium cursor-pointer"
+                      >
+                        {socraticLoadingIdx === idx ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Sparkles size={13} />
+                        )}
+                        <span>Socratic Hint</span>
+                      </button>
                       {!isRevealed && (
                         <button
                           type="button"
@@ -289,6 +397,33 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                         </button>
                       )}
                     </div>
+
+                    {socraticByIdx[idx] && (
+                      <div className="rounded-xl border border-zinc-300 bg-white p-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-xs font-mono uppercase tracking-wider text-zinc-500">
+                          <span>Socratic Round {socraticByIdx[idx].round}</span>
+                          {socraticByIdx[idx].action === "commit" &&
+                            socraticByIdx[idx].sm2_rating !== null &&
+                            socraticByIdx[idx].sm2_rating !== undefined && (
+                              <span className="px-2.5 py-0.5 rounded-full bg-zinc-950 text-white font-semibold">
+                                SM-2: {socraticByIdx[idx].sm2_rating} / 5
+                              </span>
+                            )}
+                        </div>
+                        <p className="text-zinc-800">{socraticByIdx[idx].summary}</p>
+                        {socraticByIdx[idx].hint && (
+                          <p className="text-xs text-zinc-600">
+                            <strong className="text-zinc-900">Hint: </strong>
+                            {socraticByIdx[idx].hint}
+                          </p>
+                        )}
+                        {socraticByIdx[idx].followup_question && (
+                          <p className="text-xs font-medium text-zinc-900 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2">
+                            Follow-up: {socraticByIdx[idx].followup_question}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {grade && (
                       <div className="rounded-xl border border-zinc-300 bg-white p-4 space-y-3 text-sm">
@@ -367,6 +502,32 @@ export function QuizPanel({ note, onClose }: QuizPanelProps) {
                     )}
                     {q.explanation && (
                       <p className="text-zinc-500 leading-relaxed">{q.explanation}</p>
+                    )}
+                    {((q.type === "mcq" && chosen && chosen !== String(q.answer)) ||
+                      (q.type === "true_false" && chosen && chosen !== String(q.answer)) ||
+                      (grade && grade.score <= 2)) && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          disabled={remediatingIdx === idx}
+                          onClick={() =>
+                            void handleRemediate(
+                              idx,
+                              q,
+                              isEssay ? essayDrafts[idx] || "" : chosen || "",
+                              grade ? grade.corrections.join("; ") : "",
+                            )
+                          }
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-950 hover:text-white text-zinc-900 text-xs font-medium transition-colors cursor-pointer"
+                        >
+                          {remediatingIdx === idx ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Sparkles size={13} />
+                          )}
+                          <span>Generate Weak-Spot Remediation Questions</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

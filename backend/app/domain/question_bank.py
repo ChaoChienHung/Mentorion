@@ -161,6 +161,43 @@ def append_questions_for_note(
     return added, skipped
 
 
+def update_and_dedup_note_questions(
+    db: Session,
+    note: DBNote,
+    bloom_tags: Dict[str, str],
+    drop_ids: Sequence[str],
+    bank_path: Path = DEFAULT_QUESTION_BANK_PATH,
+) -> Tuple[int, List[str]]:
+    """
+    Applies Bloom's taxonomy `bloom_level` tags and drops duplicate question IDs owned by `note`,
+    keeping `data/questions.json` and SQLite `note.question_ids` bidirectionally synced.
+    """
+    all_questions = load_question_bank(bank_path)
+    drop_set = set(drop_ids)
+    updated_count = 0
+    actually_dropped: List[str] = []
+    next_questions: List[QuizQuestionItem] = []
+
+    for q in all_questions:
+        if q.owner_note_id == note.id and q.id in drop_set:
+            actually_dropped.append(q.id)
+            continue
+        if q.owner_note_id == note.id and q.id and q.id in bloom_tags:
+            lvl = bloom_tags[q.id]
+            if lvl in ("recall", "understand", "apply", "analyze"):
+                q = q.model_copy(update={"bloom_level": lvl})
+                updated_count += 1
+        next_questions.append(q)
+
+    save_question_bank(next_questions, bank_path)
+    note.question_ids = [
+        q.id for q in next_questions if q.owner_note_id == note.id and q.id
+    ]
+    db.add(note)
+    db.commit()
+    return updated_count, actually_dropped
+
+
 def verify_bidirectional_consistency(
     db: Session,
     bank_path: Path = DEFAULT_QUESTION_BANK_PATH,
