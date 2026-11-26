@@ -557,22 +557,22 @@ export function EditorialReaderView({
                 <strong className="text-zinc-900">
                   {activeNote.last_reviewed_at
                     ? activeNote.last_reviewed_at.slice(0, 10)
-                    : lang === "zh-Hant"
-                      ? "尚未複習"
-                      : "Never"}
+                    : "-"}
                 </strong>
               </span>
               <span>·</span>
               <span>
                 {lang === "zh-Hant" ? "下次排程" : "Next"}:{" "}
                 <strong className="text-zinc-900">
-                  {nextReviewDateByNote.get(activeNote.id) || (lang === "zh-Hant" ? "未排程" : "None")}
+                  {nextReviewDateByNote.get(activeNote.id) || "-"}
                 </strong>
               </span>
               <span>·</span>
               <span>
-                {lang === "zh-Hant" ? "累計複習" : "Reps"}{" "}
-                <strong className="text-zinc-900">{activeNote.repetitions}</strong>
+                {lang === "zh-Hant" ? "系列累計完成" : "Completed"}{" "}
+                <strong className="text-zinc-900">
+                  {activeNote.completed_tasks ?? activeNote.repetitions}
+                </strong>
               </span>
               <span>·</span>
               <span>Ease {activeNote.ease_factor.toFixed(2)}</span>

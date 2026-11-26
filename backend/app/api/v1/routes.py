@@ -392,21 +392,30 @@ def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Note not found.")
         
     now_str = datetime.now().isoformat()
-    
-    # 1. Mark task as completed
+    already_completed = bool(task.is_completed)
+
+    # 1. Mark task as completed, preserving the EARLIEST completion date
     task.is_completed = 1
-    task.completed_at = now_str
+    if not task.completed_at:
+        task.completed_at = now_str
     if rating is not None:
         task.user_rating = int(rating)
     if gcal_event_id is not None:
         task.gcal_event_id = gcal_event_id
-        
+
+    # If this exact task was already completed once, do not double-count or spawn duplicate next tasks
+    if already_completed:
+        db.commit()
+        return {"ok": True, "already_completed": True}
+
+    MAX_SM2_INTERVAL_DAYS = 365
+
     # 2. Spaced Repetition calculation (explicit +Xd quick interval OR SM-2 rating)
     if next_interval_days is not None:
-        interval_days = max(1, int(next_interval_days))
+        interval_days = max(1, min(MAX_SM2_INTERVAL_DAYS, int(next_interval_days)))
         note.repetitions = int(note.repetitions or 0) + 1
         note.interval_days = interval_days
-        note.last_reviewed_at = now_str
+        note.last_reviewed_at = task.completed_at
         anchor_date = actual_date if anchor_option == "A" else task.scheduled_date
         next_review_date = add_days(anchor_date, interval_days)
         note.next_review_date = next_review_date
@@ -443,7 +452,7 @@ def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db)
             elif repetitions == 1:
                 interval_days = 6
             else:
-                interval_days = int(round(interval_days * ease_factor))
+                interval_days = min(MAX_SM2_INTERVAL_DAYS, int(round(interval_days * ease_factor)))
             repetitions += 1
         else:
             repetitions = 0
@@ -456,7 +465,7 @@ def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db)
         note.ease_factor = ease_factor
         note.repetitions = repetitions
         note.interval_days = interval_days
-        note.last_reviewed_at = now_str
+        note.last_reviewed_at = task.completed_at
         
         anchor_date = actual_date if anchor_option == "A" else task.scheduled_date
         next_review_date = add_days(anchor_date, interval_days)
@@ -996,13 +1005,20 @@ def schedule_task_from_library_note(
     note.first_date = payload.first_date
     note.next_review_date = payload.first_date
 
-    # Schedule initial task + fixed-interval tasks for Pattern A (2^n) / Pattern B (3^n)
-    created_tasks = []
+    # Schedule ONLY ONE task at a time; increment series counter monotonically (+1)
+    max_rev = (
+        db.query(DBTask.revision_number)
+        .filter(DBTask.note_id == note.id)
+        .order_by(DBTask.revision_number.desc())
+        .first()
+    )
+    next_rev_num = (int(max_rev[0]) + 1) if max_rev is not None else 0
+
     initial_task = DBTask(
         note_id=note.id,
-        type=payload.type,
+        type=payload.type if next_rev_num == 0 else "revision",
         scheduled_date=payload.first_date,
-        revision_number=0,
+        revision_number=next_rev_num,
         time_start=payload.time_start,
         time_end=payload.time_end,
     )

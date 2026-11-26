@@ -1763,6 +1763,7 @@ export default function App() {
           <RevisionCardModal
             task={activeRevisionCardTask}
             note={matchedNote}
+            allTasks={tasks}
             lang={lang}
             anchorOption={anchorOption}
             onClose={() => setActiveRevisionCardTask(null)}

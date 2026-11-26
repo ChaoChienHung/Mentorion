@@ -17,6 +17,7 @@ import { QuizPanel, type QuizQuestion } from "./QuizPanel";
 interface RevisionCardModalProps {
   task: Task;
   note: Note;
+  allTasks: Task[];
   lang: MentorionLang;
   anchorOption: "A" | "B";
   onClose: () => void;
@@ -44,6 +45,7 @@ function defaultCountForEaseFactor(ef: number, maxAvail: number): number {
 export function RevisionCardModal({
   task,
   note,
+  allTasks,
   lang,
   anchorOption,
   onClose,
@@ -235,6 +237,38 @@ export function RevisionCardModal({
 
   const hasQuestions = allQuestions.length > 0;
 
+  // Accurate per-series tracking metadata:
+  // 1. Distinct completed tasks in this series (each task counted once)
+  const seriesTasks = useMemo(
+    () => allTasks.filter((t) => t.note_id === task.note_id),
+    [allTasks, task.note_id],
+  );
+  const seriesCompletedCount = useMemo(
+    () => seriesTasks.filter((t) => Boolean(t.is_completed)).length,
+    [seriesTasks],
+  );
+
+  // 2. Last reviewed date: "-" for New (initial) tasks; otherwise earliest completion date of the preceding completed task
+  const lastReviewedDisplay = useMemo(() => {
+    if (task.type === "new" || task.revision_number === 0) return "-";
+    const priorCompleted = seriesTasks
+      .filter((t) => t.id !== task.id && Boolean(t.is_completed) && t.completed_at)
+      .sort((a, b) => (a.completed_at || "").localeCompare(b.completed_at || ""));
+    if (priorCompleted.length === 0) return "-";
+    // Use the previous revision's earliest recorded completed_at date
+    const prev = priorCompleted[priorCompleted.length - 1];
+    return (prev.completed_at || "").slice(0, 10) || "-";
+  }, [seriesTasks, task.id, task.type, task.revision_number]);
+
+  // 3. Next scheduled date (shown when this task is already completed)
+  const nextScheduledDisplay = useMemo(() => {
+    const upcoming = seriesTasks
+      .filter((t) => t.id !== task.id && !t.is_completed)
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+    if (upcoming.length > 0) return upcoming[0].scheduled_date;
+    return note.next_review_date || "-";
+  }, [seriesTasks, task.id, note.next_review_date]);
+
   const SM2_HINTS = zh
     ? ["完全遺忘", "幾乎忘記", "模糊有印象", "吃力想起", "稍作思考想起", "輕鬆精熟"]
     : ["Blackout", "Barely recalled", "Familiar gap", "Hard recall", "Good recall", "Mastered"];
@@ -415,23 +449,42 @@ export function RevisionCardModal({
             </h3>
             {/* Trackable Review Metadata Strip */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] font-mono text-zinc-500 pt-0.5">
+              {task.is_completed ? (
+                <>
+                  <span>
+                    {zh ? "完成日期" : "Completed"}:{" "}
+                    <strong className="text-zinc-800">
+                      {(task.completed_at || task.scheduled_date).slice(0, 10)}
+                    </strong>
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {zh ? "下次排程" : "Next"}:{" "}
+                    <strong className="text-zinc-800">{nextScheduledDisplay}</strong>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {zh ? "本次排程" : "Scheduled"}:{" "}
+                    <strong className="text-zinc-800">{task.scheduled_date}</strong>
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {zh ? "上次複習" : "Last Reviewed"}:{" "}
+                    <strong className="text-zinc-800">{lastReviewedDisplay}</strong>
+                  </span>
+                </>
+              )}
+              <span>·</span>
               <span>
-                {zh ? "排程" : "Scheduled"}: <strong className="text-zinc-800">{task.scheduled_date}</strong>
+                {zh ? "系列累計完成" : "Series Done"}:{" "}
+                <strong className="text-zinc-800">{seriesCompletedCount}</strong>
               </span>
               <span>·</span>
               <span>
-                {zh ? "上次複習" : "Last Reviewed"}:{" "}
-                <strong className="text-zinc-800">
-                  {note.last_reviewed_at ? note.last_reviewed_at.slice(0, 10) : zh ? "尚未複習" : "Never"}
-                </strong>
-              </span>
-              <span>·</span>
-              <span>
-                {zh ? "累計完成" : "Reps"}: <strong className="text-zinc-800">{note.repetitions || task.repetitions || 0}</strong>
-              </span>
-              <span>·</span>
-              <span>
-                {zh ? "間隔" : "Interval"}: <strong className="text-zinc-800">{task.interval_days || note.interval_days || 0}d</strong>
+                {zh ? "間隔" : "Interval"}:{" "}
+                <strong className="text-zinc-800">{task.interval_days || note.interval_days || 0}d</strong>
               </span>
             </div>
           </div>
