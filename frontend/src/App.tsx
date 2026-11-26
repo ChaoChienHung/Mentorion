@@ -533,8 +533,9 @@ export default function App() {
         isCurrentMonth: true,
       });
     }
-    // Next month padding days
-    const remaining = 42 - days.length;
+    // Next month padding days (only pad to complete the final week row, no extra blank-month row)
+    const totalCells = Math.ceil(days.length / 7) * 7;
+    const remaining = totalCells - days.length;
     for (let i = 1; i <= remaining; i++) {
       days.push({
         date: new Date(year, month + 1, i),
