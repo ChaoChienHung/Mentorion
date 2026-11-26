@@ -41,6 +41,8 @@ export interface Task {
   ease_factor?: number;
   repetitions?: number;
   interval_days?: number;
+  series_completed_count?: number;
+  prev_completed_at?: string | null;
 }
 
 export interface JournalEvent {

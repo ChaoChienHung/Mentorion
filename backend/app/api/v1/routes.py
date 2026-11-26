@@ -348,7 +348,9 @@ def get_tasks(
                t.user_rating, t.gcal_event_id,
                n.title as note_title, n.content as note_content, n.category as note_category, 
                n.type as note_type, n.pattern as note_pattern, n.first_date as note_first_date,
-               n.ease_factor, n.repetitions, n.interval_days
+               n.ease_factor, n.repetitions, n.interval_days,
+               (SELECT COUNT(*) FROM tasks t2 WHERE t2.note_id = t.note_id AND t2.is_completed = 1) as series_completed_count,
+               (SELECT MAX(t2.completed_at) FROM tasks t2 WHERE t2.note_id = t.note_id AND t2.is_completed = 1 AND t2.id != t.id) as prev_completed_at
         FROM tasks t
         JOIN notes n ON t.note_id = n.id
         WHERE n.user_id = :user_id
@@ -1433,8 +1435,9 @@ def delete_single_task(
     """
     Deletes scheduled review task(s) without EVER deleting the parent Note in Library:
     - scope='single': deletes only this specific task
-    - scope='future': deletes this task and all subsequent uncompleted tasks of this note (keeps completed history)
-    - scope='all': deletes all tasks of this note series (keeps the Note in Library)
+    - scope='future': deletes this task and all subsequent uncompleted, unarchived tasks of this note (keeps completed history)
+    - scope='all': deletes all unarchived tasks of this note series (pending + un-cleared completed tasks on the calendar,
+      deducting those un-cleared tasks from stats, while preserving already-cleared/archived historical records and the Library note)
     """
     task = db.query(DBTask).filter(DBTask.id == task_id).first()
     if not task:
@@ -1444,13 +1447,19 @@ def delete_single_task(
     deleted_count = 0
 
     if scope == "all":
-        deleted_count = db.query(DBTask).filter(DBTask.note_id == note_id).delete(synchronize_session=False)
+        # Only delete non-archived (calendar-visible) tasks; cleared/archived historical completions remain intact in stats
+        deleted_count = (
+            db.query(DBTask)
+            .filter(DBTask.note_id == note_id, DBTask.is_archived == 0)
+            .delete(synchronize_session=False)
+        )
     elif scope == "future":
-        # Delete this task + any uncompleted tasks on or after its scheduled_date (preserving past completed history)
+        # Delete this task + any uncompleted, unarchived tasks on or after its scheduled_date (preserving past completed history)
         deleted_count = (
             db.query(DBTask)
             .filter(
                 DBTask.note_id == note_id,
+                DBTask.is_archived == 0,
                 (DBTask.id == task_id) | ((DBTask.is_completed == 0) & (DBTask.scheduled_date >= target_date)),
             )
             .delete(synchronize_session=False)

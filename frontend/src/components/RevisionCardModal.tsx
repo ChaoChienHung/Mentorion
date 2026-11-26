@@ -238,19 +238,22 @@ export function RevisionCardModal({
   const hasQuestions = allQuestions.length > 0;
 
   // Accurate per-series tracking metadata:
-  // 1. Distinct completed tasks in this series (each task counted once)
+  // 1. Distinct completed tasks in this series (including archived/cleared history; each task counted once)
   const seriesTasks = useMemo(
     () => allTasks.filter((t) => t.note_id === task.note_id),
     [allTasks, task.note_id],
   );
-  const seriesCompletedCount = useMemo(
-    () => seriesTasks.filter((t) => Boolean(t.is_completed)).length,
-    [seriesTasks],
-  );
+  const seriesCompletedCount = useMemo(() => {
+    if (typeof task.series_completed_count === "number") {
+      return task.series_completed_count;
+    }
+    return seriesTasks.filter((t) => Boolean(t.is_completed)).length;
+  }, [seriesTasks, task.series_completed_count]);
 
-  // 2. Last reviewed date: "-" for New (initial) tasks; otherwise earliest completion date of the preceding completed task
+  // 2. Last reviewed date: "-" for New (initial) tasks; otherwise previous completed task's completion date (including cleared history)
   const lastReviewedDisplay = useMemo(() => {
     if (task.type === "new" || task.revision_number === 0) return "-";
+    if (task.prev_completed_at) return task.prev_completed_at.slice(0, 10);
     const priorCompleted = seriesTasks
       .filter((t) => t.id !== task.id && Boolean(t.is_completed) && t.completed_at)
       .sort((a, b) => (a.completed_at || "").localeCompare(b.completed_at || ""));
@@ -258,7 +261,7 @@ export function RevisionCardModal({
     // Use the previous revision's earliest recorded completed_at date
     const prev = priorCompleted[priorCompleted.length - 1];
     return (prev.completed_at || "").slice(0, 10) || "-";
-  }, [seriesTasks, task.id, task.type, task.revision_number]);
+  }, [seriesTasks, task.id, task.type, task.revision_number, task.prev_completed_at]);
 
   // 3. Next scheduled date (shown when this task is already completed)
   const nextScheduledDisplay = useMemo(() => {
@@ -829,8 +832,8 @@ export function RevisionCardModal({
                   </div>
                   <div className="text-[11px] text-zinc-300 mt-0.5">
                     {zh
-                      ? "清空此筆記的所有已完成與未完成排程（筆記本身仍留在筆記庫）。"
-                      : "Clears all past and future tasks for this note (keeps the Library note)."}
+                      ? "清空此系列在行事曆上所有未完成與尚未清除的排程（未清除的已完成任務會從統計扣掉；已清除的歷史紀錄與筆記庫原檔皆會保留）。"
+                      : "Clears all pending and unarchived tasks on the calendar (unarchived completed tasks are deducted from stats; cleared history & Library note are preserved)."}
                   </div>
                 </button>
               </div>
