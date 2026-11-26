@@ -1390,6 +1390,31 @@ def delete_library_note(note_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.delete("/tasks/{task_id}")
+def delete_single_task(task_id: int, db: Session = Depends(get_db)):
+    """Deletes ONLY a single scheduled review task without deleting the parent Note or sibling tasks."""
+    task = db.query(DBTask).filter(DBTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    note_id = task.note_id
+    db.delete(task)
+    db.commit()
+
+    # Recompute parent note's next_review_date from remaining earliest pending task
+    note = db.query(DBNote).filter(DBNote.id == note_id).first()
+    if note:
+        next_pending = (
+            db.query(DBTask)
+            .filter(DBTask.note_id == note_id, DBTask.is_completed == 0, DBTask.is_archived == 0)
+            .order_by(DBTask.scheduled_date.asc())
+            .first()
+        )
+        note.next_review_date = next_pending.scheduled_date if next_pending else None
+        db.commit()
+
+    return {"ok": True, "deleted_task_id": task_id, "note_id": note_id}
+
+
 class PickPathRequest(BaseModel):
     mode: str = "folder"  # "folder" | "file"
 

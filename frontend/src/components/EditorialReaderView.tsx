@@ -13,6 +13,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import type { Note, Task } from "../types";
 import { QuizPanel } from "./QuizPanel";
@@ -280,13 +281,21 @@ export function EditorialReaderView({
     });
   }, [notes, searchQuery, sortBy, nextReviewDateByNote]);
 
-  // Priority pending review tasks sorted by scheduled_date (earliest/overdue first)
+  // Priority pending review tasks: deduplicated by note_id (keeps earliest pending task per note)
   const priorityTasks = useMemo(() => {
     const noteIds = new Set(notes.map((n) => n.id));
-    return tasks
+    const sorted = tasks
       .filter((tk) => !tk.is_completed && noteIds.has(tk.note_id))
-      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
-      .slice(0, 6);
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+    const seen = new Set<number>();
+    const deduped: Task[] = [];
+    for (const tk of sorted) {
+      if (seen.has(tk.note_id)) continue;
+      seen.add(tk.note_id);
+      deduped.push(tk);
+      if (deduped.length >= 6) break;
+    }
+    return deduped;
   }, [tasks, notes]);
 
   const activeIndex = sortedNotes.findIndex((n) => n.id === selectedId);
@@ -309,6 +318,20 @@ export function EditorialReaderView({
     onCopyQuizPrompt(note);
     setCopiedId(note.id);
     window.setTimeout(() => setCopiedId((curr) => (curr === note.id ? null : curr)), 2000);
+  };
+
+  const handleDeleteNoteFromLibrary = async (note: Note) => {
+    const msg =
+      lang === "zh-Hant"
+        ? `確定要從筆記庫移除「${note.title}」及其相關複習排程嗎？（外部原始檔案不會被刪除）`
+        : `Remove "${note.title}" and its scheduled tasks from Library? (External Markdown files are never deleted.)`;
+    if (!window.confirm(msg)) return;
+    const res = await fetch(`/api/library/notes/${note.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setSelectedId(null);
+      setDrawerOpen(false);
+      onNoteCreated();
+    }
   };
 
   const handleCreateLibraryNote = async (e: React.FormEvent) => {
@@ -670,6 +693,15 @@ export function EditorialReaderView({
                 <span>{t.copyPrompt}</span>
               </>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleDeleteNoteFromLibrary(activeNote)}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 text-xs font-medium cursor-pointer transition-colors"
+          >
+            <Trash2 size={13} />
+            <span>{lang === "zh-Hant" ? "從筆記庫移除" : "Remove from Library"}</span>
           </button>
         </div>
       </div>

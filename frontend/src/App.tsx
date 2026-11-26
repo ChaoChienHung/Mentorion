@@ -407,6 +407,24 @@ export default function App() {
     }
   };
 
+  // Delete ONLY a single scheduled review task (preserves the Note in Library & other tasks)
+  const handleDeleteSingleTask = async (taskId: number) => {
+    const msg =
+      lang === "zh-Hant"
+        ? "確定只刪除此筆複習排程嗎？（筆記庫原檔與其他排程皆會保留）"
+        : "Remove only this scheduled review task? (The Library note and other scheduled tasks will be preserved.)";
+    if (!confirm(msg)) return;
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (res.ok) {
+        setActiveRevisionCardTask(null);
+        await fetchData();
+      }
+    } catch (err) {
+      console.error("Error deleting single task:", err);
+    }
+  };
+
   // Delete note and all its tasks
   const handleDeleteNote = async (id: number) => {
     if (!confirm("警告！這將會永久刪除此筆記主題以及其在月曆上所有的複習計畫、歷史作答紀錄，此操作無法復原！確定要執行嗎？")) return;
@@ -1666,116 +1684,120 @@ export default function App() {
         </div>
       </main>
 
-      {/* --- MODAL: REVISION METADATA CARD (Clicked event details popup) --- */}
+      {/* --- MODAL: REVISION METADATA CARD (Crisp Studio Monochrome) --- */}
       {activeRevisionCardTask && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-[#0f172a] text-white rounded-3xl shadow-2xl border border-slate-800 max-w-md w-full overflow-hidden animate-scaleIn text-left">
-            <div className="flex justify-between items-center p-5 border-b border-slate-800 bg-slate-950">
-              <div className="flex items-center space-x-2">
-                <BookOpen size={18} className="text-blue-400 animate-pulse" />
-                <h3 className="font-extrabold text-white text-xs uppercase tracking-widest font-display">複習資訊卡 / REVISION CARD</h3>
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs">
+          <div className="bg-white text-zinc-950 rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full overflow-hidden text-left">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-200">
+              <div className="flex items-center gap-2">
+                <BookOpen size={17} className="text-zinc-900" />
+                <h3 className="font-semibold text-zinc-950 text-sm font-display">
+                  {lang === "zh-Hant" ? "複習資訊卡" : "Revision Details"}
+                </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setActiveRevisionCardTask(null)}
-                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg transition-all"
+                className="text-zinc-400 hover:text-zinc-900 p-1 rounded-lg transition-colors cursor-pointer"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="p-6 space-y-5 text-xs font-mono">
+            <div className="p-6 space-y-5 text-xs">
               <div className="space-y-1">
-                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block">筆記學科 / CATEGORY</span>
-                <p className="text-sm font-extrabold font-sans text-slate-200">{activeRevisionCardTask.note_category}</p>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block">筆記主題 / TITLE</span>
-                <p className="text-base font-extrabold font-sans text-white">{activeRevisionCardTask.note_title}</p>
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                  {activeRevisionCardTask.note_category}
+                </span>
+                <p className="text-lg font-bold font-display text-zinc-950 leading-snug">
+                  {activeRevisionCardTask.note_title}
+                </p>
               </div>
 
               {activeRevisionCardTask.note_content && (
-                <div className="space-y-1">
-                  <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block">筆記要點摘要 / SUMMARY</span>
-                  <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl max-h-[100px] overflow-y-auto font-sans text-slate-300 leading-relaxed text-[11px]">
-                    {activeRevisionCardTask.note_content}
-                  </div>
+                <div className="bg-zinc-50 border border-zinc-200 px-3.5 py-3 rounded-xl max-h-28 overflow-y-auto text-zinc-600 leading-relaxed text-xs">
+                  {activeRevisionCardTask.note_content
+                    .replace(/^#+\s+/gm, "")
+                    .replace(/\[\[(?:concept|doc)\.([^\]]+)\]\]/g, (_m, s: string) => s.replace(/_/g, " "))
+                    .replace(/\*\*([^*]+)\*\*/g, "$1")
+                    .slice(0, 260)}
+                  {activeRevisionCardTask.note_content.length > 260 ? "..." : ""}
                 </div>
               )}
 
-              <div className="h-px bg-slate-800" />
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-400">首次學日期 (New)</span>
-                  <p className="text-slate-200 font-bold text-xs">{activeRevisionCardTask.note_first_date}</p>
+              <div className="grid grid-cols-2 gap-4 pt-1 border-t border-zinc-100">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-zinc-400">
+                    {lang === "zh-Hant" ? "本次排程日期" : "Scheduled Date"}
+                  </span>
+                  <p className="text-zinc-950 font-mono font-semibold text-xs">
+                    {activeRevisionCardTask.scheduled_date}
+                  </p>
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-400">累計複習次數 (Repetitions)</span>
-                  <p className="text-slate-200 font-bold text-xs">{activeRevisionCardTask.repetitions || 0} 次</p>
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-zinc-400">
+                    {lang === "zh-Hant" ? "累計複習次數" : "Repetitions"}
+                  </span>
+                  <p className="text-zinc-950 font-mono font-semibold text-xs">
+                    {activeRevisionCardTask.repetitions || 0}
+                  </p>
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-400">難易因子 (Ease Factor)</span>
-                  <p className="text-slate-200 font-bold text-xs">{(activeRevisionCardTask.ease_factor || 2.5).toFixed(2)}</p>
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-zinc-400">
+                    {lang === "zh-Hant" ? "難易因子" : "Ease Factor"}
+                  </span>
+                  <p className="text-zinc-950 font-mono font-semibold text-xs">
+                    {(activeRevisionCardTask.ease_factor || 2.5).toFixed(2)}
+                  </p>
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-400">間隔天數 (Interval)</span>
-                  <p className="text-slate-200 font-bold text-xs">{activeRevisionCardTask.interval_days || 0} 天</p>
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-zinc-400">
+                    {lang === "zh-Hant" ? "間隔天數" : "Interval"}
+                  </span>
+                  <p className="text-zinc-950 font-mono font-semibold text-xs">
+                    {activeRevisionCardTask.interval_days || 0}d
+                  </p>
                 </div>
               </div>
 
-              <div className="h-px bg-slate-800" />
-
-              {/* Trajectory shift controls inside the Metadata Card */}
-              <div className="space-y-2.5">
-                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block">
-                  軌跡日程位移 / TRAJECTORY SHIFT
+              {/* Trajectory shift controls */}
+              <div className="space-y-2 pt-2 border-t border-zinc-100">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 block">
+                  {lang === "zh-Hant" ? "延後後續排程" : "Shift Trajectory"}
                 </span>
                 <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => handleTrajectoryShift(activeRevisionCardTask.note_id, 1)}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 font-bold text-[10px] transition-all flex items-center justify-center space-x-1"
-                  >
-                    <ArrowRightLeft size={10} />
-                    <span>延後 +1 天</span>
-                  </button>
-                  <button
-                    onClick={() => handleTrajectoryShift(activeRevisionCardTask.note_id, 3)}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 font-bold text-[10px] transition-all flex items-center justify-center space-x-1"
-                  >
-                    <ArrowRightLeft size={10} />
-                    <span>延後 +3 天</span>
-                  </button>
-                  <button
-                    onClick={() => handleTrajectoryShift(activeRevisionCardTask.note_id, 7)}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 font-bold text-[10px] transition-all flex items-center justify-center space-x-1"
-                  >
-                    <ArrowRightLeft size={10} />
-                    <span>延後 +7 天</span>
-                  </button>
+                  {[1, 3, 7].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => handleTrajectoryShift(activeRevisionCardTask.note_id, days)}
+                      className="py-2 bg-zinc-50 hover:bg-zinc-950 hover:text-white text-zinc-800 rounded-xl border border-zinc-200 font-medium text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <ArrowRightLeft size={11} />
+                      <span>{lang === "zh-Hant" ? `+${days} 天` : `+${days}d`}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="h-px bg-slate-800 my-2" />
-
-              <div className="flex gap-2">
+              <div className="flex gap-2.5 pt-3 border-t border-zinc-100">
                 <button
                   type="button"
                   onClick={() => setActiveRevisionCardTask(null)}
-                  className="w-1/2 py-2.5 border border-slate-800 hover:bg-slate-900 text-slate-400 text-[11px] font-bold rounded-xl transition-all"
+                  className="w-1/2 py-2.5 border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-medium rounded-xl transition-colors cursor-pointer"
                 >
-                  關閉
+                  {lang === "zh-Hant" ? "關閉" : "Close"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDeleteNote(activeRevisionCardTask.note_id)}
-                  className="w-1/2 py-2.5 bg-rose-900/50 hover:bg-rose-900 text-rose-200 border border-rose-900/60 font-bold text-[11px] rounded-xl transition-all flex items-center justify-center space-x-1.5"
+                  onClick={() => void handleDeleteSingleTask(activeRevisionCardTask.id)}
+                  className="w-1/2 py-2.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Trash2 size={12} />
-                  <span>永久刪除主題</span>
+                  <Trash2 size={13} />
+                  <span>{lang === "zh-Hant" ? "刪除此筆排程" : "Remove Task"}</span>
                 </button>
               </div>
             </div>
