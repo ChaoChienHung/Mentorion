@@ -77,7 +77,20 @@ export function renderMentorionMarkdown(md: string): string {
     }
   };
 
-  for (const line of lines) {
+  const parseTableCells = (rowLine: string): string[] => {
+    const stripped = rowLine.trim().replace(/^\|/, "").replace(/\|$/, "");
+    return stripped.split("|").map((c) => c.trim());
+  };
+
+  const isTableSeparator = (rowLine: string): boolean => {
+    const trimmedRow = rowLine.trim();
+    if (!trimmedRow.includes("|")) return false;
+    const cells = parseTableCells(trimmedRow);
+    return cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
 
     if (trimmed.startsWith("```")) {
@@ -124,6 +137,60 @@ export function renderMentorionMarkdown(md: string): string {
 
     if (!trimmed) {
       closeList();
+      continue;
+    }
+
+    // GFM Pipe Table (header row + separator row + body rows) wrapped in Lark-style scroll window
+    if (
+      trimmed.includes("|") &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1])
+    ) {
+      closeList();
+      const headers = parseTableCells(trimmed);
+      const sepCells = parseTableCells(lines[i + 1]);
+      const aligns = sepCells.map((c) => {
+        if (c.startsWith(":") && c.endsWith(":")) return "center";
+        if (c.endsWith(":")) return "right";
+        return "left";
+      });
+      i += 2;
+      const bodyRows: string[][] = [];
+      while (i < lines.length) {
+        const r = lines[i].trim();
+        if (!r || !r.includes("|")) {
+          i -= 1;
+          break;
+        }
+        bodyRows.push(parseTableCells(r));
+        i += 1;
+      }
+      const theadHtml =
+        "<thead><tr>" +
+        headers
+          .map(
+            (h, idx) =>
+              `<th style="text-align:${aligns[idx] || "left"}">${renderInline(h)}</th>`,
+          )
+          .join("") +
+        "</tr></thead>";
+      const tbodyHtml =
+        "<tbody>" +
+        bodyRows
+          .map(
+            (row) =>
+              "<tr>" +
+              headers
+                .map(
+                  (_h, idx) =>
+                    `<td style="text-align:${aligns[idx] || "left"}">${renderInline(row[idx] ?? "")}</td>`,
+                )
+                .join("") +
+              "</tr>",
+          )
+          .join("") +
+        "</tbody>";
+      out.push(`<div class="md-table-wrap"><table>${theadHtml}${tbodyHtml}</table></div>`);
       continue;
     }
 

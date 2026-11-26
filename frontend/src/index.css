@@ -133,6 +133,53 @@ html {
   padding: 0;
 }
 
+/* Lark-style scrollable table window */
+.editorial-prose .md-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 20px 0;
+  border: 1px solid var(--ed-border-subtle);
+  border-radius: 12px;
+  background: var(--ed-bg-elevated);
+  scrollbar-width: thin;
+}
+
+.editorial-prose .md-table-wrap table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.editorial-prose .md-table-wrap th,
+.editorial-prose .md-table-wrap td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--ed-border-subtle);
+  border-right: 1px solid var(--ed-border-subtle);
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.editorial-prose .md-table-wrap th:last-child,
+.editorial-prose .md-table-wrap td:last-child {
+  border-right: none;
+}
+
+.editorial-prose .md-table-wrap tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.editorial-prose .md-table-wrap thead th {
+  background: var(--ed-bg-surface);
+  font-weight: 600;
+  color: var(--ed-text-primary);
+}
+
+.editorial-prose .md-table-wrap tbody tr:hover td {
+  background: var(--ed-bg-hover);
+}
+
 /* Hide clunky native browser number input spinners globally */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
