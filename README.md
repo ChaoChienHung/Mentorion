@@ -1,6 +1,6 @@
-# Mentorion 🚀
+# Mentorion
 
-Mentorion 是一個個人學習輔助與間隔重複（Spaced Repetition）複習系統。本專案已將 AI Studio 導出的 App 功能完整整合至 FastAPI（Python）後端與 React (Vite) 前端中，並以 SQLite 資料庫作為統計與任務調度的核心，Markdown 檔案為筆記的單一真相來源（SSOT）。
+Mentorion 是一個個人學習輔助與間隔重複（Spaced Repetition）複習系統。本專案將主動回憶測驗、SM-2 排程與筆記庫閱讀整合至 FastAPI（Python）後端與 React (Vite) 前端，以 SQLite 與集中式題庫 `data/questions.json` 作為調度核心，並對外部 Markdown 知識庫保持只讀。
 
 ---
 
@@ -57,12 +57,16 @@ source venv/bin/activate
 pip install -e '.[dev,streamlit]'
 ```
 
-#### 設定環境變數：
-在專案根目錄下建立 `.env` 或在終端機中導出：
+#### 設定環境變數與 LLM API（Gemini Function Calling）：
+在專案根目錄下建立 `.env`（**請勿提交至 Git**）或在終端機中導出：
 ```bash
 export GEMINI_API_KEY="您的_GEMINI_API_KEY"
-export GEMINI_MODEL="gemini-2.5-flash"
+export GEMINI_MODEL="gemini-2.5-flash"   # 可選，預設 gemini-2.5-flash
 ```
+
+- **串接方式**：後端透過 `google-genai` SDK（`backend/app/core/ai_client.py`）與 Gemini Function Calling（`backend/app/domain/quiz_engine.py`）強制輸出結構化題目（`submit_quiz_questions`）與申論題 0–5 分批改結果（`grade_essay_answer`），並集中存儲於 `data/questions.json`。
+- **無 API Key 降級模式**：未設定 `GEMINI_API_KEY` 時仍可正常閱讀筆記與排程複習，並可使用閱讀器左側工具列的「複製出題 Prompt」手動配合外部 AI 使用。
+- 詳細架構、API 契約與擴充其他 LLM Provider 方式請見 [docs/llm-api-guide.md](docs/llm-api-guide.md)。
 
 #### 啟動後端伺服器（支援彈性 Port）：
 ```bash

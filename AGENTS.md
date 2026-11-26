@@ -19,7 +19,7 @@
 6. 本地優先與可組合邊界（Local-First & Composable Suite）
    - **免強制登入**：個人本地端複習工具預設單人模式直接進入工作區，不設阻擋式登入頁。
    - **外部知識庫只讀（Read-Only）**：Mentorion 透過 `schemas/*.json` 讀取外部 Markdown 資料夾（如 `Nexus-Vault`），**絕不**在外部知識庫中建立新筆記或寫入題庫檔案；所有排程、作答紀錄與集中題庫皆由 Mentorion SQLite 擁有。
-   - **集中題庫與 LLM 結構化出題／批改**：所有題目（含 `mcq` / `short_answer` / `true_false` / `short_essay` / `essay`）集中存放於 Mentorion SQLite `questions` 表（標註 `note_id` ownership，並支援去重與單檔匯出）；LLM 出題與申論題批改皆透過 Function Calling 嚴格符合題目 schema。
+   - **集中題庫與 LLM 結構化出題／批改**：所有題目（含 `mcq` / `short_answer` / `true_false` / `open` / `short_essay` / `essay`）集中存放於 Mentorion `data/questions.json` 並與 SQLite `notes.question_ids` 雙向同步（含自動去重與 self-healing fallback）；LLM 串接統一透過 `backend/app/core/ai_client.py`（`GEMINI_API_KEY` / `GEMINI_MODEL`）與 `backend/app/domain/quiz_engine.py` 的 Function Calling（`submit_quiz_questions`、`grade_essay_answer`）執行，詳見 `docs/llm-api-guide.md`。
    - **動態服務發現**：後端與前端啟動時自動將實際 port 寫入 `~/.mentorion/runtime.json`，供 Nexus 無痛探測與組合。
 
 ## 角色與職責
@@ -43,8 +43,8 @@
 
 ### AI Engineer（LLM / Prompt / Eval）
 
-- 維護 `backend/app/domain/agent.py` 與相關 prompt/schema/重試策略。
-- 任何會改變輸出格式的調整，必須同步更新 schema 與測試（或提供 backward compatible）。
+- 維護 `backend/app/core/ai_client.py`、`backend/app/domain/quiz_engine.py`（Function Calling 出題／批改）與 `backend/app/domain/agent.py`。
+- 任何會改變輸出格式、環境變數或 Provider 串接方式的調整，必須同步更新 `backend/app/schemas/quiz.py`、Mock 單元測試與 `docs/llm-api-guide.md`。
 
 ### QA / Release（品質與自動化）
 
@@ -112,5 +112,6 @@
 - 協作規範：docs/collaboration.md
 - 複習模式設計：docs/review-mode.md
 - Review Journal / Calendar 設計：docs/review-journal.md
+- LLM API 串接指南：docs/llm-api-guide.md
 - 自訂 Schema 指南：docs/custom-schema-guide.md
 - 內建 Schema 定義：schemas/*.json

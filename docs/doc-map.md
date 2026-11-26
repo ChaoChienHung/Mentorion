@@ -15,3 +15,5 @@
 - 協作規範：collaboration.md
 - 複習模式設計：review-mode.md
 - Review Journal / Calendar 設計：review-journal.md
+- LLM API 串接指南：llm-api-guide.md
+- 自訂 Schema 指南：custom-schema-guide.md
