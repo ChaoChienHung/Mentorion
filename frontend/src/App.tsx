@@ -690,136 +690,175 @@ export default function App() {
           ) : (
             <div>
               
-              {/* --- VIEW 1: COVER / OVERVIEW --- */}
+              {/* --- VIEW 1: COVER / OVERVIEW (Nexus-Parity Full-Viewport Hero -> Stats -> Workspace) --- */}
               {activeTab === "cover" && (
-                <div className="max-w-5xl mx-auto space-y-12" id="view-cover">
-                  {/* Minimal Studio Hero */}
-                  <div className="py-12 md:py-16 border-b border-zinc-200 space-y-6">
-                    <div className="text-xs font-mono uppercase tracking-[0.22em] text-zinc-400">
+                <div className="max-w-5xl mx-auto space-y-20 pb-20" id="view-cover">
+                  {/* 00 · Full-Viewport Minimal Hero Cover */}
+                  <section className="min-h-[78vh] flex flex-col items-center justify-center text-center relative border-b border-zinc-200">
+                    <div className="text-[11px] font-mono uppercase tracking-[0.26em] text-zinc-400">
                       {t.heroKicker}
                     </div>
-                    <h2 className="text-5xl md:text-6xl font-bold font-display tracking-tight text-zinc-950 leading-[1.08]">
-                      {t.heroTitleLine1}
-                      <br />
-                      {t.heroTitleLine2}
+                    <h2 className="text-6xl md:text-7xl font-bold font-display tracking-tight text-zinc-950 mt-5">
+                      Mentorion
                     </h2>
-                    <p className="text-[17px] text-zinc-500 max-w-2xl leading-relaxed">
+                    <p className="text-lg md:text-xl text-zinc-500 max-w-xl mt-5 leading-relaxed">
                       {t.heroDesc}
                     </p>
-                    <div className="pt-3 flex flex-wrap gap-3.5">
-                      <button
-                        onClick={() => setActiveTab("reading")}
-                        className="px-6 py-3 bg-zinc-950 hover:bg-zinc-800 text-white text-sm font-medium rounded-xl transition-colors cursor-pointer"
-                      >
-                        {t.btnOpenReading}
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("calendar")}
-                        className="px-6 py-3 bg-white hover:bg-zinc-100 text-zinc-900 text-sm font-medium rounded-xl border border-zinc-200 transition-colors cursor-pointer"
-                      >
-                        {t.btnOpenCalendar}
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("schema")}
-                        className="px-6 py-3 bg-white hover:bg-zinc-100 text-zinc-700 text-sm font-medium rounded-xl border border-zinc-200 transition-colors cursor-pointer"
-                      >
-                        {t.btnOpenSchema}
-                      </button>
+                    <div className="mt-8 flex items-center gap-4 text-xs font-mono text-zinc-400">
+                      <span>{notes.length} {lang === "zh-Hant" ? "篇筆記" : "notes"}</span>
+                      <span>·</span>
+                      <span>{tasks.filter((tk) => !tk.is_completed).length} {lang === "zh-Hant" ? "項待複習" : "pending"}</span>
                     </div>
-                  </div>
+                    <div className="absolute bottom-8 text-zinc-300 text-xs font-mono tracking-widest uppercase">
+                      ↓
+                    </div>
+                  </section>
 
-                  {/* Clean Monochrome Metrics Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
-                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
-                        {t.metricNew}
-                      </span>
-                      <p className="text-4xl font-semibold font-mono text-zinc-950">
-                        {stats?.totalCompletedNew || 0}
-                      </p>
-                      <span className="text-sm text-zinc-400 block">{t.metricNewSub}</span>
+                  {/* 01 · STATISTICS */}
+                  <section className="space-y-6">
+                    <div className="text-xs font-mono uppercase tracking-[0.2em] text-zinc-400">
+                      01 · {lang === "zh-Hant" ? "數據統計" : "STATISTICS"}
                     </div>
 
-                    <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
-                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
-                        {t.metricRev}
-                      </span>
-                      <p className="text-4xl font-semibold font-mono text-zinc-950">
-                        {stats?.totalCompletedRevision || 0}
-                      </p>
-                      <span className="text-sm text-zinc-400 block">{t.metricRevSub}</span>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-7 border border-zinc-200 space-y-2">
-                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider block">
-                        {t.metricDeficit}
-                      </span>
-                      <p className="text-4xl font-semibold font-mono text-zinc-950">
-                        {stats?.deficitPoints || 0} pts
-                      </p>
-                      <span className="text-sm text-zinc-400 block">{t.metricDeficitSub}</span>
-                    </div>
-                  </div>
-
-                  {/* Overdue/Focused Task Alerts Panel */}
-                  {stats && stats.overdueCount > 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start space-x-4">
-                      <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
-                      <div className="flex-1 space-y-1.5 text-left">
-                        <h4 className="font-bold text-amber-800 text-xs">您目前有 {stats.overdueCount} 個預定的複習任務已經過期！</h4>
-                        <p className="text-slate-600 text-[11px] leading-relaxed">
-                          間隔記憶的核心在於及時複習。拖延會導致記憶留存度急遽下降，現在就前往「Planit 複習月曆」選取今日或過去的日子來完成複習吧！
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-1.5">
+                        <span className="text-xs text-zinc-500 font-medium block">
+                          {lang === "zh-Hant" ? "筆記庫收錄" : "Library Notes"}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">
+                          {notes.length}
                         </p>
-                        <button
-                          onClick={() => setActiveTab("calendar")}
-                          className="text-amber-800 font-bold text-[11px] hover:underline"
-                        >
-                          立即查看過期排程 →
-                        </button>
+                        <span className="text-xs text-zinc-400 block">
+                          {lang === "zh-Hant" ? "可閱讀與出題的筆記" : "Indexed study notes"}
+                        </span>
+                      </div>
+
+                      <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-1.5">
+                        <span className="text-xs text-zinc-500 font-medium block">
+                          {t.metricNew}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">
+                          {stats?.totalCompletedNew || 0}
+                        </p>
+                        <span className="text-xs text-zinc-400 block">{t.metricNewSub}</span>
+                      </div>
+
+                      <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-1.5">
+                        <span className="text-xs text-zinc-500 font-medium block">
+                          {t.metricRev}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">
+                          {stats?.totalCompletedRevision || 0}
+                        </p>
+                        <span className="text-xs text-zinc-400 block">{t.metricRevSub}</span>
+                      </div>
+
+                      <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-1.5">
+                        <span className="text-xs text-zinc-500 font-medium block">
+                          {t.metricDeficit}
+                        </span>
+                        <p className="text-4xl font-semibold font-mono text-zinc-950">
+                          {stats?.deficitPoints || 0} pts
+                        </p>
+                        <span className="text-xs text-zinc-400 block">{t.metricDeficitSub}</span>
                       </div>
                     </div>
-                  )}
 
-                  {/* Visual Category List cards */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-left">
-                    <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 font-display">
-                        當前學科領域複習分佈 / CATEGORIES
-                      </h3>
-                      <button 
-                        onClick={() => setActiveTab("add_task")} 
-                        className="text-blue-600 text-[10px] font-bold uppercase hover:underline"
+                    {stats && stats.overdueCount > 0 && (
+                      <div className="bg-zinc-100 border border-zinc-300 rounded-2xl px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 text-sm text-zinc-800">
+                          <AlertTriangle size={18} className="text-zinc-900 shrink-0" />
+                          <span>
+                            {lang === "zh-Hant"
+                              ? `目前有 ${stats.overdueCount} 項逾期複習任務尚未完成。`
+                              : `${stats.overdueCount} scheduled review tasks are overdue.`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("calendar")}
+                          className="text-xs font-semibold text-zinc-950 underline underline-offset-4 cursor-pointer"
+                        >
+                          {lang === "zh-Hant" ? "前往複習月曆 →" : "Open Calendar →"}
+                        </button>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* 02 · WORKSPACE OPTIONS */}
+                  <section className="space-y-6">
+                    <div className="text-xs font-mono uppercase tracking-[0.2em] text-zinc-400">
+                      02 · {lang === "zh-Hant" ? "工作區" : "WORKSPACE"}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("reading")}
+                        className="text-left p-6 rounded-2xl bg-white border border-zinc-200 hover:border-zinc-950 transition-colors cursor-pointer space-y-4 group"
                       >
-                        + 新增分類學科
+                        <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-900 flex items-center justify-center transition-colors">
+                          <BookOpen size={19} strokeWidth={1.75} />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-base font-semibold text-zinc-950">{t.navReading}</div>
+                          <div className="text-xs text-zinc-500">
+                            {lang === "zh-Hant" ? "瀏覽筆記清單與主動回憶測驗" : "Browse notes & run active recall"}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("calendar")}
+                        className="text-left p-6 rounded-2xl bg-white border border-zinc-200 hover:border-zinc-950 transition-colors cursor-pointer space-y-4 group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-900 flex items-center justify-center transition-colors">
+                          <CalendarIcon size={19} strokeWidth={1.75} />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-base font-semibold text-zinc-950">{t.navCalendar}</div>
+                          <div className="text-xs text-zinc-500">
+                            {lang === "zh-Hant" ? "檢視每日排程與 SM-2 複習節奏" : "Daily schedule & SM-2 cadence"}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("coach")}
+                        className="text-left p-6 rounded-2xl bg-white border border-zinc-200 hover:border-zinc-950 transition-colors cursor-pointer space-y-4 group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-900 flex items-center justify-center transition-colors">
+                          <Sparkles size={19} strokeWidth={1.75} />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-base font-semibold text-zinc-950">
+                            {lang === "zh-Hant" ? "AI 教練" : "AI Coach"}
+                          </div>
+                          <div className="text-xs text-zinc-500">
+                            {lang === "zh-Hant" ? "智慧重排、頑固筆記診斷與題庫治理" : "Rescheduler, diagnosis & Bloom audit"}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("schema")}
+                        className="text-left p-6 rounded-2xl bg-white border border-zinc-200 hover:border-zinc-950 transition-colors cursor-pointer space-y-4 group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-900 flex items-center justify-center transition-colors">
+                          <Database size={19} strokeWidth={1.75} />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-base font-semibold text-zinc-950">{t.navSchema}</div>
+                          <div className="text-xs text-zinc-500">
+                            {lang === "zh-Hant" ? "從單檔或資料夾匯入與路徑檢查" : "Import files/folders & path checks"}
+                          </div>
+                        </div>
                       </button>
                     </div>
-                    <div className="divide-y divide-slate-100">
-                      {stats?.categories && stats.categories.length > 0 ? (
-                        stats.categories.map((c, i) => (
-                          <div key={i} className="px-6 py-4 flex items-center justify-between text-xs">
-                            <div className="space-y-1 flex-1 max-w-sm">
-                              <span className="font-bold text-slate-800">{c.category}</span>
-                              <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-blue-500" 
-                                  style={{ width: `${Math.round((c.completed / (c.total || 1)) * 100)}%` }}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-6 text-slate-500 text-[11px]">
-                              <span>總計 {c.total} 個任務</span>
-                              <span className="text-emerald-600 font-bold">已完成 {c.completed}</span>
-                              <span className="text-slate-400 font-semibold">待複習 {c.uncompleted}</span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-8 text-center text-xs text-slate-400">
-                          尚無登錄的筆記或複習任務分類，現在就去建立吧！
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </section>
                 </div>
               )}
 
