@@ -227,16 +227,24 @@ export function renderMentorionMarkdown(md: string): string {
       continue;
     }
 
-    const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+    const olMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
     if (olMatch) {
+      const startNum = Number(olMatch[2]);
       if (listType !== "ol") {
         closeList();
-        out.push("<ol>");
+        out.push(startNum !== 1 ? `<ol start="${startNum}">` : "<ol>");
         listType = "ol";
       }
       const indentLevel = Math.min(3, Math.floor(olMatch[1].length / 2));
       const styleAttr = indentLevel > 0 ? ` style="margin-left:${indentLevel * 20}px"` : "";
-      out.push(`<li${styleAttr}>${renderInline(olMatch[2])}</li>`);
+      out.push(`<li${styleAttr}>${renderInline(olMatch[3])}</li>`);
+      continue;
+    }
+
+    // Indented continuation line inside an active list item (e.g., FAQ answer line under "1. Question")
+    if (listType && /^\s{2,}/.test(line) && out.length > 0 && out[out.length - 1].endsWith("</li>")) {
+      const prev = out.pop()!;
+      out.push(prev.slice(0, -5) + `<div class="mt-1.5 font-normal text-zinc-600">${renderInline(trimmed)}</div></li>`);
       continue;
     }
 
