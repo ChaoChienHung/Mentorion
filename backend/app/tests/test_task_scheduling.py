@@ -167,3 +167,45 @@ def test_complete_task_sm2_defaults_to_scheduled_date_anchor():
             db.close()
     finally:
         app.dependency_overrides.clear()
+
+
+def test_record_review_by_source_anchor_options():
+    client, SessionLocal = _make_test_client()
+    try:
+        note_id, _ = _seed_note_and_task(SessionLocal, scheduled_date="2026-11-20")
+        db = SessionLocal()
+        try:
+            note = db.query(DBNote).filter(DBNote.id == note_id).first()
+            note.source_doc_id = "doc.anchor_external"
+            db.commit()
+        finally:
+            db.close()
+
+        # Default anchor_option="B" -> adds 1d to scheduled_date (2026-11-20 -> 2026-11-21)
+        res_b = client.post(
+            "/api/review/record-by-source",
+            json={
+                "source_doc_id": "doc.anchor_external",
+                "mode": "sm2",
+                "rating": 4,
+                "actual_date": "2026-11-25",
+            },
+        )
+        assert res_b.status_code == 200
+        assert res_b.json()["next_review_date"] == "2026-11-21"
+
+        # Explicit anchor_option="A" -> adds 6d (2nd rep) to actual_date (2026-11-25 -> 2026-12-01)
+        res_a = client.post(
+            "/api/review/record-by-source",
+            json={
+                "source_doc_id": "doc.anchor_external",
+                "mode": "sm2",
+                "rating": 4,
+                "anchor_option": "A",
+                "actual_date": "2026-11-25",
+            },
+        )
+        assert res_a.status_code == 200
+        assert res_a.json()["next_review_date"] == "2026-12-01"
+    finally:
+        app.dependency_overrides.clear()

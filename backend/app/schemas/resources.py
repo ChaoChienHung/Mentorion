@@ -116,6 +116,8 @@ class ExternalReviewRecordRequest(BaseModel):
     mode: Literal["sm2", "custom_date"] = "sm2"
     rating: int = Field(default=4, ge=0, le=5)
     next_review_date: Optional[str] = None
+    anchor_option: Literal["A", "B"] = "B"
+    actual_date: Optional[str] = None
 
 
 class ExternalReviewRecordResponse(BaseModel):

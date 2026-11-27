@@ -2038,6 +2038,9 @@ def record_review_by_source(
     reps = int(note.repetitions or 0)
     prev_interval = int(note.interval_days or 0)
 
+    actual_date_str = (payload.actual_date or "").strip() or today_str
+    anchor_date = actual_date_str if payload.anchor_option == "A" else pending_task.scheduled_date
+
     if payload.mode == "custom_date":
         if not payload.next_review_date:
             raise HTTPException(status_code=400, detail="next_review_date (YYYY-MM-DD) is required for custom_date mode.")
@@ -2045,8 +2048,11 @@ def record_review_by_source(
             target_dt = datetime.strptime(payload.next_review_date.strip(), "%Y-%m-%d")
         except ValueError:
             raise HTTPException(status_code=400, detail="next_review_date must be YYYY-MM-DD.")
-        today_dt = datetime.strptime(today_str, "%Y-%m-%d")
-        interval_days = max(1, (target_dt - today_dt).days)
+        try:
+            anchor_dt = datetime.strptime(anchor_date, "%Y-%m-%d")
+        except ValueError:
+            anchor_dt = datetime.strptime(today_str, "%Y-%m-%d")
+        interval_days = max(1, (target_dt - anchor_dt).days)
         reps += 1
         next_review_date = payload.next_review_date.strip()
     else:
@@ -2063,7 +2069,7 @@ def record_review_by_source(
                 interval_days = max(1, min(365, round(max(1, prev_interval) * ef)))
             reps += 1
         ef = max(1.3, ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
-        next_review_date = add_days(today_str, interval_days)
+        next_review_date = add_days(anchor_date, interval_days)
 
     note.ease_factor = round(ef, 4)
     note.repetitions = reps
@@ -2106,7 +2112,7 @@ def record_review_by_source(
             type="review_done",
             title=note.title,
             remarks=f"{payload.mode.upper()} · grade={payload.rating} · next={next_review_date}",
-            event_date=today_str,
+            event_date=actual_date_str,
             note_id=note.id,
             created_at=now_iso,
         )
