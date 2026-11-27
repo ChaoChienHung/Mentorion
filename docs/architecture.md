@@ -24,11 +24,6 @@
 - 目標：提供 Review Journal / Calendar 的 UI 元件與互動層。
 - 邊界：不保存主資料，只消費 Mentorion 提供的 note / review / journal event 資料。
 
-### Streamlit
-
-- 目標：快速原型或內部工具。
-- 原則：若與 Web 功能重疊，優先改為呼叫後端 API，避免兩套行為分歧。
-
 ## Data Flow（Notes）
 
 1. 使用者提供 URL 或 raw content

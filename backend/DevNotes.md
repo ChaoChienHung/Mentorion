@@ -1,13 +1,13 @@
 # Development Notes
 
 1. **Backend-Owned Storage (Source of Truth)**:
-In Mentorion, all authoritative user learning data (notes, parsed articles, AI outputs, review metadata) should be **owned** and **persisted** by the **backend layer**. This ensures **data consistency**, **reproducibility of AI results**, and **clean separation of concerns**. The backend—not the frontend or Streamlit UI—decides when and how data is stored.
+In Mentorion, all authoritative user learning data (notes, parsed articles, AI outputs, review metadata) should be **owned** and **persisted** by the **backend layer**. This ensures **data consistency**, **reproducibility of AI results**, and **clean separation of concerns**. The backend—not the frontend UI—decides when and how data is stored.
    1. **Guiding Rule for Data Placement**:
-   If **losing the data would be painful or break learning continuity**, it **belongs in backend storage**. **If losing it would only affect user convenience or UI state**, it may **live in frontend or Streamlit-local storage**.
+   If **losing the data would be painful or break learning continuity**, it **belongs in backend storage**. **If losing it would only affect user convenience or UI state**, it may **live in frontend-local storage**.
    1. **Meaning of “Local” Storage in Backend Context**:
    **“Local storage”** refers to **storage that is local to the machine where the backend is running** (e.g., SQLite files or JSON on disk), **not storage in the user’s browser**. Whether the backend runs on a developer’s laptop or a remote server, backend-local storage is still considered local if it resides on the same machine as the backend process.
-   1. **Frontend / Streamlit Storage Is Non-Authoritative**:
-   **Frontend** or **Streamlit-local storage** should be **used only for temporary** or **auxiliary data**, such as **draft notes**, **cached views**, **UI state**, or **offline edits awaiting sync**. It **must not be treated as the primary** or **canonical store for user learning data**, as it **lacks consistency guarantees** and does not scale to multi-device usage.
+   1. **Frontend Storage Is Non-Authoritative**:
+   **Frontend-local storage** should be **used only for temporary** or **auxiliary data**, such as **draft notes**, **cached views**, **UI state**, or **offline edits awaiting sync**. It **must not be treated as the primary** or **canonical store for user learning data**, as it **lacks consistency guarantees** and does not scale to multi-device usage.
 
 
 1. **Storage Is Part of the Backend, but a Separate Concern**:

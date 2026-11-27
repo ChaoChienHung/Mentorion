@@ -33,5 +33,4 @@ npm run build
 
 - Backend：`backend/app/**`
 - Frontend：`frontend/**`
-- Streamlit：`Streamlit/**`
 - Docs：`README.md`、`AGENTS.md`、`docs/**`、`TODO.md`

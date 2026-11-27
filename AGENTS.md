@@ -15,7 +15,7 @@
 4. 契約變更需同步
    - 任何 API request/response、資料表、配置項（env）的變更，都必須同步更新 docs/ 與 README。
 5. 最小耦合
-   - Web 前端（React）與 Streamlit 都應透過後端 API 或共用抽象互動，避免兩套行為分歧。
+   - Web 前端（React）僅透過後端 HTTP API 互動，不在前端重複業務邏輯與排程計算。
 6. 本地優先與可組合邊界（Local-First & Composable Suite）
    - **免強制登入**：個人本地端複習工具預設單人模式直接進入工作區，不設阻擋式登入頁。
    - **外部知識庫只讀（Read-Only）**：Mentorion 透過 `schemas/*.json` 讀取外部 Markdown 資料夾（如 `Nexus-Vault`），**絕不**在外部知識庫中建立新筆記或寫入題庫檔案；所有排程、作答紀錄與集中題庫皆由 Mentorion SQLite 擁有。
@@ -27,7 +27,7 @@
 ### Maintainer（Repo Owner）
 
 - 擁有合併權，維護架構一致性與 Non‑negotiables。
-- 決定跨模組改動（Backend/Frontend/Streamlit/Docs）的取捨與優先順序。
+- 決定跨模組改動（Backend/Frontend/Docs）的取捨與優先順序。
 - 維護 docs/ 的 Doc Map 與本文件。
 
 ### Backend Engineer（FastAPI / DB）
@@ -66,11 +66,6 @@
 
 - 僅透過 HTTP 呼叫後端。
 - Review mode UI 由前端主導，但排程邏輯（SM‑2）由後端保存與計算，確保一致性。
-
-### Streamlit（Streamlit）
-
-- 優先定位為快速原型或內部工具。
-- 若功能與 Web 前端重疊，應優先復用後端 API，避免重複實作與行為分歧。
 
 ## 協作流程
 

@@ -53,13 +53,9 @@
   - [ ] 新增對應 API 規劃，例如 `POST /notes/from-image`
   - [ ] 前端提供上傳預覽、轉換結果確認、失敗重試
 
-### Streamlit（避免分歧）
-
-- [ ] 串接 backend API 或共用 domain logic（避免兩套行為分歧）
-
 ### 交付條件（P1）
 
-- [ ] 可以從 UI（Frontend 或 Streamlit）建立/更新一筆 note，並在 DB 中可查到
+- [ ] 可以從 Frontend UI 建立/更新一筆 note，並在 DB 中可查到
 - [ ] 複習模式可走完一輪：取 due → 顯示題目 → 0-5 打分 → next_due 更新
 - [ ] Review 與 Notes 的核心 API 皆有測試覆蓋（不依賴外網/金鑰）
 
