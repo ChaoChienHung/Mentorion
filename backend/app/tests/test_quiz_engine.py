@@ -130,3 +130,43 @@ def test_mcq_validation_rejects_answer_not_in_options():
             ],
             "llm",
         )
+
+
+def test_generate_questions_with_related_concepts_context():
+    captured_prompts = []
+
+    class FakeModels:
+        def generate_content(self, model, contents, config):
+            captured_prompts.append(contents)
+            return SimpleNamespace(
+                function_calls=[
+                    SimpleNamespace(
+                        name="submit_quiz_questions",
+                        args={
+                            "questions": [
+                                {
+                                    "type": "short_answer",
+                                    "prompt": "Compare Attention with RNN sequence processing.",
+                                    "answer": "Attention computes pairwise token interactions in parallel, unlike RNN recurrence.",
+                                    "explanation": "Cross-concept contrast.",
+                                }
+                            ]
+                        },
+                    )
+                ]
+            )
+
+    fake_client = SimpleNamespace(models=FakeModels())
+    qs = generate_questions_via_function_calling(
+        title="Attention",
+        content="Scaled dot-product attention computes weighted sums.",
+        count=1,
+        question_types=("short_answer",),
+        related_concepts=[
+            {"label": "RNN", "relation": "contrasts_with", "summary": "Sequential hidden state update"}
+        ],
+        client=fake_client,
+    )
+    assert len(qs) == 1
+    assert "Related Neighbor Concepts" in captured_prompts[0]
+    assert "RNN (contrasts_with)" in captured_prompts[0]

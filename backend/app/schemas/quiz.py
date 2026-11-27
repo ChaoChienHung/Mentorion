@@ -112,8 +112,15 @@ class QuizLoadRequest(BaseModel):
     language: Optional[str] = None
 
 
+class RelatedConceptContext(BaseModel):
+    label: str = Field(..., min_length=1)
+    relation: str = "relates_to"
+    summary: str = ""
+
+
 class QuizGenerateRequest(BaseModel):
     note_id: Optional[int] = None
+    source_doc_id: Optional[str] = None
     title: str
     content: str
     count: int = Field(default=3, ge=1, le=10)
@@ -121,6 +128,7 @@ class QuizGenerateRequest(BaseModel):
         default_factory=lambda: ["mcq", "short_answer", "short_essay"]
     )
     language: Optional[str] = None
+    related_concepts: List[RelatedConceptContext] = Field(default_factory=list)
 
 
 class QuizResponse(BaseModel):

@@ -1240,8 +1240,10 @@ def generate_quiz_questions(
     existing_prompts: list[str] = []
     if payload.note_id is not None:
         db_note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
-        if db_note:
-            existing_prompts = [q.prompt for q in get_questions_for_note(db, db_note)]
+    elif payload.source_doc_id:
+        db_note = db.query(DBNote).filter(DBNote.source_doc_id == payload.source_doc_id).first()
+    if db_note:
+        existing_prompts = [q.prompt for q in get_questions_for_note(db, db_note)]
 
     try:
         llm_qs = generate_questions_via_function_calling(
@@ -1250,6 +1252,7 @@ def generate_quiz_questions(
             count=payload.count,
             question_types=payload.question_types,
             existing_prompts=existing_prompts,
+            related_concepts=[c.model_dump() for c in payload.related_concepts],
             language=payload.language,
         )
     except RuntimeError as exc:

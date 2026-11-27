@@ -163,6 +163,7 @@ def generate_questions_via_function_calling(
     question_types: Sequence[QuestionType] = ("mcq", "short_answer", "short_essay"),
     existing_prompts: Sequence[str] = (),
     extra_resources_context: str = "",
+    related_concepts: Sequence[Dict[str, str]] = (),
     language: Optional[str] = None,
     client: Any = None,
     model: Optional[str] = None,
@@ -189,6 +190,23 @@ def generate_questions_via_function_calling(
             f"{extra_resources_context.strip()[:6000]}\n"
         )
 
+    concepts_block = ""
+    if related_concepts:
+        c_lines = []
+        for c in related_concepts[:10]:
+            lbl = str(c.get("label", "")).strip()
+            rel = str(c.get("relation", "relates_to")).strip() or "relates_to"
+            summary = str(c.get("summary", "")).strip()
+            if lbl:
+                c_lines.append(f"- {lbl} ({rel}){': ' + summary[:240] if summary else ''}")
+        if c_lines:
+            concepts_block = (
+                "\nRelated Neighbor Concepts (graph context — craft at least 1 cross-concept comparison, "
+                "contrast, or dependency question connecting the core note with these neighbor concepts):\n"
+                + "\n".join(c_lines)
+                + "\n"
+            )
+
     lang_instruction = ""
     if language == "zh-Hant":
         lang_instruction = "- Output ALL prompts, options, blanks, answers, rubrics, reference_points, and explanations strictly in Traditional Chinese (繁體中文).\n"
@@ -206,7 +224,8 @@ def generate_questions_via_function_calling(
         f"{lang_instruction}"
         f"- Call the `submit_quiz_questions` function with the result.\n"
         f"{dedup_block}"
-        f"{resources_block}\n"
+        f"{resources_block}"
+        f"{concepts_block}\n"
         f"Title: {title}\n\n"
         f"Content:\n{content[:12000]}"
     )
