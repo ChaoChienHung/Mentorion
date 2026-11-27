@@ -703,7 +703,7 @@ export default function App() {
             }`}
           >
             <Sparkles size={18} strokeWidth={1.75} />
-            <span>{lang === "zh-Hant" ? "AI 教練" : "AI Coach"}</span>
+            <span>{lang === "zh-Hant" ? "AI 導師" : "AI Mentor"}</span>
           </button>
 
           <div className="pt-4 border-t border-zinc-800/80 my-4" />
@@ -910,10 +910,12 @@ export default function App() {
                         </div>
                         <div className="space-y-1">
                           <div className="text-base font-semibold text-zinc-950">
-                            {lang === "zh-Hant" ? "AI 教練" : "AI Coach"}
+                            {lang === "zh-Hant" ? "AI 導師" : "AI Mentor"}
                           </div>
                           <div className="text-xs text-zinc-500">
-                            {lang === "zh-Hant" ? "智慧重排、頑固筆記診斷與題庫治理" : "Rescheduler, diagnosis & Bloom audit"}
+                            {lang === "zh-Hant"
+                              ? "資源探索、跨來源出題、智慧重排與題庫治理"
+                              : "Resource research, rescheduler, diagnosis & Bloom audit"}
                           </div>
                         </div>
                       </button>

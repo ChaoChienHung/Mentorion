@@ -71,3 +71,21 @@ Request body（概念）：
 設計原則：
 - 回傳仍沿用 `Note` schema
 - 實作路線可選外部多模態 API（如 Gemini）或自建 VLM
+
+---
+
+## Multi-LLM Status & Switching
+
+- `GET /api/llm/status`：回傳目前偵測到的各 LLM Provider（`gemini` / `openai` / `anthropic`）、啟用引擎、功能能力開關（`quiz_generation`、`essay_grading`、`study_mentor`、`resource_discovery`、`resource_summarize`）與鎖定原因。
+- `POST /api/llm/provider`：執行期切換啟用中的已設定 Provider（`{"provider": "gemini" | "openai" | "anthropic" | "auto"}`）。
+
+## AI Mentor Research & External Resources（Read-Only Notes）
+
+所有外部資源與摘要皆存於 Mentorion SQLite（`note_resources`），絕不改寫原筆記：
+
+- `POST /api/resources/discover`：透過 Gemini Google Search Grounding 依 `note_id` 或 `topic` 探索真實外部學習連結（非 Gemini 回傳 `403`；無 API Key 回傳 `503`）。
+- `GET /api/resources?note_id=<id>`：列出已收藏的參考資源清單。
+- `POST /api/resources`：手動或從探索結果收藏外部資源至 SQLite。
+- `DELETE /api/resources/{resource_id}`：移除收藏資源。
+- `POST /api/resources/{resource_id}/summarize`：使用 `Scraper` 抓取網頁內容並由目前 LLM 生成重點摘要。
+- `POST /api/resources/cross-source-quiz`：結合原筆記與勾選的外部資源（含摘要）生成跨來源進階測驗題並去重存入集中題庫。

@@ -1,6 +1,7 @@
 venv
 secret.txt
 .env
+.env.local
 .pytest_cache
 __pycache__/
 *.pyc
@@ -9,5 +10,8 @@ logs/
 backend/app/logs/
 *.log
 backend/data/app.db
+data/app.db
+data/app.db-shm
+data/app.db-wal
 frontend/dist/
 frontend/node_modules/

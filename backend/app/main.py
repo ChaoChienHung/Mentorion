@@ -34,6 +34,13 @@ def _ensure_sqlite_columns():
         "journal_events": {
             "user_id": "INTEGER NOT NULL DEFAULT 1",
         },
+        "note_resources": {
+            "note_id": "INTEGER",
+            "topic": "VARCHAR",
+            "source_type": "VARCHAR NOT NULL DEFAULT 'web'",
+            "relevance_note": "VARCHAR NOT NULL DEFAULT ''",
+            "summary": "VARCHAR",
+        },
     }
     with engine.begin() as conn:
         for table_name, cols in expected_tables.items():

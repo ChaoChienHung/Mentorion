@@ -42,6 +42,27 @@ from ...db.models import (
     JournalEvent as DBJournalEvent,
     User as DBUser,
     SchemaSource as DBSchemaSource,
+    NoteResource as DBNoteResource,
+)
+from ...core.llm import (
+    LLMNotConfiguredError,
+    UnsupportedCapabilityError,
+    get_llm_status,
+    set_runtime_provider,
+)
+from ...domain.resource_researcher import (
+    discover_related_resources,
+    summarize_scraped_resource,
+)
+from ...domain.scraper import Scraper
+from ...schemas.resources import (
+    CrossSourceQuizRequest,
+    LLMProviderSwitchRequest,
+    LLMStatusResponse,
+    NoteResourceCreate,
+    NoteResourceResponse,
+    ResourceDiscoverRequest,
+    ResourceDiscoverResponse,
 )
 from ...schemas.user import UserCreate, UserUpdate, UserResponse, Token
 from ...core.security import verify_password, get_password_hash, create_access_token
@@ -1837,4 +1858,481 @@ def coach_apply_cram_tasks(
     return {"ok": True, "created": created}
 
 
+# ---------------------------------------------------------------------------
+# Multi-LLM Status & Provider Switching
+# ---------------------------------------------------------------------------
+
+
+@router.get("/llm/status", response_model=LLMStatusResponse)
+def llm_status():
+    """Detect configured LLM API keys, active provider, and feature capability locks."""
+    return get_llm_status()
+
+
+@router.post("/llm/provider", response_model=LLMStatusResponse)
+def llm_switch_provider(payload: LLMProviderSwitchRequest):
+    """Switch active runtime LLM provider ('gemini', 'openai', 'anthropic', or 'auto')."""
+    try:
+        set_runtime_provider(payload.provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return get_llm_status()
+
+
+# ---------------------------------------------------------------------------
+# AI Mentor Research: Related Resources, Scraping Summary & Cross-Source Quiz
+# (All persisted in Mentorion SQLite; external notes remain strictly Read-Only)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_resource(row: DBNoteResource) -> NoteResourceResponse:
+    return NoteResourceResponse(
+        id=row.id,
+        note_id=row.note_id,
+        topic=row.topic,
+        title=row.title,
+        url=row.url,
+        source_type=row.source_type,
+        relevance_note=row.relevance_note or "",
+        summary=row.summary,
+        created_at=row.created_at,
+    )
+
+
+@router.post("/resources/discover", response_model=ResourceDiscoverResponse)
+def discover_resources_endpoint(
+    payload: ResourceDiscoverRequest,
+    db: Session = Depends(get_db),
+):
+    """Discover verified external learning links via Gemini Google Search Grounding."""
+    title = (payload.topic or "").strip()
+    content = ""
+
+    if payload.note_id is not None:
+        note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found")
+        title = note.title
+        content = note.content or ""
+
+    if not title:
+        raise HTTPException(status_code=400, detail="Provide either note_id or topic.")
+
+    try:
+        synthesis, items, provider_id, model_name = discover_related_resources(
+            title=title,
+            content=content,
+            query=payload.query,
+            max_results=payload.max_results,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except UnsupportedCapabilityError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Resource discovery failed: {exc}")
+
+    return ResourceDiscoverResponse(
+        synthesis=synthesis,
+        resources=items,
+        provider=provider_id,
+        model=model_name,
+    )
+
+
+@router.get("/resources", response_model=List[NoteResourceResponse])
+def list_saved_resources(
+    note_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """List saved external reference resources stored in Mentorion SQLite."""
+    q = db.query(DBNoteResource)
+    if note_id is not None:
+        q = q.filter(DBNoteResource.note_id == note_id)
+    rows = q.order_by(DBNoteResource.id.desc()).all()
+    return [_serialize_resource(r) for r in rows]
+
+
+@router.post("/resources", response_model=NoteResourceResponse, status_code=201)
+def save_resource(
+    payload: NoteResourceCreate,
+    db: Session = Depends(get_db),
+):
+    """Bookmark a discovered or manual external resource into Mentorion SQLite."""
+    url = payload.url.strip()
+    existing = (
+        db.query(DBNoteResource)
+        .filter(DBNoteResource.note_id == payload.note_id, DBNoteResource.url == url)
+        .first()
+    )
+    if existing:
+        existing.title = payload.title.strip()
+        if payload.relevance_note:
+            existing.relevance_note = payload.relevance_note.strip()
+        if payload.summary:
+            existing.summary = payload.summary
+        db.commit()
+        db.refresh(existing)
+        return _serialize_resource(existing)
+
+    row = DBNoteResource(
+        note_id=payload.note_id,
+        topic=(payload.topic or "").strip() or None,
+        title=payload.title.strip(),
+        url=url,
+        source_type=payload.source_type,
+        relevance_note=payload.relevance_note.strip(),
+        summary=payload.summary,
+        created_at=datetime.utcnow().isoformat(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _serialize_resource(row)
+
+
+@router.delete("/resources/{resource_id}")
+def delete_saved_resource(resource_id: int, db: Session = Depends(get_db)):
+    row = db.query(DBNoteResource).filter(DBNoteResource.id == resource_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    db.delete(row)
+    db.commit()
+    return {"ok": True, "deleted_id": resource_id}
+
+
+@router.post("/resources/{resource_id}/summarize", response_model=NoteResourceResponse)
+async def summarize_saved_resource(resource_id: int, db: Session = Depends(get_db)):
+    """Scrape a saved resource URL and synthesize concise study takeaways with the active LLM."""
+    row = db.query(DBNoteResource).filter(DBNoteResource.id == resource_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    note_title = row.topic or ""
+    if row.note_id:
+        note = db.query(DBNote).filter(DBNote.id == row.note_id).first()
+        if note:
+            note_title = note.title
+
+    scraper = Scraper()
+    scraped = await scraper.scrape_article(row.url)
+    if not scraped.get("success") or not (scraped.get("text") or "").strip():
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to scrape resource URL: {scraped.get('error') or 'Empty page content'}",
+        )
+
+    try:
+        summary_text = summarize_scraped_resource(
+            url=row.url,
+            scraped_title=str(scraped.get("title") or row.title),
+            scraped_text=str(scraped.get("text") or ""),
+            note_title=note_title,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"LLM summarization failed: {exc}")
+
+    row.summary = summary_text
+    db.commit()
+    db.refresh(row)
+    return _serialize_resource(row)
+
+
+@router.post("/resources/cross-source-quiz", response_model=QuizResponse)
+def generate_cross_source_quiz(
+    payload: CrossSourceQuizRequest,
+    db: Session = Depends(get_db),
+):
+    """Generate advanced cross-source quiz questions combining a Read-Only note with saved external resources."""
+    note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    q = db.query(DBNoteResource)
+    if payload.resource_ids:
+        q = q.filter(DBNoteResource.id.in_(payload.resource_ids))
+    else:
+        q = q.filter(DBNoteResource.note_id == note.id)
+    resources = q.all()
+    if not resources:
+        raise HTTPException(status_code=400, detail="No saved external resources selected for this note.")
+
+    context_blocks = []
+    for r in resources[:6]:
+        body = (r.summary or r.relevance_note or "").strip()
+        context_blocks.append(f"- [{r.title}]({r.url}) ({r.source_type}):\n  {body[:1500]}")
+    extra_context = "\n".join(context_blocks)
+
+    existing_qs = get_questions_for_note(note.id)
+    existing_prompts = [item.prompt for item in existing_qs]
+
+    try:
+        generated = generate_questions_via_function_calling(
+            title=note.title,
+            content=note.content or "",
+            count=payload.count,
+            existing_prompts=existing_prompts,
+            extra_resources_context=extra_context,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Cross-source quiz generation failed: {exc}")
+
+    added_qs, all_ids = append_questions_for_note(
+        note_id=note.id,
+        category=note.category or "General",
+        new_questions=generated,
+    )
+    note.question_ids = all_ids
+    db.commit()
+
+    return QuizResponse(
+        note_id=note.id,
+        source="llm",
+        questions=added_qs,
+    )
+
+
+
+# ---------------------------------------------------------------------------
+# Multi-LLM Status & Provider Switching
+# ---------------------------------------------------------------------------
+
+
+@router.get("/llm/status", response_model=LLMStatusResponse)
+def llm_status():
+    """Detect configured LLM API keys, active provider, and feature capability locks."""
+    return get_llm_status()
+
+
+@router.post("/llm/provider", response_model=LLMStatusResponse)
+def llm_switch_provider(payload: LLMProviderSwitchRequest):
+    """Switch active runtime LLM provider ('gemini', 'openai', 'anthropic', or 'auto')."""
+    try:
+        set_runtime_provider(payload.provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return get_llm_status()
+
+
+# ---------------------------------------------------------------------------
+# AI Mentor Research: Related Resources, Scraping Summary & Cross-Source Quiz
+# (All persisted in Mentorion SQLite; external notes remain strictly Read-Only)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_resource(row: DBNoteResource) -> NoteResourceResponse:
+    return NoteResourceResponse(
+        id=row.id,
+        note_id=row.note_id,
+        topic=row.topic,
+        title=row.title,
+        url=row.url,
+        source_type=row.source_type,
+        relevance_note=row.relevance_note or "",
+        summary=row.summary,
+        created_at=row.created_at,
+    )
+
+
+@router.post("/resources/discover", response_model=ResourceDiscoverResponse)
+def discover_resources_endpoint(
+    payload: ResourceDiscoverRequest,
+    db: Session = Depends(get_db),
+):
+    """Discover verified external learning links via Gemini Google Search Grounding."""
+    title = (payload.topic or "").strip()
+    content = ""
+
+    if payload.note_id is not None:
+        note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found")
+        title = note.title
+        content = note.content or ""
+
+    if not title:
+        raise HTTPException(status_code=400, detail="Provide either note_id or topic.")
+
+    try:
+        synthesis, items, provider_id, model_name = discover_related_resources(
+            title=title,
+            content=content,
+            query=payload.query,
+            max_results=payload.max_results,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except UnsupportedCapabilityError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Resource discovery failed: {exc}")
+
+    return ResourceDiscoverResponse(
+        synthesis=synthesis,
+        resources=items,
+        provider=provider_id,
+        model=model_name,
+    )
+
+
+@router.get("/resources", response_model=List[NoteResourceResponse])
+def list_saved_resources(
+    note_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """List saved external reference resources stored in Mentorion SQLite."""
+    q = db.query(DBNoteResource)
+    if note_id is not None:
+        q = q.filter(DBNoteResource.note_id == note_id)
+    rows = q.order_by(DBNoteResource.id.desc()).all()
+    return [_serialize_resource(r) for r in rows]
+
+
+@router.post("/resources", response_model=NoteResourceResponse, status_code=201)
+def save_resource(
+    payload: NoteResourceCreate,
+    db: Session = Depends(get_db),
+):
+    """Bookmark a discovered or manual external resource into Mentorion SQLite."""
+    url = payload.url.strip()
+    existing = (
+        db.query(DBNoteResource)
+        .filter(DBNoteResource.note_id == payload.note_id, DBNoteResource.url == url)
+        .first()
+    )
+    if existing:
+        existing.title = payload.title.strip()
+        if payload.relevance_note:
+            existing.relevance_note = payload.relevance_note.strip()
+        if payload.summary:
+            existing.summary = payload.summary
+        db.commit()
+        db.refresh(existing)
+        return _serialize_resource(existing)
+
+    row = DBNoteResource(
+        note_id=payload.note_id,
+        topic=(payload.topic or "").strip() or None,
+        title=payload.title.strip(),
+        url=url,
+        source_type=payload.source_type,
+        relevance_note=payload.relevance_note.strip(),
+        summary=payload.summary,
+        created_at=datetime.utcnow().isoformat(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _serialize_resource(row)
+
+
+@router.delete("/resources/{resource_id}")
+def delete_saved_resource(resource_id: int, db: Session = Depends(get_db)):
+    row = db.query(DBNoteResource).filter(DBNoteResource.id == resource_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    db.delete(row)
+    db.commit()
+    return {"ok": True, "deleted_id": resource_id}
+
+
+@router.post("/resources/{resource_id}/summarize", response_model=NoteResourceResponse)
+async def summarize_saved_resource(resource_id: int, db: Session = Depends(get_db)):
+    """Scrape a saved resource URL and synthesize concise study takeaways with the active LLM."""
+    row = db.query(DBNoteResource).filter(DBNoteResource.id == resource_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    note_title = row.topic or ""
+    if row.note_id:
+        note = db.query(DBNote).filter(DBNote.id == row.note_id).first()
+        if note:
+            note_title = note.title
+
+    scraper = Scraper()
+    scraped = await scraper.scrape_article(row.url)
+    if not scraped.get("success") or not (scraped.get("text") or "").strip():
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to scrape resource URL: {scraped.get('error') or 'Empty page content'}",
+        )
+
+    try:
+        summary_text = summarize_scraped_resource(
+            url=row.url,
+            scraped_title=str(scraped.get("title") or row.title),
+            scraped_text=str(scraped.get("text") or ""),
+            note_title=note_title,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"LLM summarization failed: {exc}")
+
+    row.summary = summary_text
+    db.commit()
+    db.refresh(row)
+    return _serialize_resource(row)
+
+
+@router.post("/resources/cross-source-quiz", response_model=QuizResponse)
+def generate_cross_source_quiz(
+    payload: CrossSourceQuizRequest,
+    db: Session = Depends(get_db),
+):
+    """Generate advanced cross-source quiz questions combining a Read-Only note with saved external resources."""
+    note = db.query(DBNote).filter(DBNote.id == payload.note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    q = db.query(DBNoteResource)
+    if payload.resource_ids:
+        q = q.filter(DBNoteResource.id.in_(payload.resource_ids))
+    else:
+        q = q.filter(DBNoteResource.note_id == note.id)
+    resources = q.all()
+    if not resources:
+        raise HTTPException(status_code=400, detail="No saved external resources selected for this note.")
+
+    context_blocks = []
+    for r in resources[:6]:
+        body = (r.summary or r.relevance_note or "").strip()
+        context_blocks.append(f"- [{r.title}]({r.url}) ({r.source_type}):\n  {body[:1500]}")
+    extra_context = "\n".join(context_blocks)
+
+    existing_qs = get_questions_for_note(db, note)
+    existing_prompts = [item.prompt for item in existing_qs]
+
+    try:
+        generated = generate_questions_via_function_calling(
+            title=note.title,
+            content=note.content or "",
+            count=payload.count,
+            existing_prompts=existing_prompts,
+            extra_resources_context=extra_context,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Cross-source quiz generation failed: {exc}")
+
+    all_qs, added_count = append_questions_for_note(
+        db=db,
+        note=note,
+        new_questions=generated,
+    )
+
+    return QuizResponse(
+        note_id=note.id,
+        source="llm",
+        questions=all_qs[-added_count:] if added_count > 0 else generated,
+    )
 

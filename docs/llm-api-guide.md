@@ -1,17 +1,29 @@
 # Mentorion LLM API 串接指南
 
-本文件說明 Mentorion 如何透過 **Google Gemini API（`google-genai` SDK + Function Calling）** 進行結構化出題、申論題自動批改，以及如何在無 API Key 時降級為手動 Copy Prompt 工作流，或替換為其他 LLM Provider。
+本文件說明 Mentorion 的**統一多 LLM Provider 抽象層**（`backend/app/core/llm/`），支援 **Google Gemini**、**OpenAI（GPT / Codex）** 與 **Anthropic Claude**，並提供 API Key 自動偵測、能力鎖定（Capability Gating）、結構化出題／批改，以及 AI 導師的 NotebookLM 風格外部資源探索。
 
 ---
 
-## 1. 環境變數與設定
+## 1. 環境變數與多 Provider 能力矩陣
 
-Mentorion 後端啟動時會從環境變數（或專案根目錄 `.env`）讀取設定，定義位於 `backend/app/core/config.py`：
+Mentorion 後端啟動時會從環境變數（或專案根目錄 `.env`）動態偵測可用的 Provider，定義位於 `backend/app/core/config.py` 與 `backend/app/core/llm/`：
 
 | 環境變數 | 必填 | 預設值 | 說明 |
 | :--- | :---: | :--- | :--- |
-| `GEMINI_API_KEY` | 啟用 LLM 功能時必填 | `None` | Google AI Studio / Gemini API Key（**嚴禁提交至 Git**） |
-| `GEMINI_MODEL` | 否 | `gemini-2.5-flash` | 用於出題與批改的 Gemini 模型 ID（例如 `gemini-2.5-flash`、`gemini-2.5-pro`） |
+| `LLM_PROVIDER` | 否 | `auto` | 指定預設引擎：`auto`（依 `gemini -> openai -> anthropic` 自動選用）或手動指定 |
+| `GEMINI_API_KEY` | 啟用 Gemini 時 | `None` | Google Gemini API Key（支援 Function Calling + **Google Search Grounding**） |
+| `GEMINI_MODEL` | 否 | `gemini-2.5-flash` | Gemini 模型 ID |
+| `OPENAI_API_KEY` | 啟用 OpenAI 時 | `None` | OpenAI API Key（支援 GPT / Codex Tool Calling；**外部資源探索鎖定**） |
+| `OPENAI_MODEL` | 否 | `gpt-4o-mini` | OpenAI 模型 ID |
+| `OPENAI_BASE_URL` | 否 | `None` | 選填，可指向 OpenAI 相容端點 |
+| `ANTHROPIC_API_KEY` | 啟用 Claude 時 | `None` | Anthropic API Key（支援 Tool Use；**外部資源探索鎖定**） |
+| `ANTHROPIC_MODEL` | 否 | `claude-3-5-sonnet-latest` | Claude 模型 ID |
+
+### API Key 自動偵測與功能鎖定策略
+
+- **無任何 API Key**：`GET /api/llm/status` 回傳 `available: false`，所有 `capabilities` 皆為 `false`，前端（AI 導師與測驗面板）自動鎖定所有 LLM 功能按鈕；筆記閱讀、SM-2 排程、手動新增題目、手動收藏連結與「複製出題 Prompt」皆維持可用。
+- **使用 OpenAI / Anthropic**：`quiz_generation`、`essay_grading`、`study_mentor`、`resource_summarize` 全部解鎖；`resource_discovery` 保持鎖定（`POST /api/resources/discover` 回傳 HTTP 403），提示需切換至 Gemini。
+- **使用 Gemini**：全功能解鎖，包含 Google Search Grounding 探索真實外部連結。
 
 ### 設定方式（建議使用 `.env`）
 

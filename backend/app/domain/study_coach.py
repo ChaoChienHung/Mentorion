@@ -7,6 +7,9 @@ from google.genai import types
 
 from ..core.ai_client import create_gemini_client
 from ..core.config import settings
+from ..core.llm import ToolSpec, require_active_provider
+from ..core.llm import ToolSpec, require_active_provider
+from ..core.llm import ToolSpec, require_active_provider
 from ..schemas.coach import (
     LeechNoteItem,
     ProposedCramTask,
@@ -149,13 +152,53 @@ SUBMIT_WEEKLY_DIAGNOSIS_DECL = types.FunctionDeclaration(
 )
 
 
-def _get_client(client: Any = None) -> Any:
-    active = client or create_gemini_client()
-    if active is None:
-        raise RuntimeError(
-            "GEMINI_API_KEY is not configured. Set GEMINI_API_KEY in .env to enable Mentorion LLM Function Calling."
+def _invoke_fc(
+    prompt: str,
+    declarations: Sequence[types.FunctionDeclaration],
+    allowed_names: Sequence[str],
+    temperature: float = 0.2,
+    client: Any = None,
+    model: Optional[str] = None,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Invoke structured Function/Tool Calling via either an injected mock Gemini client
+    (backward-compatible with unit tests) or the active unified LLM provider
+    (Gemini, OpenAI, or Anthropic).
+    """
+    if client is not None:
+        response = client.models.generate_content(
+            model=model or settings.MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(function_declarations=list(declarations))],
+                tool_config=types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(
+                        mode=types.FunctionCallingConfigMode.ANY,
+                        allowed_function_names=list(allowed_names),
+                    )
+                ),
+                temperature=temperature,
+            ),
         )
-    return active
+        return _extract_first_fc(response)
+
+    provider = require_active_provider()
+    specs = [
+        ToolSpec(
+            name=str(d.name),
+            description=str(d.description or ""),
+            parameters=d.parameters,  # type: ignore[arg-type]
+        )
+        for d in declarations
+    ]
+    res = provider.call_tool(
+        prompt=prompt,
+        tools=specs,
+        allowed_tool_names=list(allowed_names),
+        temperature=temperature,
+        model=model,
+    )
+    return res.name, res.args
 
 
 def _extract_first_fc(response: Any) -> Tuple[str, Dict[str, Any]]:
@@ -177,34 +220,26 @@ def plan_reschedule_via_fc(
     client: Any = None,
     model: Optional[str] = None,
 ) -> ReschedulePlanResponse:
-    active_client = _get_client(client)
     today = today_str or datetime.now().strftime("%Y-%m-%d")
     task_lines = "\n".join(
         f"- task_id={t['id']} | date={t['scheduled_date']} | title={t['note_title']} | ease={t.get('ease_factor', 2.5)} | type={t['type']}"
         for t in pending_tasks
     )
     prompt = (
-        f"Today is {today}. You are Mentorion's spaced-repetition scheduling coach.\n"
+        f"Today is {today}. You are Mentorion's spaced-repetition scheduling mentor.\n"
         f"User instruction: {instruction}\n\n"
         f"Pending tasks:\n{task_lines or '(none)'}\n\n"
         "Call `propose_reschedule` with ONLY valid task_ids from the list above and YYYY-MM-DD dates. "
         "Preserve high-priority or low-ease tasks earlier when balancing load."
     )
-    response = active_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(function_declarations=[PROPOSE_RESCHEDULE_DECL])],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowed_function_names=["propose_reschedule"],
-                )
-            ),
-            temperature=0.2,
-        ),
+    _, args = _invoke_fc(
+        prompt=prompt,
+        declarations=[PROPOSE_RESCHEDULE_DECL],
+        allowed_names=["propose_reschedule"],
+        temperature=0.2,
+        client=client,
+        model=model,
     )
-    _, args = _extract_first_fc(response)
     by_id = {int(t["id"]): t for t in pending_tasks}
     moves: List[RescheduleMove] = []
     for m in args.get("moves") or []:
@@ -234,7 +269,6 @@ def generate_remediation_via_fc(
     client: Any = None,
     model: Optional[str] = None,
 ) -> Tuple[str, List[QuizQuestionItem]]:
-    active_client = _get_client(client)
     dedup_block = (
         "\nExisting questions to AVOID duplicating:\n"
         + "\n".join(f"- {p}" for p in existing_prompts[:25])
@@ -242,7 +276,7 @@ def generate_remediation_via_fc(
         else ""
     )
     prompt = (
-        f"You are Mentorion's weak-spot remediation coach.\n"
+        f"You are Mentorion's weak-spot remediation mentor.\n"
         f"The learner struggled on this question for note '{title}':\n"
         f"- Missed Question: {missed_prompt}\n"
         f"- Learner's Answer: {user_answer or '(blank / incorrect)'}\n"
@@ -252,21 +286,14 @@ def generate_remediation_via_fc(
         f"Call `submit_quiz_questions`.{dedup_block}\n\n"
         f"Note content:\n{content[:10000]}"
     )
-    response = active_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(function_declarations=[QUIZ_FUNCTION_DECLARATION])],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowed_function_names=["submit_quiz_questions"],
-                )
-            ),
-            temperature=0.3,
-        ),
+    _, args = _invoke_fc(
+        prompt=prompt,
+        declarations=[QUIZ_FUNCTION_DECLARATION],
+        allowed_names=["submit_quiz_questions"],
+        temperature=0.3,
+        client=client,
+        model=model,
     )
-    _, args = _extract_first_fc(response)
     qs = validate_questions(args.get("questions") or [], "llm")
     target_gap = gap_notes or f"Targeted remediation for: {missed_prompt[:80]}"
     return target_gap, qs
@@ -278,7 +305,6 @@ def audit_question_bank_via_fc(
     client: Any = None,
     model: Optional[str] = None,
 ) -> Tuple[Dict[str, BloomLevel], List[str], str]:
-    active_client = _get_client(client)
     q_lines = "\n".join(
         f"- id={q.id} | type={q.type} | prompt={q.prompt}"
         for q in questions
@@ -290,21 +316,14 @@ def audit_question_bank_via_fc(
         "2. List any semantically duplicate question IDs in `drop_duplicate_ids` (keep the clearest one).\n"
         f"Call `submit_question_audit`.\n\nQuestions:\n{q_lines}"
     )
-    response = active_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(function_declarations=[SUBMIT_AUDIT_DECL])],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowed_function_names=["submit_question_audit"],
-                )
-            ),
-            temperature=0.1,
-        ),
+    _, args = _invoke_fc(
+        prompt=prompt,
+        declarations=[SUBMIT_AUDIT_DECL],
+        allowed_names=["submit_question_audit"],
+        temperature=0.1,
+        client=client,
+        model=model,
     )
-    _, args = _extract_first_fc(response)
     valid_ids = {q.id for q in questions if q.id}
     bloom_tags: Dict[str, BloomLevel] = {}
     for item in args.get("classifications") or []:
@@ -330,7 +349,6 @@ def socratic_probe_via_fc(
     client: Any = None,
     model: Optional[str] = None,
 ) -> SocraticResponse:
-    active_client = _get_client(client)
     ref_text = "\n".join(f"- {p}" for p in reference_points) if reference_points else "(derive from note)"
     prompt = (
         f"You are Mentorion's Socratic Oral Exam Tutor (Round {round_number} of 3).\n"
@@ -344,21 +362,14 @@ def socratic_probe_via_fc(
         f"Source Note Excerpt:\n{content[:8000]}"
     )
     allowed = ["commit_review_rating"] if round_number >= 3 else ["ask_followup_hint", "commit_review_rating"]
-    response = active_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(function_declarations=[ASK_FOLLOWUP_HINT_DECL, COMMIT_REVIEW_RATING_DECL])],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowed_function_names=allowed,
-                )
-            ),
-            temperature=0.25,
-        ),
+    name, args = _invoke_fc(
+        prompt=prompt,
+        declarations=[ASK_FOLLOWUP_HINT_DECL, COMMIT_REVIEW_RATING_DECL],
+        allowed_names=allowed,
+        temperature=0.25,
+        client=client,
+        model=model,
     )
-    name, args = _extract_first_fc(response)
     if name == "ask_followup_hint":
         return SocraticResponse(
             action="hint",
@@ -386,34 +397,26 @@ def diagnose_study_health_via_fc(
     client: Any = None,
     model: Optional[str] = None,
 ) -> WeeklyDiagnosisResponse:
-    active_client = _get_client(client)
     today = today_str or datetime.now().strftime("%Y-%m-%d")
     note_lines = "\n".join(
         f"- note_id={n['id']} | title={n['title']} | category={n['category']} | ease={n['ease_factor']:.2f} | reps={n['repetitions']} | interval={n['interval_days']}d"
         for n in notes_summary
     )
     prompt = (
-        f"Today is {today}. You are Mentorion's Weekly Study Coach.\n"
+        f"Today is {today}. You are Mentorion's Weekly Study Mentor.\n"
         f"Metrics: overdue_tasks={overdue_count}, deficit_points={deficit_points}.\n"
         f"Library Notes:\n{note_lines or '(none)'}\n\n"
         "Identify leech notes (low ease_factor or stalled repetitions), write a concise diagnosis, "
         "and propose up to 3 remedial review tasks with YYYY-MM-DD dates using `submit_weekly_diagnosis`."
     )
-    response = active_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(function_declarations=[SUBMIT_WEEKLY_DIAGNOSIS_DECL])],
-            tool_config=types.ToolConfig(
-                function_calling_config=types.FunctionCallingConfig(
-                    mode=types.FunctionCallingConfigMode.ANY,
-                    allowed_function_names=["submit_weekly_diagnosis"],
-                )
-            ),
-            temperature=0.25,
-        ),
+    _, args = _invoke_fc(
+        prompt=prompt,
+        declarations=[SUBMIT_WEEKLY_DIAGNOSIS_DECL],
+        allowed_names=["submit_weekly_diagnosis"],
+        temperature=0.25,
+        client=client,
+        model=model,
     )
-    _, args = _extract_first_fc(response)
     by_id = {int(n["id"]): n for n in notes_summary}
 
     leeches: List[LeechNoteItem] = []

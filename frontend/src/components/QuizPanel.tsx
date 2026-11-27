@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, Plus, Send, Sparkles, X } from "lucide-react";
+import { Check, Loader2, Lock, Plus, Send, Sparkles, X } from "lucide-react";
 import type { Note } from "../types";
 import { ManualQuestionComposer } from "./ManualQuestionComposer";
 
@@ -75,6 +75,23 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
   const [socraticLoadingIdx, setSocraticLoadingIdx] = useState<number | null>(null);
   const [remediatingIdx, setRemediatingIdx] = useState<number | null>(null);
   const [loadedOnce, setLoadedOnce] = useState(false);
+  const [llmAvailable, setLlmAvailable] = useState<boolean>(true);
+  const [llmLockReason, setLlmLockReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/llm/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        setLlmAvailable(Boolean(data.available));
+        setLlmLockReason(data.lock_reasons?.llm || null);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const loadQuestions = useCallback(
     async (forceLlmOnly: boolean) => {
@@ -254,11 +271,18 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
           </button>
           <button
             type="button"
-            disabled={loading}
+            disabled={loading || !llmAvailable}
             onClick={() => void loadQuestions(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-950 hover:bg-zinc-800 text-white transition-colors cursor-pointer"
+            title={llmAvailable ? undefined : llmLockReason || "LLM API key not configured"}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors cursor-pointer"
           >
-            {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            {loading ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : !llmAvailable ? (
+              <Lock size={13} />
+            ) : (
+              <Sparkles size={13} />
+            )}
             <span>Generate New Questions (LLM)</span>
           </button>
           <button
@@ -278,6 +302,16 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
           onCreated={() => void loadQuestions(false)}
           onClose={() => setComposerOpen(false)}
         />
+      )}
+
+      {!llmAvailable && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs text-zinc-600">
+          <Lock size={13} className="shrink-0 text-zinc-500" />
+          <span>
+            {llmLockReason ||
+              "No LLM API key detected. AI quiz generation, essay grading, and Socratic hints are locked (manual questions & reading remain available)."}
+          </span>
+        </div>
       )}
 
       {error && (
@@ -447,12 +481,14 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
                     <div className="flex flex-wrap items-center gap-2.5">
                       <button
                         type="button"
-                        disabled={gradingIdx === idx || !(essayDrafts[idx] || "").trim()}
+                        disabled={!llmAvailable || gradingIdx === idx || !(essayDrafts[idx] || "").trim()}
                         onClick={() => void handleGradeEssay(idx, q)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 text-white text-xs font-medium cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium cursor-pointer"
                       >
                         {gradingIdx === idx ? (
                           <Loader2 size={13} className="animate-spin" />
+                        ) : !llmAvailable ? (
+                          <Lock size={13} />
                         ) : (
                           <Send size={13} />
                         )}
@@ -460,12 +496,14 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
                       </button>
                       <button
                         type="button"
-                        disabled={socraticLoadingIdx === idx || !(essayDrafts[idx] || "").trim()}
+                        disabled={!llmAvailable || socraticLoadingIdx === idx || !(essayDrafts[idx] || "").trim()}
                         onClick={() => void handleSocraticProbe(idx, q)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-300 bg-white hover:border-zinc-900 disabled:opacity-40 text-zinc-800 text-xs font-medium cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-300 bg-white hover:border-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-800 text-xs font-medium cursor-pointer"
                       >
                         {socraticLoadingIdx === idx ? (
                           <Loader2 size={13} className="animate-spin" />
+                        ) : !llmAvailable ? (
+                          <Lock size={13} />
                         ) : (
                           <Sparkles size={13} />
                         )}
@@ -593,7 +631,7 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
                       <div className="pt-2">
                         <button
                           type="button"
-                          disabled={remediatingIdx === idx}
+                          disabled={!llmAvailable || remediatingIdx === idx}
                           onClick={() =>
                             void handleRemediate(
                               idx,
@@ -602,10 +640,12 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
                               grade ? grade.corrections.join("; ") : "",
                             )
                           }
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-950 hover:text-white text-zinc-900 text-xs font-medium transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-950 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 text-xs font-medium transition-colors cursor-pointer"
                         >
                           {remediatingIdx === idx ? (
                             <Loader2 size={13} className="animate-spin" />
+                          ) : !llmAvailable ? (
+                            <Lock size={13} />
                           ) : (
                             <Sparkles size={13} />
                           )}

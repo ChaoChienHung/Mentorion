@@ -91,3 +91,18 @@ class JournalEvent(Base):
     note_id = Column(Integer, ForeignKey("notes.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(String, nullable=False)
 
+
+class NoteResource(Base):
+    __tablename__ = "note_resources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    note_id = Column(Integer, ForeignKey("notes.id", ondelete="CASCADE"), nullable=True, index=True)
+    topic = Column(String, nullable=True, index=True)
+    title = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    source_type = Column(String, nullable=False, default="web")
+    relevance_note = Column(String, nullable=False, default="")
+    summary = Column(String, nullable=True)
+    created_at = Column(String, nullable=False)
+
+

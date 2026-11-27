@@ -46,17 +46,29 @@ npm run dev
 
 ---
 
-## ⚙️ 環境變數與 LLM API 設定（選填）
+## ⚙️ 環境變數與多 LLM API 設定（選填）
 
-在專案根目錄下建立 `.env`（**請勿提交至 Git**）或在終端機中導出：
+在專案根目錄下建立 `.env`（**請勿提交至 Git**）或在終端機中導出（至少設定其中一組即可啟用 AI 導師與自動出題）：
 ```bash
+# 預設自動偵測（gemini -> openai -> anthropic），亦可透過 LLM_PROVIDER 指定
+export LLM_PROVIDER="auto"
+
+# Google Gemini（完整支援 Function Calling + Google Search 外部資源探索）
 export GEMINI_API_KEY="您的_GEMINI_API_KEY"
-export GEMINI_MODEL="gemini-2.5-flash"   # 可選，預設 gemini-2.5-flash
+export GEMINI_MODEL="gemini-2.5-flash"
+
+# OpenAI（GPT / Codex，支援 Function Calling；外部資源探索將自動鎖定）
+export OPENAI_API_KEY="您的_OPENAI_API_KEY"
+export OPENAI_MODEL="gpt-4o-mini"
+
+# Anthropic Claude（支援 Tool Use；外部資源探索將自動鎖定）
+export ANTHROPIC_API_KEY="您的_ANTHROPIC_API_KEY"
+export ANTHROPIC_MODEL="claude-3-5-sonnet-latest"
 ```
 
-- **串接方式**：後端透過 `google-genai` SDK（`backend/app/core/ai_client.py`）與 Gemini Function Calling（`backend/app/domain/quiz_engine.py`）強制輸出結構化題目（`submit_quiz_questions`）與申論題 0–5 分批改結果（`grade_essay_answer`），並集中存儲於 `data/questions.json`。
-- **無 API Key 降級模式**：未設定 `GEMINI_API_KEY` 時仍可正常閱讀筆記與排程複習，並可使用閱讀器左側工具列的「複製出題 Prompt」手動配合外部 AI 使用。
-- **進階指南**：詳細架構、API 契約與擴充其他 LLM Provider 方式請見 [docs/llm-api-guide.md](docs/llm-api-guide.md)。
+- **統一介面與自動能力鎖定**：後端透過 `backend/app/core/llm/` 統一抽象多 LLM Provider，並提供 `GET /api/llm/status` 即時偵測 API Key。**若未偵測到任何 API Key，前端會自動鎖定所有 LLM 相關功能**（閱讀筆記、排程複習、手動新增題目與「複製出題 Prompt」皆不受影響）；**若使用非 Gemini 引擎，則僅鎖定「外部資源探索」功能**。
+- **結構化出題、資源探索與跨來源研究**：透過 Function Calling 強制輸出結構化題目（`submit_quiz_questions`）與申論題 0–5 分批改（`grade_essay_answer`），並在 **AI 導師** 頁面提供 NotebookLM 風格的外部資源探索（Gemini Google Search Grounding）、收藏、網頁抓取摘要與跨來源進階出題（原筆記全程維持只讀）。
+- **進階指南**：詳細架構、多 Provider 契約與 API 說明請見 [docs/llm-api-guide.md](docs/llm-api-guide.md)。
 
 ---
 
@@ -74,24 +86,85 @@ export GEMINI_MODEL="gemini-2.5-flash"   # 可選，預設 gemini-2.5-flash
 
 ---
 
+## 🔐 私有資料倉分離與整合（Mentorion + Mentorion-Vault）
+
+與 `Nexus` / `Nexus-Vault` 相同的「**公開程式碼引擎 + 私有個人資料倉**」架構：
+- **Mentorion（本專案，公開 Repo）**：只放程式碼、Schema 定義與文件。預設情況下，所有個人資料會統一存放在根目錄的 `data/` 底下。
+- **Mentorion-Vault（獨立私有 Repo）**：集中存放你的個人學習資料（`app.db`、`questions.json` 與 `library/`），可透過環境變數 `MENTORION_VAULT_DIR` 直接覆蓋掉預設的 `data/` 路徑，讓程式碼與個人資料完全分離、又能安心推上私有 GitHub Repo 備份。
+
+### 私有資料倉（`Mentorion-Vault`）標準目錄結構
+
+```text
+Mentorion-Vault/
+├── .gitignore            # 忽略 *.db-shm / *.db-wal / *.db-journal / .DS_Store（保留 app.db 可 commit）
+├── app.db                # SQLite 資料庫（筆記中繼資料、SM-2 排程、任務、複習紀錄、note_resources、schema_sources）
+├── questions.json        # 集中式題庫（與 SQLite notes.question_ids 雙向同步）
+└── library/              # Mentorion 原生 Markdown 筆記（<slug>.md）
+```
+
+### 建立並整合自己的私有資料倉
+
+1. **在 `Mentorion` 同層建立私有資料倉目錄並初始化 Git**：
+```bash
+mkdir -p ../Mentorion-Vault/library
+echo '{"questions": []}' > ../Mentorion-Vault/questions.json
+cat <<'EOF' > ../Mentorion-Vault/.gitignore
+.DS_Store
+*.db-shm
+*.db-wal
+*.db-journal
+EOF
+
+cd ../Mentorion-Vault
+git init -b main
+git add . && git commit -m "chore: initialize Mentorion-Vault"
+# 綁定你在 GitHub 建立的 Private Repo
+git remote add origin https://github.com/<你的帳號>/Mentorion-Vault.git
+git push -u origin main
+```
+
+2. **在 `Mentorion/` 建立 `.env.local`（已列入 `.gitignore`）指向私有資料倉**：
+```bash
+cd ../Mentorion
+cp .env.example .env.local
+```
+確認 `.env.local` 中設定（相對路徑會自動相對於 `Mentorion/` 根目錄解析，亦可填絕對路徑）：
+```env
+MENTORION_VAULT_DIR=../Mentorion-Vault
+```
+
+3. **日常操作與資料同步**：
+   - 啟動後端時會自動讀取 `.env.local`，所有 `app.db`、`questions.json` 與 `library/` 的讀寫都會直接落到 `Mentorion-Vault/`（若未設定 `MENTORION_VAULT_DIR`，則自動退回使用本 repo 預設的 `Mentorion/data/`）。
+   - 複習完畢想備份進度時，在私有資料倉執行 Git 推送即可（建議先停止後端或確認無寫入中的事務，避免 SQLite WAL 檔未合併）：
+```bash
+cd ../Mentorion-Vault
+git status
+git add .
+git commit -m "chore: backup study progress"
+git push origin main
+```
+
+---
+
 ## 📂 目錄結構
 
 ```bash
 Mentorion/
 ├── backend/
-│   ├── app/                    # FastAPI 應用程式核心
-│   │   ├── api/                # 路由層 (支援 /api/v1 及 /api 雙前綴)
-│   │   ├── db/                 # SQLite 資料庫連線與 SQLAlchemy Models
-│   │   ├── domain/             # LLM Agent 與 Markdown 解析邏輯 (SSOT)
-│   │   └── schemas/            # Pydantic 資料契合定義
-│   └── app.db                  # SQLite 資料庫 (啟動時自動建立)
+│   └── app/                    # FastAPI 應用程式核心
+│       ├── api/                # 路由層 (支援 /api/v1 及 /api 雙前綴)
+│       ├── core/               # 設定、多 LLM 抽象層 (llm/) 與 runtime 註冊
+│       ├── db/                 # SQLite 資料庫連線與 SQLAlchemy Models
+│       ├── domain/             # LLM 出題/批改/導師、資源探索與 Markdown 解析邏輯
+│       └── schemas/            # Pydantic 資料契約定義 (SSOT)
 ├── frontend/                   # React + Vite + TS 應用程式
-│   ├── src/                    # React 核心組件 (包含 App.tsx 儀表板)
+│   ├── src/                    # React 核心組件 (包含 App.tsx 與 AI 導師面板)
 │   ├── vite.config.ts          # Vite 設定檔 (配置有 API Proxy 轉發至 8000 埠)
 │   └── tsconfig.json           # TypeScript 編譯器配置
-├── library/                    # Mentorion 原生扁平筆記目錄 (<slug>.md)
+├── data/                       # 預設本地資料夾 (app.db / questions.json / library/)；可被 MENTORION_VAULT_DIR 覆蓋
 ├── schemas/                    # 檔案驅動 Schema 定義 (nexus / obsidian / plain-markdown)
 ├── docs/                       # 項目詳細設計文檔與 Doc Map
+├── .env.example                # 環境變數範例（複製為 .env.local 設定 Vault 與 API Key）
 ├── AGENTS.md                   # 角色分工與協作流程規範
 └── TODO.md                     # 當前待辦事項
 ```

@@ -10,6 +10,8 @@ from pydantic import TypeAdapter
 
 from ..core.ai_client import create_gemini_client
 from ..core.config import settings
+from ..core.llm import ToolSpec, require_active_provider
+from ..core.llm import ToolSpec, require_active_provider
 from ..schemas.quiz import (
     EssayGradeResponse,
     QuestionSource,
@@ -155,19 +157,15 @@ def generate_questions_via_function_calling(
     count: int = 3,
     question_types: Sequence[QuestionType] = ("mcq", "short_answer", "short_essay"),
     existing_prompts: Sequence[str] = (),
+    extra_resources_context: str = "",
     client: Any = None,
     model: Optional[str] = None,
 ) -> List[QuizQuestionItem]:
     """
-    Source 3: Uses Gemini Function Calling (`submit_quiz_questions`) to generate
-    schema-validated quiz questions from note content while avoiding duplicate prompts.
+    Source 3: Uses structured Tool/Function Calling (`submit_quiz_questions`) via the active
+    LLM provider (Gemini, OpenAI, or Anthropic) to generate schema-validated quiz questions
+    from note content (and optional saved external resource summaries) while avoiding duplicates.
     """
-    ai_client = client or create_gemini_client()
-    if ai_client is None:
-        raise RuntimeError(
-            "GEMINI_API_KEY is not configured; cannot generate LLM questions."
-        )
-
     types_str = ", ".join(question_types)
     dedup_block = ""
     if existing_prompts:
@@ -175,6 +173,14 @@ def generate_questions_via_function_calling(
         dedup_block = (
             f"\nAlready asked questions (DO NOT repeat or closely paraphrase these; "
             f"test uncovered concepts or deeper angles instead):\n{listed}\n"
+        )
+
+    resources_block = ""
+    if extra_resources_context.strip():
+        resources_block = (
+            "\nAdditional Saved Reference Resources (cross-source synthesis — include questions "
+            "that connect the core note with insights, counter-examples, or applications from these resources):\n"
+            f"{extra_resources_context.strip()[:6000]}\n"
         )
 
     prompt = (
@@ -185,35 +191,53 @@ def generate_questions_via_function_calling(
         f"- For `short_essay` or `essay`, provide clear `reference_points` and `rubric` criteria.\n"
         f"- Always include a clear, concise `explanation`.\n"
         f"- Call the `submit_quiz_questions` function with the result.\n"
-        f"{dedup_block}\n"
+        f"{dedup_block}"
+        f"{resources_block}\n"
         f"Title: {title}\n\n"
         f"Content:\n{content[:12000]}"
     )
 
-    tool = types.Tool(function_declarations=[QUIZ_FUNCTION_DECLARATION])
-    config = types.GenerateContentConfig(
-        tools=[tool],
-        tool_config=types.ToolConfig(
-            function_calling_config=types.FunctionCallingConfig(
-                mode="ANY",
-                allowed_function_names=["submit_quiz_questions"],
-            )
-        ),
+    if client is not None:
+        tool = types.Tool(function_declarations=[QUIZ_FUNCTION_DECLARATION])
+        config = types.GenerateContentConfig(
+            tools=[tool],
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode="ANY",
+                    allowed_function_names=["submit_quiz_questions"],
+                )
+            ),
+            temperature=0.3,
+        )
+        response = client.models.generate_content(
+            model=model or settings.MODEL,
+            contents=prompt,
+            config=config,
+        )
+        function_calls = getattr(response, "function_calls", None) or []
+        for call in function_calls:
+            if getattr(call, "name", None) == "submit_quiz_questions":
+                args = getattr(call, "args", {}) or {}
+                raw_list = args.get("questions", [])
+                return validate_questions(raw_list, "llm")
+        raise RuntimeError("LLM did not invoke submit_quiz_questions function call.")
+
+    provider = require_active_provider()
+    tool_spec = ToolSpec(
+        name="submit_quiz_questions",
+        description=QUIZ_FUNCTION_DECLARATION.description or "Submit structured quiz questions.",
+        parameters=QUIZ_FUNCTION_DECLARATION.parameters,  # type: ignore[arg-type]
+    )
+    result = provider.call_tool(
+        prompt=prompt,
+        tools=[tool_spec],
+        allowed_tool_names=["submit_quiz_questions"],
         temperature=0.3,
+        model=model,
     )
-
-    response = ai_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=prompt,
-        config=config,
-    )
-
-    function_calls = getattr(response, "function_calls", None) or []
-    for call in function_calls:
-        if getattr(call, "name", None) == "submit_quiz_questions":
-            args = getattr(call, "args", {}) or {}
-            raw_list = args.get("questions", [])
-            return validate_questions(raw_list, "llm")
+    if result.name == "submit_quiz_questions":
+        raw_list = result.args.get("questions", [])
+        return validate_questions(raw_list, "llm")
 
     raise RuntimeError("LLM did not invoke submit_quiz_questions function call.")
 
@@ -266,13 +290,9 @@ def grade_essay_via_function_calling(
     model: Optional[str] = None,
 ) -> EssayGradeResponse:
     """
-    Uses Gemini Function Calling (`grade_essay_answer`) to evaluate a learner's
-    short_essay / essay response and return a structured 0-5 SM-2 grade with feedback.
+    Uses structured Tool/Function Calling (`grade_essay_answer`) via the active LLM provider
+    to evaluate a learner's short_essay / essay response on a 0-5 SM-2 scale.
     """
-    ai_client = client or create_gemini_client()
-    if ai_client is None:
-        raise RuntimeError("GEMINI_API_KEY is not configured; cannot grade essay with LLM.")
-
     ref_block = ""
     if reference_points:
         ref_block = "Reference points:\n" + "\n".join(f"- {pt}" for pt in reference_points) + "\n\n"
@@ -290,28 +310,44 @@ def grade_essay_via_function_calling(
         f"Learner's Answer:\n{user_answer}"
     )
 
-    tool = types.Tool(function_declarations=[GRADE_ESSAY_DECLARATION])
-    config = types.GenerateContentConfig(
-        tools=[tool],
-        tool_config=types.ToolConfig(
-            function_calling_config=types.FunctionCallingConfig(
-                mode="ANY",
-                allowed_function_names=["grade_essay_answer"],
-            )
-        ),
+    if client is not None:
+        tool = types.Tool(function_declarations=[GRADE_ESSAY_DECLARATION])
+        config = types.GenerateContentConfig(
+            tools=[tool],
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode="ANY",
+                    allowed_function_names=["grade_essay_answer"],
+                )
+            ),
+            temperature=0.2,
+        )
+        response = client.models.generate_content(
+            model=model or settings.MODEL,
+            contents=eval_prompt,
+            config=config,
+        )
+        function_calls = getattr(response, "function_calls", None) or []
+        for call in function_calls:
+            if getattr(call, "name", None) == "grade_essay_answer":
+                args = getattr(call, "args", {}) or {}
+                return EssayGradeResponse.model_validate(args)
+        raise RuntimeError("LLM did not invoke grade_essay_answer function call.")
+
+    provider = require_active_provider()
+    tool_spec = ToolSpec(
+        name="grade_essay_answer",
+        description=GRADE_ESSAY_DECLARATION.description or "Grade essay answer.",
+        parameters=GRADE_ESSAY_DECLARATION.parameters,  # type: ignore[arg-type]
+    )
+    result = provider.call_tool(
+        prompt=eval_prompt,
+        tools=[tool_spec],
+        allowed_tool_names=["grade_essay_answer"],
         temperature=0.2,
+        model=model,
     )
-
-    response = ai_client.models.generate_content(
-        model=model or settings.MODEL,
-        contents=eval_prompt,
-        config=config,
-    )
-
-    function_calls = getattr(response, "function_calls", None) or []
-    for call in function_calls:
-        if getattr(call, "name", None) == "grade_essay_answer":
-            args = getattr(call, "args", {}) or {}
-            return EssayGradeResponse.model_validate(args)
+    if result.name == "grade_essay_answer":
+        return EssayGradeResponse.model_validate(result.args)
 
     raise RuntimeError("LLM did not invoke grade_essay_answer function call.")
