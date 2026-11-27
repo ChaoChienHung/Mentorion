@@ -2320,7 +2320,7 @@ def generate_cross_source_quiz(
         context_blocks.append(f"- [{r.title}]({r.url}) ({r.source_type}):\n  {body[:1500]}")
     extra_context = "\n".join(context_blocks)
 
-    existing_qs = get_questions_for_note(note.id)
+    existing_qs = get_questions_for_note(db, note)
     existing_prompts = [item.prompt for item in existing_qs]
 
     try:
@@ -2336,16 +2336,13 @@ def generate_cross_source_quiz(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Cross-source quiz generation failed: {exc}")
 
-    added_qs, all_ids = append_questions_for_note(
-        note_id=note.id,
-        category=note.category or "General",
+    added_qs, _ = append_questions_for_note(
+        db=db,
+        note=note,
         new_questions=generated,
     )
-    note.question_ids = all_ids
-    db.commit()
 
     return QuizResponse(
-        note_id=note.id,
-        source="llm",
         questions=added_qs,
+        sources_used=["llm"],
     )
