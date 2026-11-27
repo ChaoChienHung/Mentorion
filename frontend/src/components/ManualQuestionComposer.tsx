@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Plus, Scissors, Trash2, X } from "lucide-react";
 import type { Note } from "../types";
 import type { MentorionLang } from "../i18n";
@@ -56,6 +56,14 @@ export function ManualQuestionComposer({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   // Parse {{answer}} markers from fibRawText into prompt (with ___) and ordered blanks[]
   const fibParsed = useMemo(() => {
@@ -206,10 +214,18 @@ export function ManualQuestionComposer({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-6 rounded-2xl border border-zinc-300 bg-white p-6 space-y-5 shadow-xs"
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-[2px] p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 shadow-2xl"
+      >
       <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
         <div>
           <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
@@ -496,5 +512,6 @@ export function ManualQuestionComposer({
         </button>
       </div>
     </form>
+    </div>
   );
 }

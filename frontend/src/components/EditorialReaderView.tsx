@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -43,6 +43,15 @@ export function EditorialReaderView({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [quizOpen, setQuizOpen] = useState(false);
   const [addQuestionOpen, setAddQuestionOpen] = useState(false);
+  const quizRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (quizOpen) {
+      requestAnimationFrame(() => {
+        quizRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [quizOpen]);
   const [creatingNote, setCreatingNote] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftCategory, setDraftCategory] = useState("General");
@@ -495,7 +504,7 @@ export function EditorialReaderView({
           <button
             type="button"
             onClick={() => {
-              setAddQuestionOpen((v) => !v);
+              setAddQuestionOpen(true);
               setDrawerOpen(false);
             }}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-950 hover:text-white text-zinc-950 text-xs font-medium cursor-pointer transition-colors"
@@ -591,19 +600,23 @@ export function EditorialReaderView({
           }}
         />
 
-        {addQuestionOpen && (
-          <ManualQuestionComposer
-            note={activeNote}
-            lang={lang}
-            onCreated={() => {
-              onNoteCreated();
-            }}
-            onClose={() => setAddQuestionOpen(false)}
-          />
+        {quizOpen && (
+          <div ref={quizRef} className="scroll-mt-6">
+            <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />
+          </div>
         )}
-
-        {quizOpen && <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />}
       </article>
+
+      {addQuestionOpen && (
+        <ManualQuestionComposer
+          note={activeNote}
+          lang={lang}
+          onCreated={() => {
+            onNoteCreated();
+          }}
+          onClose={() => setAddQuestionOpen(false)}
+        />
+      )}
     </div>
   );
 }
