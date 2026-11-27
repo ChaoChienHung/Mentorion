@@ -19,6 +19,8 @@ Mentorion 後端啟動時會從環境變數（或專案根目錄 `.env`）動態
 | `ANTHROPIC_API_KEY` | 啟用 Claude 時 | `None` | Anthropic API Key（支援 Tool Use；**外部資源探索鎖定**） |
 | `ANTHROPIC_MODEL` | 否 | `claude-3-5-sonnet-latest` | Claude 模型 ID |
 
+設定頁可為每個供應商輸入並儲存任意相容的模型 ID；模型設定與 API Key 分開儲存，寫入本機 `.env.local` 並立即生效。
+
 ### API Key 自動偵測與功能鎖定策略
 
 - **無任何 API Key**：`GET /api/llm/status` 回傳 `available: false`，所有 `capabilities` 皆為 `false`，前端（AI 導師與測驗面板）自動鎖定所有 LLM 功能按鈕；筆記閱讀、SM-2 排程、手動新增題目、手動收藏連結與「複製出題 Prompt」皆維持可用。

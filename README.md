@@ -66,6 +66,7 @@ export ANTHROPIC_API_KEY="您的_ANTHROPIC_API_KEY"
 export ANTHROPIC_MODEL="claude-3-5-sonnet-latest"
 ```
 
+- **模型名稱自訂**：設定頁可為各供應商輸入模型 ID，個別儲存至本機 `.env.local`，無須更換 API Key。
 - **統一介面與自動能力鎖定**：後端透過 `backend/app/core/llm/` 統一抽象多 LLM Provider，並提供 `GET /api/llm/status` 即時偵測 API Key。**若未偵測到任何 API Key，前端會自動鎖定所有 LLM 相關功能**（閱讀筆記、排程複習、手動新增題目與「複製出題 Prompt」皆不受影響）；**若使用非 Gemini 引擎，則僅鎖定「外部資源探索」功能**。
 - **結構化出題、資源探索與跨來源研究**：透過 Function Calling 強制輸出結構化題目（`submit_quiz_questions`）與申論題 0–5 分批改（`grade_essay_answer`），並在 **AI 導師** 頁面提供 NotebookLM 風格的外部資源探索（Gemini Google Search Grounding）、收藏、網頁抓取摘要與跨來源進階出題（原筆記全程維持只讀）。
 - **進階指南**：詳細架構、多 Provider 契約與 API 說明請見 [docs/llm-api-guide.md](docs/llm-api-guide.md)。

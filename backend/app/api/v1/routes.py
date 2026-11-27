@@ -49,6 +49,7 @@ from ...core.llm import (
     UnsupportedCapabilityError,
     get_llm_status,
     save_provider_api_key,
+    save_provider_model,
     set_runtime_provider,
 )
 from ...domain.resource_researcher import (
@@ -61,6 +62,7 @@ from ...schemas.resources import (
     ExternalReviewRecordRequest,
     ExternalReviewRecordResponse,
     LLMKeySaveRequest,
+    LLMModelSaveRequest,
     LLMProviderSwitchRequest,
     LLMStatusResponse,
     NoteResourceCreate,
@@ -1896,6 +1898,15 @@ def llm_save_api_key(payload: LLMKeySaveRequest):
     """Save or clear an LLM provider API key locally (.env.local) and activate it immediately."""
     try:
         return save_provider_api_key(payload.provider, payload.api_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/llm/model", response_model=LLMStatusResponse)
+def llm_save_model(payload: LLMModelSaveRequest):
+    """Persist a provider model ID without changing API credentials."""
+    try:
+        return save_provider_model(payload.provider, payload.model)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

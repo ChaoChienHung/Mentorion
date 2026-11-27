@@ -19,7 +19,7 @@
 6. 本地優先與可組合邊界（Local-First & Composable Suite）
    - **免強制登入**：個人本地端複習工具預設單人模式直接進入工作區，不設阻擋式登入頁。
    - **知識庫與筆記只讀哲學（Read-Only Library & Imported Notes）**：Mentorion 盡可能讓所有 `library/` 與透過 `schemas/*.json` 讀取的外部 Markdown 筆記庫（如 `Nexus-Vault`）維持**只讀（Read-Only）**，**絕不**在外部知識庫中建立新筆記或寫入題庫檔案；所有排程、作答紀錄、參考資源收藏／摘要（`note_resources`）與集中題庫皆由 Mentorion SQLite 擁有，相關研究與延伸探索統一放在 **AI 導師（AI Mentor）** 介面中提供（以知識庫為中心的探索與圖譜擴展則由 Nexus 承接）。
-   - **多 LLM 統一介面與能力鎖定（Unified Multi-LLM & Capability Gating）**：所有 LLM 呼叫統一透過 `backend/app/core/llm/` 的 `BaseLLMProvider` 介面實作（支援 `GeminiProvider`、`OpenAIProvider`、`AnthropicProvider`），並由 `GET /api/llm/status` 自動偵測已設定的 API Key 與能力矩陣；若偵測不到任何 API Key，前端自動鎖定所有 LLM 功能；若目前引擎不支援 Google Search Grounding（非 Gemini），則鎖定「外部資源探索」功能。詳見 `docs/llm-api-guide.md`。
+   - **多 LLM 統一介面與能力鎖定（Unified Multi-LLM & Capability Gating）**：所有 LLM 呼叫統一透過 `backend/app/core/llm/` 的 `BaseLLMProvider` 介面實作（支援 `GeminiProvider`、`OpenAIProvider`、`AnthropicProvider`），並由 `GET /api/llm/status` 自動偵測已設定的 API Key 與能力矩陣；若偵測不到任何 API Key，前端自動鎖定所有 LLM 功能；若目前引擎不支援 Google Search Grounding（非 Gemini），則鎖定「外部資源探索」功能。設定頁可經 `/api/llm/model` 分別儲存供應商模型 ID，並不改變 API Key。詳見 `docs/llm-api-guide.md`。
    - **動態服務發現**：後端與前端啟動時自動將實際 port 寫入 `~/.mentorion/runtime.json`，供 Nexus 無痛探測與組合。
 
 ## 角色與職責

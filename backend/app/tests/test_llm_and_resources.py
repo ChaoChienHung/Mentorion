@@ -111,6 +111,21 @@ def test_llm_save_api_key_endpoint():
         assert res_clear.json()["available"] is False
 
 
+def test_save_model_does_not_clear_api_key(monkeypatch):
+    from backend.app.core.config import settings
+    monkeypatch.setattr(settings, "MODEL", settings.MODEL)
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-key")
+    client = TestClient(app)
+    with patch("backend.app.core.llm.registry._upsert_env_local") as persist:
+        result = client.post("/api/llm/model", json={"provider": "gemini", "model": "gemini-custom-123"})
+        assert result.status_code == 200
+        assert next(p for p in result.json()["providers"] if p["id"] == "gemini")["model"] == "gemini-custom-123"
+        assert result.json()["available"] is True
+        persist.assert_called_once_with("GEMINI_MODEL", "gemini-custom-123")
+        invalid = client.post("/api/llm/model", json={"provider": "gemini", "model": "bad\nKEY=value"})
+        assert invalid.status_code == 400
+
+
 def test_vault_status_endpoint():
     with TestClient(app) as client:
         res = client.get("/api/vault/status")

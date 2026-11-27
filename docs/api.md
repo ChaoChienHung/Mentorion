@@ -77,6 +77,7 @@ Request body（概念）：
 ## Multi-LLM Status & Switching
 
 - `GET /api/llm/status`：回傳目前偵測到的各 LLM Provider（`gemini` / `openai` / `anthropic`）、啟用引擎、功能能力開關（`quiz_generation`、`essay_grading`、`study_mentor`、`resource_discovery`、`resource_summarize`）與鎖定原因。
+- `POST /api/llm/model`：儲存供應商模型 ID（`{"provider": "gemini" | "openai" | "anthropic", "model": "..."}`）至本機 `.env.local`，立即生效且不改動 API Key。
 - `POST /api/llm/provider`：執行期切換啟用中的已設定 Provider（`{"provider": "gemini" | "openai" | "anthropic" | "auto"}`）。
 
 ## AI Mentor Research & External Resources（Read-Only Notes）

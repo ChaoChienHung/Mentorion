@@ -37,6 +37,7 @@ export function SettingsModal({
 }: SettingsModalProps) {
   const zh = lang === "zh-Hant";
   const [provider, setProvider] = useState<string>("gemini");
+  const [model, setModel] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
   const [showKey, setShowKey] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -60,6 +61,9 @@ export function SettingsModal({
         setActiveProvider(data.active_provider || null);
         if (data.active_provider) {
           setProvider(data.active_provider);
+          setModel(data.providers?.find((p: ProviderStatusItem) => p.id === data.active_provider)?.model || "");
+        } else {
+          setModel(data.providers?.find((p: ProviderStatusItem) => p.id === "gemini")?.model || "");
         }
       })
       .catch(() => {});
@@ -141,6 +145,28 @@ export function SettingsModal({
     }
   };
 
+  const handleSaveModel = async () => {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/llm/model", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, model: model.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to save model");
+      setProviders(data.providers || []);
+      setActiveProvider(data.active_provider || null);
+      setNotice(zh ? "已儲存模型名稱" : "Model saved");
+      onLlmStatusChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-xs p-4"
@@ -208,6 +234,7 @@ export function SettingsModal({
                   value={provider}
                   onChange={(val) => {
                     setProvider(val);
+                    setModel(providers.find((p) => p.id === val)?.model || "");
                     setNotice(null);
                     setError(null);
                   }}
@@ -242,6 +269,20 @@ export function SettingsModal({
                   {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex gap-2 items-center">
+              <input
+                aria-label={zh ? "模型名稱" : "Model ID"}
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={zh ? "輸入模型名稱" : "Enter model ID"}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 focus:bg-white focus:border-zinc-900 focus:outline-none text-sm font-mono text-zinc-900"
+              />
+              <button type="button" disabled={saving || !model.trim()} onClick={() => void handleSaveModel()}
+                className="shrink-0 px-4 py-2 rounded-xl bg-zinc-950 text-white text-xs disabled:opacity-40">
+                {zh ? "儲存模型" : "Save model"}
+              </button>
             </div>
 
             {error && (

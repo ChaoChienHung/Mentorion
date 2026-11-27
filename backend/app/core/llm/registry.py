@@ -79,6 +79,25 @@ def save_provider_api_key(
     return get_llm_status()
 
 
+def save_provider_model(provider_id: str, model: str, persist_env_file: bool = True) -> Dict[str, Any]:
+    """Set a provider model without changing its API key or active provider."""
+    import re
+    from ..config import settings
+
+    pid = provider_id.strip().lower()
+    if pid not in _PROVIDER_ENV_MAP:
+        raise ValueError("Unknown LLM provider")
+    cleaned = model.strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", cleaned):
+        raise ValueError("Invalid model ID")
+    env_key = f"{pid.upper()}_MODEL"
+    if persist_env_file:
+        _upsert_env_local(env_key, cleaned)
+    os.environ[env_key] = cleaned
+    setattr(settings, "MODEL" if pid == "gemini" else env_key, cleaned)
+    return get_llm_status()
+
+
 def list_providers() -> List[BaseLLMProvider]:
     return [_PROVIDERS[pid] for pid in _PRIORITY_ORDER]
 
