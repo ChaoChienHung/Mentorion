@@ -109,6 +109,7 @@ class QuizLoadRequest(BaseModel):
     question_types: List[QuestionType] = Field(
         default_factory=lambda: ["mcq", "short_answer", "short_essay"]
     )
+    language: Optional[str] = None
 
 
 class QuizGenerateRequest(BaseModel):
@@ -119,6 +120,7 @@ class QuizGenerateRequest(BaseModel):
     question_types: List[QuestionType] = Field(
         default_factory=lambda: ["mcq", "short_answer", "short_essay"]
     )
+    language: Optional[str] = None
 
 
 class QuizResponse(BaseModel):

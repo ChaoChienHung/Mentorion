@@ -18,6 +18,7 @@ import {
   Plus, 
   X,
   Sparkles,
+  Lock,
   Loader2,
   BrainCircuit,
   MessageSquare,
@@ -67,7 +68,24 @@ export default function App() {
     localStorage.getItem("mentorion-lang") === "en" ? "en" : "zh-Hant",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [llmAvailable, setLlmAvailable] = useState<boolean>(false);
   const t = MENTORION_COPY[lang];
+
+  const refreshLlmStatus = () => {
+    fetch("/api/llm/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setLlmAvailable(Boolean(data.available));
+      })
+      .catch(() => {
+        setLlmAvailable(false);
+      });
+  };
+
+  useEffect(() => {
+    refreshLlmStatus();
+  }, []);
 
   const handleChangeLang = (next: MentorionLang) => {
     setLang(next);
@@ -694,17 +712,43 @@ export default function App() {
             <span>{t.navSchema}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab("coach")}
-            className={`w-full flex items-center gap-3.5 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
-              activeTab === "coach"
-                ? "bg-white text-zinc-950"
-                : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100"
-            }`}
-          >
-            <Sparkles size={18} strokeWidth={1.75} />
-            <span>{lang === "zh-Hant" ? "AI 導師" : "AI Mentor"}</span>
-          </button>
+          <div className="relative group">
+            <button
+              type="button"
+              disabled={!llmAvailable}
+              onClick={() => {
+                if (llmAvailable) setActiveTab("coach");
+              }}
+              className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left ${
+                !llmAvailable
+                  ? "text-zinc-500 bg-white/[0.02] cursor-not-allowed opacity-70"
+                  : activeTab === "coach"
+                    ? "bg-white text-zinc-950 cursor-pointer"
+                    : "text-zinc-400 hover:bg-white/6 hover:text-zinc-100 cursor-pointer"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <Sparkles size={18} strokeWidth={1.75} />
+                <span>{lang === "zh-Hant" ? "AI 導師" : "AI Mentor"}</span>
+              </div>
+              {!llmAvailable && <Lock size={14} className="text-zinc-500 shrink-0" />}
+            </button>
+            {!llmAvailable && (
+              <div
+                role="tooltip"
+                className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full left-0 mb-2 z-50 w-max max-w-xs rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 shadow-xl text-left"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-medium text-white">
+                  <Lock size={12} className="shrink-0 text-zinc-400" />
+                  <span>
+                    {lang === "zh-Hant"
+                      ? "未偵測到任何 LLM API Key"
+                      : "No LLM API key detected"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="pt-4 border-t border-zinc-800/80 my-4" />
 
@@ -900,25 +944,63 @@ export default function App() {
                         </div>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("coach")}
-                        className="text-left p-6 rounded-2xl bg-white border border-zinc-200 hover:border-zinc-950 transition-colors cursor-pointer space-y-4 group"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-900 flex items-center justify-center transition-colors">
-                          <Sparkles size={19} strokeWidth={1.75} />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-base font-semibold text-zinc-950">
-                            {lang === "zh-Hant" ? "AI 導師" : "AI Mentor"}
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          disabled={!llmAvailable}
+                          onClick={() => {
+                            if (llmAvailable) setActiveTab("coach");
+                          }}
+                          className={`w-full h-full text-left p-6 rounded-2xl border transition-colors space-y-4 ${
+                            !llmAvailable
+                              ? "bg-zinc-50 border-zinc-200 opacity-65 cursor-not-allowed"
+                              : "bg-white border-zinc-200 hover:border-zinc-950 cursor-pointer"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                                !llmAvailable
+                                  ? "bg-zinc-200/70 text-zinc-500"
+                                  : "bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white text-zinc-900"
+                              }`}
+                            >
+                              <Sparkles size={19} strokeWidth={1.75} />
+                            </div>
+                            {!llmAvailable && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-200/80 text-[11px] font-medium text-zinc-600">
+                                <Lock size={11} />
+                                <span>{lang === "zh-Hant" ? "已鎖定" : "Locked"}</span>
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs text-zinc-500">
-                            {lang === "zh-Hant"
-                              ? "資源探索、跨來源出題、智慧重排與題庫治理"
-                              : "Resource research, rescheduler, diagnosis & Bloom audit"}
+                          <div className="space-y-1">
+                            <div className="text-base font-semibold text-zinc-950">
+                              {lang === "zh-Hant" ? "AI 導師" : "AI Mentor"}
+                            </div>
+                            <div className="text-xs text-zinc-500">
+                              {lang === "zh-Hant"
+                                ? "資源探索、跨來源出題、智慧重排與題庫治理"
+                                : "Resource research, rescheduler, diagnosis & Bloom audit"}
+                            </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        {!llmAvailable && (
+                          <div
+                            role="tooltip"
+                            className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-max max-w-xs rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 shadow-xl text-left"
+                          >
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-white">
+                              <Lock size={12} className="shrink-0 text-zinc-400" />
+                              <span>
+                                {lang === "zh-Hant"
+                                  ? "未偵測到任何 LLM API Key"
+                                  : "No LLM API key detected"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                       <button
                         type="button"
@@ -1888,6 +1970,7 @@ export default function App() {
         open={settingsOpen}
         lang={lang}
         onChangeLang={handleChangeLang}
+        onLlmStatusChanged={refreshLlmStatus}
         onClose={() => setSettingsOpen(false)}
       />
     </div>

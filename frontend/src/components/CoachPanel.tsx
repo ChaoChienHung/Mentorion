@@ -531,9 +531,7 @@ export function CoachPanel({ notes, lang, onRefreshData }: CoachPanelProps) {
                   <>
                     <Lock size={14} className="text-zinc-500" />
                     <span className="text-zinc-700">
-                      {zh
-                        ? "未偵測到任何 LLM API Key — 所有 AI 功能已鎖定"
-                        : "No LLM API key detected — all AI features are locked"}
+                      {zh ? "未偵測到任何 LLM API Key" : "No LLM API key detected"}
                     </span>
                   </>
                 )}

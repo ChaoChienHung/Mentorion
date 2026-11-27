@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Loader2, Plus, Scissors, Trash2, X } from "lucide-react";
+import { Check, Loader2, Lock, Plus, Scissors, Sparkles, Trash2, X } from "lucide-react";
 import type { Note } from "../types";
 import type { MentorionLang } from "../i18n";
 
@@ -54,8 +54,62 @@ export function ManualQuestionComposer({
   const [referencePointsText, setReferencePointsText] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [generatingLlm, setGeneratingLlm] = useState(false);
+  const [llmAvailable, setLlmAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/llm/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        setLlmAvailable(Boolean(data.available));
+      })
+      .catch(() => {
+        if (active) setLlmAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeTypeMeta = QUESTION_TYPES.find((item) => item.id === qType) || QUESTION_TYPES[0];
+
+  const handleGenerateByType = async () => {
+    if (!llmAvailable) return;
+    setGeneratingLlm(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch("/api/quiz/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note_id: note.id,
+          title: note.title,
+          content: note.content,
+          count: 2,
+          question_types: [qType],
+          language: lang,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || (zh ? "AI 生成題目失敗" : "Failed to generate questions"));
+      const count = Array.isArray(data.questions) ? data.questions.length : 0;
+      setSuccessMsg(
+        zh
+          ? `已由 AI 生成 ${count} 題${activeTypeMeta.zh}並加入集中題庫！`
+          : `Generated ${count} ${activeTypeMeta.en} question(s) via LLM and saved to question bank!`,
+      );
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGeneratingLlm(false);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -217,7 +271,7 @@ export function ManualQuestionComposer({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-[2px] p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-950/45 backdrop-blur-[2px] p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -229,7 +283,7 @@ export function ManualQuestionComposer({
       <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
         <div>
           <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-            MANUAL QUESTION AUTHORING
+            {zh ? "題目編輯與 AI 生成" : "QUESTION AUTHORING & AI GENERATION"}
           </div>
           <h3 className="text-lg font-bold font-display text-zinc-950 mt-0.5">
             {zh ? "新增題目" : "Add Question"} · {note.title}
@@ -244,11 +298,47 @@ export function ManualQuestionComposer({
         </button>
       </div>
 
-      {/* Type Selector */}
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
-          {zh ? "題目類型" : "Question Type"}
-        </label>
+      {/* Type Selector + Per-Type LLM Auto-Generation */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block">
+            {zh ? "題目類型" : "Question Type"}
+          </label>
+          <div className="relative group">
+            <button
+              type="button"
+              disabled={!llmAvailable || generatingLlm}
+              onClick={() => void handleGenerateByType()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium cursor-pointer transition-colors"
+            >
+              {generatingLlm ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : !llmAvailable ? (
+                <Lock size={12} />
+              ) : (
+                <Sparkles size={13} />
+              )}
+              <span>
+                {zh
+                  ? `AI 生成${activeTypeMeta.zh}`
+                  : `Generate ${activeTypeMeta.en} (LLM)`}
+              </span>
+            </button>
+            {!llmAvailable && (
+              <div
+                role="tooltip"
+                className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute right-0 top-full mt-1.5 z-50 w-max max-w-xs rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 shadow-xl text-left"
+              >
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-white">
+                  <Lock size={11} className="shrink-0 text-zinc-400" />
+                  <span>
+                    {zh ? "未偵測到任何 LLM API Key" : "No LLM API key detected"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           {QUESTION_TYPES.map((item) => (
             <button

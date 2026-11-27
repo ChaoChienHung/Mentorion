@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Lock, Plus, Send, Sparkles, X } from "lucide-react";
 import type { Note } from "../types";
+import type { MentorionLang } from "../i18n";
 import { ManualQuestionComposer } from "./ManualQuestionComposer";
 
 export interface QuizQuestion {
@@ -45,6 +46,7 @@ interface EssayGrade {
 
 interface QuizPanelProps {
   note: Note;
+  lang?: MentorionLang;
   initialQuestions?: QuizQuestion[];
   onClose: () => void;
 }
@@ -60,7 +62,8 @@ function getSavedSourceDir(): string | null {
   }
 }
 
-export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
+export function QuizPanel({ note, lang = "zh-Hant", initialQuestions, onClose }: QuizPanelProps) {
+  const zh = lang === "zh-Hant";
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +109,7 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
               content: note.content,
               count: 3,
               question_types: ["mcq", "short_answer", "short_essay"],
+              language: lang,
             }
           : {
               note_id: note.id,
@@ -115,6 +119,7 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
               generate_if_empty: true,
               count: 3,
               question_types: ["mcq", "short_answer", "short_essay"],
+              language: lang,
             };
 
         const res = await fetch(endpoint, {
@@ -249,14 +254,16 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
   };
 
   return (
-    <div className="mt-8 pt-7 border-t border-zinc-200 space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold font-display text-zinc-950">
-            Active Recall Quiz
+            {zh ? "主動回憶測驗" : "Active Recall Quiz"}
           </h3>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Centralized question bank + deduplicated LLM Function Calling + Essay grading.
+            {zh
+              ? "集中題庫 + 去重 AI 出題 + 申論自動批改"
+              : "Centralized question bank + deduplicated LLM Function Calling + Essay grading."}
           </p>
         </div>
 
@@ -267,13 +274,13 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium border border-zinc-300 bg-white hover:border-zinc-900 text-zinc-900 transition-colors cursor-pointer"
           >
             <Plus size={13} />
-            <span>Add Question</span>
+            <span>{zh ? "新增題目" : "Add Question"}</span>
           </button>
           <button
             type="button"
             disabled={loading || !llmAvailable}
             onClick={() => void loadQuestions(true)}
-            title={llmAvailable ? undefined : llmLockReason || "LLM API key not configured"}
+            title={llmAvailable ? undefined : llmLockReason || (zh ? "未設定 LLM API Key" : "LLM API key not configured")}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-950 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors cursor-pointer"
           >
             {loading ? (
@@ -283,13 +290,13 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
             ) : (
               <Sparkles size={13} />
             )}
-            <span>Generate New Questions (LLM)</span>
+            <span>{zh ? "AI 生成新題目" : "Generate New Questions (LLM)"}</span>
           </button>
           <button
             type="button"
             onClick={onClose}
             className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer"
-            title="Close"
+            title={zh ? "關閉" : "Close"}
           >
             <X size={16} />
           </button>
@@ -299,6 +306,7 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
       {composerOpen && (
         <ManualQuestionComposer
           note={note}
+          lang={lang}
           onCreated={() => void loadQuestions(false)}
           onClose={() => setComposerOpen(false)}
         />
@@ -307,24 +315,45 @@ export function QuizPanel({ note, initialQuestions, onClose }: QuizPanelProps) {
       {!llmAvailable && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-xs text-zinc-600">
           <Lock size={13} className="shrink-0 text-zinc-500" />
-          <span>
-            {llmLockReason ||
-              "No LLM API key detected. AI quiz generation, essay grading, and Socratic hints are locked (manual questions & reading remain available)."}
-          </span>
+          <span>{zh ? "未偵測到任何 LLM API Key" : "No LLM API key detected"}</span>
         </div>
       )}
 
-      {error && (
+      {error && !(!llmAvailable && /api key/i.test(error)) && (
         <div className="px-4 py-3 rounded-xl border border-zinc-300 bg-zinc-100 text-xs text-zinc-700">
           {error}
         </div>
       )}
 
-      {loadedOnce && questions.length === 0 && !error && !loading && (
-        <div className="px-5 py-6 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-500">
-          No questions saved yet. Click <strong className="text-zinc-900">Generate New Questions (LLM)</strong>.
-        </div>
-      )}
+      {(loadedOnce || (!llmAvailable && Boolean(error && /api key/i.test(error)))) &&
+        questions.length === 0 &&
+        !loading && (
+          <div className="px-5 py-6 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-500">
+            {zh ? (
+              <>
+                目前尚無已儲存的題目。請點擊 <strong className="text-zinc-900">+ 新增題目</strong> 手動出題
+                {llmAvailable ? (
+                  <>
+                    ，或點擊 <strong className="text-zinc-900">AI 生成新題目</strong>。
+                  </>
+                ) : (
+                  "。"
+                )}
+              </>
+            ) : (
+              <>
+                No questions saved yet. Click <strong className="text-zinc-900">+ Add Question</strong> to author one manually
+                {llmAvailable ? (
+                  <>
+                    {" "}or <strong className="text-zinc-900">Generate New Questions (LLM)</strong>.
+                  </>
+                ) : (
+                  "."
+                )}
+              </>
+            )}
+          </div>
+        )}
 
       {questions.length > 0 && (
         <div className="space-y-4">

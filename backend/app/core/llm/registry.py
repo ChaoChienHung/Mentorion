@@ -13,7 +13,70 @@ _PROVIDERS: Dict[str, BaseLLMProvider] = {
 }
 
 _PRIORITY_ORDER = ("gemini", "openai", "anthropic")
+_PROVIDER_ENV_MAP: Dict[str, str] = {
+    "gemini": "GEMINI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
 _RUNTIME_PROVIDER_OVERRIDE: Optional[str] = None
+
+
+def _upsert_env_local(env_key: str, env_value: str) -> None:
+    """Persist an API key to gitignored `<repo_root>/.env.local` without disturbing other lines."""
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[4]
+    env_path = repo_root / ".env.local"
+    lines: List[str] = []
+    if env_path.is_file():
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+
+    prefix = f"{env_key}="
+    replaced = False
+    new_lines: List[str] = []
+    for line in lines:
+        if line.strip().startswith(prefix):
+            if env_value:
+                new_lines.append(f"{env_key}={env_value}")
+            replaced = True
+        else:
+            new_lines.append(line)
+
+    if not replaced and env_value:
+        new_lines.append(f"{env_key}={env_value}")
+
+    env_path.write_text("\n".join(new_lines) + ("\n" if new_lines else ""), encoding="utf-8")
+
+
+def save_provider_api_key(
+    provider_id: str,
+    api_key: str,
+    persist_env_file: bool = True,
+) -> Dict[str, Any]:
+    """Save or clear a provider API key at runtime and optionally persist to `.env.local`."""
+    from ..config import settings
+
+    pid = provider_id.strip().lower()
+    if pid not in _PROVIDER_ENV_MAP:
+        raise ValueError(f"Unknown LLM provider '{provider_id}'. Valid options: {', '.join(_PRIORITY_ORDER)}")
+
+    env_key = _PROVIDER_ENV_MAP[pid]
+    cleaned = api_key.strip()
+
+    if cleaned:
+        os.environ[env_key] = cleaned
+        setattr(settings, env_key, cleaned)
+        set_runtime_provider(pid)
+    else:
+        os.environ.pop(env_key, None)
+        setattr(settings, env_key, None)
+        if _RUNTIME_PROVIDER_OVERRIDE == pid:
+            set_runtime_provider(None)
+
+    if persist_env_file:
+        _upsert_env_local(env_key, cleaned)
+
+    return get_llm_status()
 
 
 def list_providers() -> List[BaseLLMProvider]:
@@ -93,11 +156,7 @@ def get_llm_status() -> Dict[str, Any]:
     supports_fc = bool(active and active.capabilities.function_calling)
     supports_web = bool(active and active.capabilities.web_search)
 
-    llm_lock_reason = (
-        None
-        if available
-        else "未偵測到任何 LLM API Key（請設定 GEMINI_API_KEY、OPENAI_API_KEY 或 ANTHROPIC_API_KEY）"
-    )
+    llm_lock_reason = None if available else "未偵測到任何 LLM API Key"
     web_lock_reason = (
         None
         if supports_web

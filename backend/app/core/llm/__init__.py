@@ -15,6 +15,7 @@ from .registry import (
     get_provider_by_id,
     list_providers,
     require_active_provider,
+    save_provider_api_key,
     set_runtime_provider,
 )
 
@@ -35,5 +36,6 @@ __all__ = [
     "get_provider_by_id",
     "list_providers",
     "require_active_provider",
+    "save_provider_api_key",
     "set_runtime_provider",
 ]

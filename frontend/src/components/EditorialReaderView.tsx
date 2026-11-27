@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -43,14 +43,14 @@ export function EditorialReaderView({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [quizOpen, setQuizOpen] = useState(false);
   const [addQuestionOpen, setAddQuestionOpen] = useState(false);
-  const quizRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (quizOpen) {
-      requestAnimationFrame(() => {
-        quizRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
+    if (!quizOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setQuizOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [quizOpen]);
   const [creatingNote, setCreatingNote] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
@@ -492,13 +492,13 @@ export function EditorialReaderView({
           <button
             type="button"
             onClick={() => {
-              setQuizOpen((v) => !v);
+              setQuizOpen(true);
               setDrawerOpen(false);
             }}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium cursor-pointer"
           >
             <Sparkles size={14} />
-            <span>{quizOpen ? t.hideQuiz : t.startQuiz}</span>
+            <span>{t.startQuiz}</span>
           </button>
 
           <button
@@ -600,12 +600,22 @@ export function EditorialReaderView({
           }}
         />
 
-        {quizOpen && (
-          <div ref={quizRef} className="scroll-mt-6">
-            <QuizPanel note={activeNote} onClose={() => setQuizOpen(false)} />
-          </div>
-        )}
       </article>
+
+      {quizOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-[2px] p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setQuizOpen(false);
+          }}
+        >
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl">
+            <QuizPanel note={activeNote} lang={lang} onClose={() => setQuizOpen(false)} />
+          </div>
+        </div>
+      )}
 
       {addQuestionOpen && (
         <ManualQuestionComposer

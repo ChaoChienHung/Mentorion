@@ -40,6 +40,11 @@ class LLMProviderSwitchRequest(BaseModel):
     provider: str = Field(..., description="'gemini', 'openai', 'anthropic', or 'auto'")
 
 
+class LLMKeySaveRequest(BaseModel):
+    provider: str = Field(..., description="'gemini', 'openai', or 'anthropic'")
+    api_key: str = Field(..., description="API key string (empty string clears the key)")
+
+
 ResourceSourceType = Literal["paper", "docs", "video", "blog", "web"]
 
 

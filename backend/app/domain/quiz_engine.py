@@ -40,17 +40,22 @@ QUIZ_FUNCTION_DECLARATION = types.FunctionDeclaration(
                     "properties": {
                         "type": {
                             "type": "STRING",
-                            "enum": ["mcq", "short_answer", "true_false", "open", "short_essay", "essay"],
+                            "enum": ["mcq", "short_answer", "true_false", "open", "short_essay", "essay", "fill_in_blank"],
                             "description": "Question type discriminator.",
                         },
                         "prompt": {
                             "type": "STRING",
-                            "description": "The question prompt text.",
+                            "description": "The question prompt text. For fill_in_blank, use ___ for each blank.",
                         },
                         "options": {
                             "type": "ARRAY",
                             "items": {"type": "STRING"},
                             "description": "Required for mcq: 2 to 6 answer choices.",
+                        },
+                        "blanks": {
+                            "type": "ARRAY",
+                            "items": {"type": "STRING"},
+                            "description": "Required for fill_in_blank: ordered list of exact answers matching each ___ blank in prompt.",
                         },
                         "answer": {
                             "type": "STRING",
@@ -158,6 +163,7 @@ def generate_questions_via_function_calling(
     question_types: Sequence[QuestionType] = ("mcq", "short_answer", "short_essay"),
     existing_prompts: Sequence[str] = (),
     extra_resources_context: str = "",
+    language: Optional[str] = None,
     client: Any = None,
     model: Optional[str] = None,
 ) -> List[QuizQuestionItem]:
@@ -183,13 +189,21 @@ def generate_questions_via_function_calling(
             f"{extra_resources_context.strip()[:6000]}\n"
         )
 
+    lang_instruction = ""
+    if language == "zh-Hant":
+        lang_instruction = "- Output ALL prompts, options, blanks, answers, rubrics, reference_points, and explanations strictly in Traditional Chinese (繁體中文).\n"
+    elif language == "en":
+        lang_instruction = "- Output ALL prompts, options, blanks, answers, rubrics, reference_points, and explanations strictly in English.\n"
+
     prompt = (
         f"You are an expert spaced-repetition tutor. Generate {count} high-signal "
         f"active-recall questions from the study note below.\n"
         f"Allowed question types: [{types_str}].\n"
         f"- For `mcq`, choose an appropriate number of options (2-5) and ensure `answer` matches one option verbatim.\n"
+        f"- For `fill_in_blank`, use `___` for each blank in `prompt` and provide the exact ordered answers in `blanks`.\n"
         f"- For `short_essay` or `essay`, provide clear `reference_points` and `rubric` criteria.\n"
         f"- Always include a clear, concise `explanation`.\n"
+        f"{lang_instruction}"
         f"- Call the `submit_quiz_questions` function with the result.\n"
         f"{dedup_block}"
         f"{resources_block}\n"

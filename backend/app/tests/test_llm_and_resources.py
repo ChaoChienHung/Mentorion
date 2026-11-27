@@ -90,6 +90,27 @@ def test_llm_status_and_provider_switch_api(monkeypatch):
     assert res_bad.status_code == 400
 
 
+def test_llm_save_api_key_endpoint():
+    client = TestClient(app)
+    with patch("backend.app.core.llm.registry._upsert_env_local") as mock_upsert:
+        res_save = client.post(
+            "/api/llm/key",
+            json={"provider": "anthropic", "api_key": "sk-ant-mock-123"},
+        )
+        assert res_save.status_code == 200
+        data = res_save.json()
+        assert data["available"] is True
+        assert data["active_provider"] == "anthropic"
+        mock_upsert.assert_called_once_with("ANTHROPIC_API_KEY", "sk-ant-mock-123")
+
+        res_clear = client.post(
+            "/api/llm/key",
+            json={"provider": "anthropic", "api_key": ""},
+        )
+        assert res_clear.status_code == 200
+        assert res_clear.json()["available"] is False
+
+
 def test_schema_normalization_and_openai_anthropic_tool_calls(monkeypatch):
     gemini_schema = {
         "type": "OBJECT",
