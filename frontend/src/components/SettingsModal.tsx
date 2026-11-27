@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Eye, EyeOff, KeyRound, Loader2, X } from "lucide-react";
+import { Check, Database, Eye, EyeOff, KeyRound, Loader2, X } from "lucide-react";
 import { MENTORION_COPY, MENTORION_LANGUAGES, type MentorionLang } from "../i18n";
 import { CustomSelect } from "./CustomSelect";
 
@@ -18,6 +18,16 @@ interface ProviderStatusItem {
   model: string;
 }
 
+interface VaultStatusInfo {
+  vault_dir: string;
+  is_custom_vault: boolean;
+  note_count: number;
+  question_count: number;
+  resource_count: number;
+  is_git_repo: boolean;
+  git_dirty: boolean | null;
+}
+
 export function SettingsModal({
   open,
   lang,
@@ -32,6 +42,7 @@ export function SettingsModal({
   const [saving, setSaving] = useState<boolean>(false);
   const [providers, setProviders] = useState<ProviderStatusItem[]>([]);
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
+  const [vaultStatus, setVaultStatus] = useState<VaultStatusInfo | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +61,12 @@ export function SettingsModal({
         if (data.active_provider) {
           setProvider(data.active_provider);
         }
+      })
+      .catch(() => {});
+    fetch("/api/vault/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setVaultStatus(data as VaultStatusInfo);
       })
       .catch(() => {});
   }, [open]);
@@ -251,6 +268,65 @@ export function SettingsModal({
               </button>
             </div>
           </div>
+
+          {vaultStatus && (
+            <>
+              <div className="border-t border-zinc-200" />
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Database size={16} className="text-zinc-900" />
+                    <div className="text-[15px] font-medium text-zinc-950">
+                      {zh ? "資料倉狀態（Vault）" : "Data Vault Status"}
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-700">
+                    {vaultStatus.is_custom_vault
+                      ? zh
+                        ? "獨立私有 Vault"
+                        : "Private Vault"
+                      : zh
+                        ? "預設 data/"
+                        : "Default data/"}
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 space-y-2 text-xs">
+                  <div className="font-mono text-[11px] text-zinc-700 break-all">
+                    {vaultStatus.vault_dir}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-zinc-200 text-zinc-700">
+                      {zh ? "筆記" : "Notes"}: <strong>{vaultStatus.note_count}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-zinc-200 text-zinc-700">
+                      {zh ? "題庫" : "Questions"}: <strong>{vaultStatus.question_count}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-zinc-200 text-zinc-700">
+                      {zh ? "收藏資源" : "Resources"}: <strong>{vaultStatus.resource_count}</strong>
+                    </span>
+                    {vaultStatus.is_git_repo && vaultStatus.git_dirty !== null && (
+                      <span
+                        className={`px-2 py-0.5 rounded-md border font-medium ${
+                          vaultStatus.git_dirty
+                            ? "bg-zinc-950 text-white border-zinc-950"
+                            : "bg-white text-zinc-600 border-zinc-200"
+                        }`}
+                      >
+                        {vaultStatus.git_dirty
+                          ? zh
+                            ? "Git 有未備份變更"
+                            : "Uncommitted changes"
+                          : zh
+                            ? "Git 已同步乾淨"
+                            : "Git clean"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

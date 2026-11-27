@@ -95,3 +95,16 @@ class CrossSourceQuizRequest(BaseModel):
     note_id: int
     resource_ids: List[int] = Field(default_factory=list)
     count: int = Field(default=3, ge=1, le=8)
+
+
+class VaultStatusResponse(BaseModel):
+    vault_dir: str
+    is_custom_vault: bool
+    db_path: str
+    question_bank_path: str
+    library_dir: str
+    note_count: int
+    question_count: int
+    resource_count: int
+    is_git_repo: bool
+    git_dirty: Optional[bool] = None

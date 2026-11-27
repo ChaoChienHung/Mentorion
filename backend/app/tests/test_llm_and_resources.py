@@ -111,6 +111,18 @@ def test_llm_save_api_key_endpoint():
         assert res_clear.json()["available"] is False
 
 
+def test_vault_status_endpoint():
+    with TestClient(app) as client:
+        res = client.get("/api/vault/status")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["is_custom_vault"] is True
+        assert "mentorion_pytest_vault_" in data["vault_dir"]
+        assert isinstance(data["note_count"], int)
+        assert isinstance(data["question_count"], int)
+        assert isinstance(data["resource_count"], int)
+
+
 def test_schema_normalization_and_openai_anthropic_tool_calls(monkeypatch):
     gemini_schema = {
         "type": "OBJECT",
