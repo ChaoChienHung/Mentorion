@@ -104,33 +104,24 @@ Mentorion-Vault/
 
 ### 建立並整合自己的私有資料倉
 
-1. **建立私有資料倉 `Mentorion-Vault`（二選一）**：
+1. **在 `Mentorion` 同層建立私有資料倉目錄並初始化 Git**：
+```bash
+mkdir -p ../Mentorion-Vault/library
+echo '{"questions": []}' > ../Mentorion-Vault/questions.json
+cat <<'EOF' > ../Mentorion-Vault/.gitignore
+.DS_Store
+*.db-shm
+*.db-wal
+*.db-journal
+EOF
 
-   - **方式 A：使用 GitHub Template 一鍵建立（推薦）**
-     前往公開模板庫 **[Mentorion-Vault-Template](https://github.com/ChaoChienHung/Mentorion-Vault-Template)**，點擊 **「Use this template」→「Create a new repository」**，命名為 `Mentorion-Vault` 並設為 **Private**，接著 clone 到 `Mentorion` 同層目錄：
-     ```bash
-     cd ..
-     git clone https://github.com/<你的帳號>/Mentorion-Vault.git
-     ```
-
-   - **方式 B：手動指令初始化**
-     ```bash
-     mkdir -p ../Mentorion-Vault/library
-     echo '{"questions": []}' > ../Mentorion-Vault/questions.json
-     cat <<'EOF' > ../Mentorion-Vault/.gitignore
-     .DS_Store
-     *.db-shm
-     *.db-wal
-     *.db-journal
-     EOF
-
-     cd ../Mentorion-Vault
-     git init -b main
-     git add . && git commit -m "chore: initialize Mentorion-Vault"
-     # 綁定你在 GitHub 建立的 Private Repo
-     git remote add origin https://github.com/<你的帳號>/Mentorion-Vault.git
-     git push -u origin main
-     ```
+cd ../Mentorion-Vault
+git init -b main
+git add . && git commit -m "chore: initialize Mentorion-Vault"
+# 綁定你在 GitHub 建立的 Private Repo
+git remote add origin https://github.com/<你的帳號>/Mentorion-Vault.git
+git push -u origin main
+```
 
 2. **在 `Mentorion/` 建立 `.env.local`（已列入 `.gitignore`）指向私有資料倉**：
 ```bash
