@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Note, Task } from "../types";
 import type { MentorionLang } from "../i18n";
+import { toLocalDateStr } from "../utils/date";
 import { renderMentorionMarkdown } from "../utils/markdown";
 import { QuizPanel, type QuizQuestion } from "./QuizPanel";
 
@@ -20,6 +21,7 @@ interface RevisionCardModalProps {
   allTasks: Task[];
   lang: MentorionLang;
   anchorOption: "A" | "B";
+  onAnchorOptionChange: (opt: "A" | "B") => void;
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onUpdateEaseFactor: (noteId: number, nextEf: number) => Promise<void>;
@@ -48,6 +50,7 @@ export function RevisionCardModal({
   allTasks,
   lang,
   anchorOption,
+  onAnchorOptionChange,
   onClose,
   onRefresh,
   onUpdateEaseFactor,
@@ -164,7 +167,7 @@ export function RevisionCardModal({
           rating,
           nextIntervalDays: days,
           anchorOption,
-          actualDate: new Date().toISOString().split("T")[0],
+          actualDate: toLocalDateStr(),
         }),
       });
       if (!res.ok) {
@@ -192,7 +195,7 @@ export function RevisionCardModal({
         body: JSON.stringify({
           rating,
           anchorOption,
-          actualDate: new Date().toISOString().split("T")[0],
+          actualDate: toLocalDateStr(),
         }),
       });
       if (!res.ok) {
@@ -384,6 +387,40 @@ export function RevisionCardModal({
           </div>
         </>
       )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-100">
+        <span className="text-[11px] font-medium text-zinc-500">
+          {zh ? "計算基準日" : "Anchor date"}
+        </span>
+        <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200">
+          <button
+            type="button"
+            onClick={() => onAnchorOptionChange("B")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+              anchorOption === "B"
+                ? "bg-zinc-950 text-white"
+                : "text-zinc-600 hover:text-zinc-950"
+            }`}
+          >
+            {zh
+              ? `原訂排程日 (${task.scheduled_date})`
+              : `Scheduled (${task.scheduled_date})`}
+          </button>
+          <button
+            type="button"
+            onClick={() => onAnchorOptionChange("A")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+              anchorOption === "A"
+                ? "bg-zinc-950 text-white"
+                : "text-zinc-600 hover:text-zinc-950"
+            }`}
+          >
+            {zh
+              ? `實際完成日 (${toLocalDateStr()})`
+              : `Actual (${toLocalDateStr()})`}
+          </button>
+        </div>
+      </div>
 
       <div className="flex justify-end gap-2.5 pt-1">
         <button

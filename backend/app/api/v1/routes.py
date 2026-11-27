@@ -408,7 +408,7 @@ def get_tasks(
 def complete_task_endpoint(id: int, payload: dict, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user_optional)):
     rating = payload.get("rating")
     next_interval_days = payload.get("nextIntervalDays")
-    anchor_option = payload.get("anchorOption", "A")
+    anchor_option = payload.get("anchorOption", "B")
     actual_date = payload.get("actualDate", datetime.now().strftime("%Y-%m-%d"))
     gcal_event_id = payload.get("gcalEventId")
     

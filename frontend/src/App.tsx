@@ -9,6 +9,7 @@ import { RevisionCardModal } from "./components/RevisionCardModal";
 import { CustomSelect } from "./components/CustomSelect";
 import { SettingsModal } from "./components/SettingsModal";
 import { MENTORION_COPY, type MentorionLang } from "./i18n";
+import { toLocalDateStr } from "./utils/date";
 import {
   Database,
   Settings,
@@ -108,7 +109,7 @@ export default function App() {
   // Calendar view parameters
   const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(new Date());
   const [selectedDateStr, setSelectedDateStr] = useState<string>(
-    new Date().toISOString().split("T")[0]
+    toLocalDateStr()
   );
 
   // Modals / Detail Card Popups state
@@ -118,7 +119,7 @@ export default function App() {
   const [submittingRevision, setSubmittingRevision] = useState<boolean>(false);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [completingRating, setCompletingRating] = useState<number>(5);
-  const [anchorOption, setAnchorOption] = useState<"A" | "B">("A");
+  const [anchorOption, setAnchorOption] = useState<"A" | "B">("B");
 
   // Form State for scheduling a task from an existing Library note
   const [selectedLibraryNoteId, setSelectedLibraryNoteId] = useState<string>("");
@@ -131,7 +132,7 @@ export default function App() {
   const [newTaskCategory, setNewTaskCategory] = useState("Other");
   const [newTaskType, setNewTaskType] = useState<"new" | "practice">("new");
   const [newTaskPattern, setNewTaskPattern] = useState<"A" | "B" | "C">("C");
-  const [newTaskFirstDate, setNewTaskFirstDate] = useState(new Date().toISOString().split("T")[0]);
+  const [newTaskFirstDate, setNewTaskFirstDate] = useState(toLocalDateStr());
   const [newTaskIsAllDay, setNewTaskIsAllDay] = useState(true);
   const [newTaskStartTime, setNewTaskStartTime] = useState("09:00");
   const [newTaskEndTime, setNewTaskEndTime] = useState("10:00");
@@ -369,7 +370,7 @@ export default function App() {
         body: JSON.stringify({
           rating: completingRating,
           anchorOption,
-          actualDate: new Date().toISOString().split("T")[0]
+          actualDate: toLocalDateStr()
         })
       });
 
@@ -418,7 +419,7 @@ export default function App() {
             updatedDate.setDate(updatedDate.getDate() + days);
             return {
               ...prev,
-              scheduled_date: updatedDate.toISOString().split("T")[0]
+              scheduled_date: toLocalDateStr(updatedDate)
             };
           });
         }
@@ -460,7 +461,7 @@ export default function App() {
         body: JSON.stringify({
           rating: revisionRating,
           anchorOption,
-          actualDate: new Date().toISOString().split("T")[0],
+          actualDate: toLocalDateStr(),
         }),
       });
       if (res.ok) {
@@ -572,7 +573,7 @@ export default function App() {
 
   // Aggregate points completed vs scheduled for today (for deficit tracker)
   const todayPoints = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = toLocalDateStr();
     const todayTasksList = tasks.filter(t => t.scheduled_date === todayStr);
     
     let scheduled = 0;
@@ -657,7 +658,7 @@ export default function App() {
           <button
             onClick={() => {
               setActiveTab("calendar");
-              setSelectedDateStr(new Date().toISOString().split("T")[0]);
+              setSelectedDateStr(toLocalDateStr());
             }}
             className={`w-full flex items-center justify-between px-4 py-3 text-[15px] font-medium rounded-xl transition-colors text-left cursor-pointer ${
               activeTab === "calendar"
@@ -1059,7 +1060,7 @@ export default function App() {
                           onClick={() => {
                             const today = new Date();
                             setCurrentCalendarDate(today);
-                            setSelectedDateStr(today.toISOString().split("T")[0]);
+                            setSelectedDateStr(toLocalDateStr(today));
                           }}
                           className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all text-slate-600"
                         >
@@ -1090,12 +1091,12 @@ export default function App() {
                     {/* Calendar Day cells */}
                     <div className="grid grid-cols-7 gap-2.5">
                       {monthDays.map(({ date, isCurrentMonth }, idx) => {
-                        const dateStr = date.toISOString().split("T")[0];
+                        const dateStr = toLocalDateStr(date);
                         const dateTasks = tasks
                           .filter(t => t.scheduled_date === dateStr)
                           .sort((a, b) => Number(a.is_completed) - Number(b.is_completed) || a.id - b.id);
                         const isSelected = selectedDateStr === dateStr;
-                        const isToday = dateStr === new Date().toISOString().split("T")[0];
+                        const isToday = dateStr === toLocalDateStr();
                         
                         // Check Daily Target achieved
                         let dayPointsVal = 0;
@@ -1850,6 +1851,7 @@ export default function App() {
             allTasks={tasks}
             lang={lang}
             anchorOption={anchorOption}
+            onAnchorOptionChange={setAnchorOption}
             onClose={() => setActiveRevisionCardTask(null)}
             onRefresh={fetchData}
             onUpdateEaseFactor={handleUpdateEaseFactor}
@@ -1919,19 +1921,6 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => setAnchorOption("A")}
-                    className={`py-2.5 px-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
-                      anchorOption === "A"
-                        ? "border-blue-500 bg-blue-50/20 text-blue-700 font-semibold"
-                        : "border-slate-200 hover:bg-slate-50 text-slate-500"
-                    }`}
-                  >
-                    <span className="font-bold">以實際完成日為準 (今天)</span>
-                    <span className="text-[9px] text-slate-400 mt-0.5">今天起算複習間隔</span>
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={() => setAnchorOption("B")}
                     className={`py-2.5 px-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
                       anchorOption === "B"
@@ -1941,6 +1930,19 @@ export default function App() {
                   >
                     <span className="font-bold">以原訂排程日為準</span>
                     <span className="text-[9px] text-slate-400 mt-0.5">不因拖延打亂規律</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAnchorOption("A")}
+                    className={`py-2.5 px-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      anchorOption === "A"
+                        ? "border-blue-500 bg-blue-50/20 text-blue-700 font-semibold"
+                        : "border-slate-200 hover:bg-slate-50 text-slate-500"
+                    }`}
+                  >
+                    <span className="font-bold">以實際完成日為準 (今天)</span>
+                    <span className="text-[9px] text-slate-400 mt-0.5">今天起算複習間隔</span>
                   </button>
                 </div>
               </div>
