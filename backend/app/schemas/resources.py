@@ -108,3 +108,33 @@ class VaultStatusResponse(BaseModel):
     resource_count: int
     is_git_repo: bool
     git_dirty: Optional[bool] = None
+
+
+class ExternalReviewRecordRequest(BaseModel):
+    source_doc_id: str = Field(..., min_length=1)
+    file_path: Optional[str] = None
+    mode: Literal["sm2", "custom_date"] = "sm2"
+    rating: int = Field(default=4, ge=0, le=5)
+    next_review_date: Optional[str] = None
+
+
+class ExternalReviewRecordResponse(BaseModel):
+    ok: bool = True
+    scheduled: bool
+    note_id: Optional[int] = None
+    source_doc_id: str
+    mode: Literal["sm2", "custom_date", "practice"]
+    rating: int
+    last_reviewed_at: str
+    next_review_date: Optional[str] = None
+    interval_days: Optional[int] = None
+    ease_factor: Optional[float] = None
+    repetitions: Optional[int] = None
+
+
+class TrackedSourceItem(BaseModel):
+    note_id: int
+    source_doc_id: Optional[str] = None
+    file_path: Optional[str] = None
+    has_pending_task: bool
+    next_review_date: Optional[str] = None

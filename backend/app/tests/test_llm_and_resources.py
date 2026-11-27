@@ -123,6 +123,92 @@ def test_vault_status_endpoint():
         assert isinstance(data["resource_count"], int)
 
 
+def test_record_review_by_source_sm2_and_custom_date():
+    from backend.app.db.models import Note as DBNote, Task as DBTask
+    from backend.app.db.session import SessionLocal
+
+    with TestClient(app) as client:
+        # 1. Unscheduled doc -> Practice only (must NOT create note or task)
+        res_prac = client.post(
+            "/api/review/record-by-source",
+            json={"source_doc_id": "doc.unscheduled_only", "mode": "sm2", "rating": 4},
+        )
+        assert res_prac.status_code == 200
+        dp = res_prac.json()
+        assert dp["scheduled"] is False
+        assert dp["mode"] == "practice"
+
+        # 2. Seed an existing scheduled note + pending task in Mentorion
+        db = SessionLocal()
+        try:
+            n = DBNote(
+                user_id=1,
+                source_doc_id="doc.attention_mechanism",
+                file_path="/vault/wiki/AI/attention/index.md",
+                title="Attention Mechanism",
+                content="Scaled dot-product attention.",
+                category="AI",
+                type="new",
+                pattern="C",
+                created_at="2026-11-27T00:00:00",
+                first_date="2026-11-27",
+                ease_factor=2.5,
+                interval_days=0,
+                repetitions=0,
+            )
+            db.add(n)
+            db.flush()
+            db.add(
+                DBTask(
+                    note_id=n.id,
+                    type="revision",
+                    scheduled_date="2026-11-27",
+                    revision_number=1,
+                    is_completed=0,
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        tracked = client.get("/api/review/tracked-sources")
+        assert tracked.status_code == 200
+        assert any(
+            item["source_doc_id"] == "doc.attention_mechanism" and item["has_pending_task"] is True
+            for item in tracked.json()
+        )
+
+        # 3. SM-2 mode updates existing scheduled note
+        res_sm2 = client.post(
+            "/api/review/record-by-source",
+            json={"source_doc_id": "doc.attention_mechanism", "mode": "sm2", "rating": 5},
+        )
+        assert res_sm2.status_code == 200
+        d1 = res_sm2.json()
+        assert d1["scheduled"] is True
+        assert d1["mode"] == "sm2"
+        assert d1["repetitions"] == 1
+        assert d1["interval_days"] == 1
+        assert d1["ease_factor"] >= 2.5
+
+        # 4. Custom next_review_date mode updates the newly spawned pending task
+        res_custom = client.post(
+            "/api/review/record-by-source",
+            json={
+                "source_doc_id": "doc.attention_mechanism",
+                "mode": "custom_date",
+                "rating": 4,
+                "next_review_date": "2030-01-15",
+            },
+        )
+        assert res_custom.status_code == 200
+        d2 = res_custom.json()
+        assert d2["scheduled"] is True
+        assert d2["mode"] == "custom_date"
+        assert d2["next_review_date"] == "2030-01-15"
+        assert d2["repetitions"] == 2
+
+
 def test_schema_normalization_and_openai_anthropic_tool_calls(monkeypatch):
     gemini_schema = {
         "type": "OBJECT",

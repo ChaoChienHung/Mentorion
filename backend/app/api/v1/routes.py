@@ -58,6 +58,8 @@ from ...domain.resource_researcher import (
 from ...domain.scraper import Scraper
 from ...schemas.resources import (
     CrossSourceQuizRequest,
+    ExternalReviewRecordRequest,
+    ExternalReviewRecordResponse,
     LLMKeySaveRequest,
     LLMProviderSwitchRequest,
     LLMStatusResponse,
@@ -65,6 +67,7 @@ from ...schemas.resources import (
     NoteResourceResponse,
     ResourceDiscoverRequest,
     ResourceDiscoverResponse,
+    TrackedSourceItem,
     VaultStatusResponse,
 )
 from ...schemas.user import UserCreate, UserUpdate, UserResponse, Token
@@ -1949,6 +1952,179 @@ def vault_status(db: Session = Depends(get_db)):
         resource_count=resource_count,
         is_git_repo=is_git_repo,
         git_dirty=git_dirty,
+    )
+
+
+@router.get("/review/tracked-sources", response_model=List[TrackedSourceItem])
+def list_tracked_sources(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user_optional),
+):
+    """List notes already tracked in Mentorion along with whether they have an active pending review task."""
+    notes = db.query(DBNote).filter(DBNote.user_id == current_user.id).all()
+    pending_note_ids = {
+        row[0]
+        for row in db.query(DBTask.note_id)
+        .filter(DBTask.is_completed == 0, DBTask.is_archived == 0)
+        .distinct()
+        .all()
+    }
+    return [
+        TrackedSourceItem(
+            note_id=n.id,
+            source_doc_id=n.source_doc_id,
+            file_path=n.file_path,
+            has_pending_task=n.id in pending_note_ids,
+            next_review_date=n.next_review_date,
+        )
+        for n in notes
+        if n.source_doc_id or n.file_path
+    ]
+
+
+@router.post("/review/record-by-source", response_model=ExternalReviewRecordResponse)
+def record_review_by_source(
+    payload: ExternalReviewRecordRequest,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user_optional),
+):
+    """
+    Update an EXISTING Mentorion scheduled review by `source_doc_id` or `file_path`.
+    Never creates new notes or tasks from external callers: if the note has no active
+    scheduled task in Mentorion, treats the action as Practice only.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    now_iso = datetime.now().isoformat()
+
+    note = (
+        db.query(DBNote)
+        .filter(DBNote.source_doc_id == payload.source_doc_id, DBNote.user_id == current_user.id)
+        .first()
+    )
+    if not note and payload.file_path:
+        norm_suffix = payload.file_path.replace("\\", "/").lstrip("/")
+        candidates = db.query(DBNote).filter(DBNote.user_id == current_user.id, DBNote.file_path.isnot(None)).all()
+        note = next(
+            (n for n in candidates if (n.file_path or "").replace("\\", "/").endswith(norm_suffix)),
+            None,
+        )
+
+    pending_task = (
+        db.query(DBTask)
+        .filter(DBTask.note_id == note.id, DBTask.is_completed == 0, DBTask.is_archived == 0)
+        .order_by(DBTask.scheduled_date.asc(), DBTask.id.asc())
+        .first()
+        if note
+        else None
+    )
+
+    # Not scheduled in Mentorion -> Practice only (do NOT create a new note or scheduled task)
+    if not note or not pending_task:
+        return ExternalReviewRecordResponse(
+            ok=True,
+            scheduled=False,
+            note_id=note.id if note else None,
+            source_doc_id=payload.source_doc_id,
+            mode="practice",
+            rating=payload.rating,
+            last_reviewed_at=now_iso,
+        )
+
+    pending_task.is_completed = 1
+    pending_task.completed_at = now_iso
+    pending_task.user_rating = payload.rating
+
+    ef = float(note.ease_factor or 2.5)
+    reps = int(note.repetitions or 0)
+    prev_interval = int(note.interval_days or 0)
+
+    if payload.mode == "custom_date":
+        if not payload.next_review_date:
+            raise HTTPException(status_code=400, detail="next_review_date (YYYY-MM-DD) is required for custom_date mode.")
+        try:
+            target_dt = datetime.strptime(payload.next_review_date.strip(), "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="next_review_date must be YYYY-MM-DD.")
+        today_dt = datetime.strptime(today_str, "%Y-%m-%d")
+        interval_days = max(1, (target_dt - today_dt).days)
+        reps += 1
+        next_review_date = payload.next_review_date.strip()
+    else:
+        q = payload.rating
+        if q < 3:
+            reps = 0
+            interval_days = 1
+        else:
+            if reps == 0:
+                interval_days = 1
+            elif reps == 1:
+                interval_days = 6
+            else:
+                interval_days = max(1, min(365, round(max(1, prev_interval) * ef)))
+            reps += 1
+        ef = max(1.3, ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
+        next_review_date = add_days(today_str, interval_days)
+
+    note.ease_factor = round(ef, 4)
+    note.repetitions = reps
+    note.interval_days = interval_days
+    note.last_reviewed_at = now_iso
+    note.next_review_date = next_review_date
+
+    existing_next = (
+        db.query(DBTask)
+        .filter(
+            DBTask.note_id == note.id,
+            DBTask.is_completed == 0,
+            DBTask.is_archived == 0,
+            DBTask.scheduled_date == next_review_date,
+        )
+        .first()
+    )
+    if not existing_next:
+        db.add(
+            DBTask(
+                note_id=note.id,
+                type="revision",
+                scheduled_date=next_review_date,
+                revision_number=reps + 1,
+                is_completed=0,
+            )
+        )
+
+    db.add(
+        DBReviewLog(
+            note_id=note.id,
+            time=now_iso,
+            grade=payload.rating,
+            feedback=f"Recorded via external source ({payload.mode})",
+        )
+    )
+    db.add(
+        DBJournalEvent(
+            user_id=current_user.id,
+            type="review_done",
+            title=note.title,
+            remarks=f"{payload.mode.upper()} · grade={payload.rating} · next={next_review_date}",
+            event_date=today_str,
+            note_id=note.id,
+            created_at=now_iso,
+        )
+    )
+    db.commit()
+
+    return ExternalReviewRecordResponse(
+        ok=True,
+        scheduled=True,
+        note_id=note.id,
+        source_doc_id=payload.source_doc_id,
+        mode=payload.mode,
+        rating=payload.rating,
+        last_reviewed_at=now_iso,
+        next_review_date=next_review_date,
+        interval_days=interval_days,
+        ease_factor=note.ease_factor,
+        repetitions=reps,
     )
 
 
