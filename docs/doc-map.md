@@ -9,6 +9,7 @@
 ## Files
 
 - 角色/流程/規範：../AGENTS.md
+- Agent 工程規範（護欄／踩坑／Eval／工作流）：agents/（`guardrails.md`、`provenance.md`、`evals.md`、`workflows.md`）
 - 開發筆記：dev-notes.md
 - 架構與邊界：architecture.md
 - API 契約：api.md

@@ -101,6 +101,7 @@
 
 - README（入口與最短指令）：README.md
 - 文件索引（Doc Map）：docs/doc-map.md
+- Agent 工程規範（軟硬護欄、踩坑紀錄、Eval 與工作流）：docs/agents/（`guardrails.md`、`provenance.md`、`evals.md`、`workflows.md`）
 - 開發筆記：docs/dev-notes.md
 - 架構與邊界：docs/architecture.md
 - API 契約：docs/api.md

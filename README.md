@@ -164,6 +164,7 @@ Mentorion/
 ├── data/                       # 預設本地資料夾 (app.db / questions.json / library/)；可被 MENTORION_VAULT_DIR 覆蓋
 ├── schemas/                    # 檔案驅動 Schema 定義 (nexus / obsidian / plain-markdown)
 ├── docs/                       # 項目詳細設計文檔與 Doc Map
+│   └── agents/                 # 工具無關的 Agent 工作流、軟硬護欄邊界、踩坑紀錄與 Eval 規範
 ├── .env.example                # 環境變數範例（複製為 .env.local 設定 Vault 與 API Key）
 ├── AGENTS.md                   # 角色分工與協作流程規範
 └── TODO.md                     # 當前待辦事項
@@ -198,3 +199,4 @@ npm run build
 1. **單一真相來源 (SSOT)**：後端資料結構以 `backend/app/schemas/` 為準。
 2. **契約變更需同步**：任何 API 變更、資料庫欄位調整均需同步更新 `docs/` 內的文檔。
 3. **文件索引**：請參閱 [docs/doc-map.md](docs/doc-map.md) 以定位文檔位置。
+4. **Agent 工程規範**：軟硬護欄、踩坑紀錄、Eval 標準與自動化工作流見 [docs/agents/](docs/agents/)（`guardrails.md` / `provenance.md` / `evals.md` / `workflows.md`）。
